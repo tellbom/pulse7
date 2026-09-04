@@ -25,9 +25,23 @@ type config struct {
 	maxCtx                           int
 	execMode                         bool
 	sessionPath, resumePath          string
+	sandboxPreference                string
+	memLimitMB                       int
+	cleanupOnExit                    bool
+	exeDir                           string
+}
+
+func (c *config) exeDirStore() string {
+	if c.exeDir != "" {
+		return c.exeDir
+	}
+	exe, _ := os.Executable()
+	return filepath.Dir(exe)
 }
 
 var sess *session
+var curRunner sandboxRunner
+var curCfg *config
 
 func main() {
 	cfg := &config{}
@@ -43,7 +57,16 @@ func main() {
 	flag.IntVar(&cfg.maxCtx, "max-ctx", 48000, "max context chars before truncation")
 	flag.StringVar(&cfg.sessionPath, "session", "", "session .jsonl path (default auto)")
 	flag.StringVar(&cfg.resumePath, "resume", "", "resume from a session .jsonl")
+	flag.StringVar(&cfg.sandboxPreference, "sandbox-preference", "auto", "auto | sandboxie | jobobject")
+	flag.IntVar(&cfg.memLimitMB, "memory-limit-mb", 2048, "JobObject memory cap in MB")
+	flag.BoolVar(&cfg.cleanupOnExit, "cleanup-on-exit", true, "terminate + clear agent sandbox box on exit")
 	flag.Parse()
+
+	// M3-E: config\agent.json fills any field not set explicitly by flags.
+	if exe, err := os.Executable(); err == nil {
+		cfg.exeDir = filepath.Dir(exe)
+	}
+	applyConfigToFlags(cfg, loadAgentConfig(configPath(cfg.exeDirStore())), flag.CommandLine)
 
 	args := flag.Args()
 	sub := "repl"
@@ -66,6 +89,15 @@ func main() {
 		runExec(cfg, strings.Join(args[1:], " "))
 	case "repl":
 		runRepl(cfg)
+	case "doctor":
+		doctorCmd(cfg)
+	case "init":
+		// M3-E/F: ensure config template exists (never overwrites).
+		if err := writeAgentConfigTemplate(configPath(cfg.exeDirStore())); err != nil {
+			fmt.Println("INIT-ERROR:", err)
+			os.Exit(1)
+		}
+		fmt.Println("config ensured:", configPath(cfg.exeDirStore()))
 	default:
 		fmt.Println("usage: win7-agent [repl | exec \"task\" | mock <sec>] [flags]")
 		os.Exit(2)
@@ -87,12 +119,14 @@ func setupEnv(cfg *config, taskID string) (*Registry, error) {
 	exe, _ := os.Executable()
 	exeDir := filepath.Dir(exe)
 
-	runner, reason := detectSandbox(cfg, ws)
+	runner, reason, _ := selectSandboxMode(cfg, ws, false)
 	if reason != "" {
 		fmt.Printf("sandbox: %s (auto-degraded: %s) - no system patch required\n", runner.Mode(), reason)
 	} else {
 		fmt.Printf("sandbox: %s (box=%s)\n", runner.Mode(), cfg.box)
 	}
+	curRunner, curCfg = runner, cfg
+	purgeStaleRunDirs(homeDir(), time.Hour)
 
 	auditPath := filepath.Join(exeDir, "data", "sessions", "audit.jsonl")
 	manPath := filepath.Join(exeDir, "data", "sessions", "manifest-"+taskID+".jsonl")
@@ -134,6 +168,7 @@ func runExec(cfg *config, prompt string) {
 		sess = s
 		defer sess.Close()
 	}
+	defer sessionEndCleanup(curRunner, curCfg)
 	var msgs []openai.ChatCompletionMessage
 	if cfg.resumePath != "" {
 		msgs, err = loadSession(cfg.resumePath)
@@ -165,10 +200,11 @@ func runRepl(cfg *config) {
 		sess = s
 		defer sess.Close()
 	}
+	defer sessionEndCleanup(curRunner, curCfg)
 	var msgs []openai.ChatCompletionMessage
 	if cfg.resumePath != "" {
 		msgs, err = loadSession(cfg.resumePath)
-		if err == nil {
+		if err != nil {
 			fmt.Println("RESUME-ERROR:", err)
 			os.Exit(1)
 		}

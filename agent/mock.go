@@ -26,13 +26,18 @@ func runMock(seconds int) {
 		json.Unmarshal(body, &req)
 		var lastRole, lastContent string
 		nTools := 0
-		hasM2Git := false
+		hasM2Git, hasM3 := false, false
 		for _, m := range req.Messages {
 			if m.Role == openai.ChatMessageRoleTool {
 				nTools++
 			}
-			if m.Role == openai.ChatMessageRoleUser && strings.Contains(m.Content, "M2-GIT") {
-				hasM2Git = true
+			if m.Role == openai.ChatMessageRoleUser {
+				if strings.Contains(m.Content, "M2-GIT") {
+					hasM2Git = true
+				}
+				if strings.Contains(m.Content, "M3-SMOKE") {
+					hasM3 = true
+				}
 			}
 		}
 		if n := len(req.Messages); n > 0 {
@@ -49,6 +54,24 @@ func runMock(seconds int) {
 		w.Header().Set("Content-Type", "text/event-stream")
 
 		switch {
+		case len(req.Tools) > 0 && hasM3:
+			// relative paths so the same trigger works on any --workspace
+			switch nTools {
+			case 0: // start: read + write (2 results -> next nTools=2)
+				emitCalls(w, fl, []mockCall{
+					{0, "m3-read", "read", `{"path": "note.txt"}`},
+					{1, "m3-write", "write", `{"path": "m3/probe.txt", "content": "M3-PROBE-LINE"}`},
+				})
+			case 2: // checkpoint
+				emitCalls(w, fl, []mockCall{{0, "m3-ckpt", "checkpoint", `{}`}})
+			case 3: // shell
+				emitCalls(w, fl, []mockCall{{0, "m3-shell", "shell",
+					`{"command": "echo M3-SHELL-OK > m3shell.txt"}`}})
+			case 4: // rollback
+				emitCalls(w, fl, []mockCall{{0, "m3-rb", "rollback", `{}`}})
+			default:
+				sseContent(w, fl, "MOCK-FINAL: M3 suite complete.")
+			}
 		case len(req.Tools) > 0 && hasM2Git:
 			switch nTools {
 			case 0:

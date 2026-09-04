@@ -1,0 +1,19 @@
+===== win7-agent install ===== 
+[1] package OK
+[2] Sandboxie already installed
+[3] SbieSvc not running - JobObject mode
+config ensured: C:\Users\user\wa-test\config\agent.json
+=== win7-agent doctor ===
+exe-dir: C:\Users\user\wa-test
+config/data writable: OK (C:\Users\user\wa-test\data)
+config file: C:\Users\user\wa-test\config\agent.json (exists=true)
+workspace: C:\Users\user
+session: id=0 SESSIONNAME="" interactive=false
+os: Microsoft Windows [°æ±¾ 6.1.7601] arch=AMD64
+mingit: git version 2.46.2.windows.1 (<nil>)
+start.exe: C:\Program Files\Sandboxie\Start.exe present=true
+sbiesvc/sbiedrv: SbieSvc=1  STOPPED SbieDrv=1  STOPPED
+probe result: no interactive desktop session (Sandboxie requires a desktop session; JobObject is the headless default) -> JobObject (auto-degraded)
+MODE: JobObject (auto-degraded: no interactive desktop session (Sandboxie requires a desktop session; JobObject is the headless default)) - no system patch required
+=== doctor done ===
+INSTALL-OK - see mode decision above

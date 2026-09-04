@@ -33,6 +33,8 @@ func (s *sbxRunner) Run(command string) (string, int, error) {
 		return "", -1, err
 	}
 	defer os.RemoveAll(rf.dir)
+	// M3-C: kill box stragglers after every run (dedicated agent box).
+	defer afterShellCleanup(s)
 
 	ctx, cancel := context.WithTimeout(context.Background(), s.Timeout)
 	defer cancel()

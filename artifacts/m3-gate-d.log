@@ -1,0 +1,36 @@
+M3D-START 
+sandbox: JobObject (auto-degraded: no interactive desktop session (Sandboxie requires a desktop session; JobObject is the headless default)) - no system patch required
+=== win7-agent exec (headless) ===
+
+[tool] read({"path": "note.txt"})
+[tool-result] M3-NOTE  | 
+
+[tool] write({"path": "m3/probe.txt", "content": "M3-PROBE-LINE"})
+[tool-result] created C:\Users\user\ws4\m3\probe.txt (13 bytes)
+
+[tool] checkpoint({})
+[tool-result] checkpoint t0905-004246-175/1 (719ec21, mode=private-checkpoint-repo, tree=14380b1, dirty-files=1)
+
+[tool] shell({"command": "echo M3-SHELL-OK > m3shell.txt"})
+[confirm] AUTO-ALLOWED (--yolo): echo M3-SHELL-OK > m3shell.txt
+[tool-result] exitcode=0 | [sandbox=JobObject] | 
+
+[tool] rollback({})
+[tool-result] rolled back to t0905-004246-175/1; worktree restored; manifest cleanup removed 1 agent-created files
+MOCK-FINAL: M3 suite complete.
+=== EXEC-DONE ===
+D-EXIT=0 
+=== win7-agent doctor ===
+exe-dir: C:\Users\user\win7-agent
+config/data writable: OK (C:\Users\user\win7-agent\data)
+config file: C:\Users\user\win7-agent\config\agent.json (exists=false)
+workspace: C:\Users\user\win7-agent
+session: id=0 SESSIONNAME="" interactive=false
+os: Microsoft Windows [°æ±¾ 6.1.7601] arch=AMD64
+mingit: git version 2.46.2.windows.1 (<nil>)
+start.exe: C:\Program Files\Sandboxie\Start.exe present=true
+sbiesvc/sbiedrv: SbieSvc=4  RUNNING SbieDrv=4  RUNNING
+probe result: no interactive desktop session (Sandboxie requires a desktop session; JobObject is the headless default) -> JobObject (auto-degraded)
+MODE: JobObject (auto-degraded: no interactive desktop session (Sandboxie requires a desktop session; JobObject is the headless default)) - no system patch required
+=== doctor done ===
+M3D-DONE 

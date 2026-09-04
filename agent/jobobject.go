@@ -108,8 +108,12 @@ func (j *jobObjectRunner) Run(command string) (string, int, error) {
 	}
 	defer procCloseHandle.Call(hProc)
 	if r1, _, _ := procAssignProcessToJob.Call(job, hProc); r1 == 0 {
-		cmd.Process.Kill()
-		return "", -1, errors.New("AssignProcessToJobObject failed")
+		// Win7 has no nested jobs: if the parent already sits in one (e.g. an
+		// sshd session job) assignment is denied. Continue WITHOUT the job —
+		// output/exit-code capture still works, timeout still kills the direct
+		// child; containment is reduced and reported.
+		out, ec := waitForCmd(cmd, rf, j)
+		return out + "\n[warn] job assignment denied (nested job); reduced containment", ec, nil
 	}
 
 	done := make(chan error, 1)
@@ -124,4 +128,20 @@ func (j *jobObjectRunner) Run(command string) (string, int, error) {
 	}
 	out, ec := readResult(filepath.Join(j.Home, ".win7-agent", "run", rf.id))
 	return out, ec, nil
+}
+
+// waitForCmd: no-job fallback path (kills only the direct child on timeout).
+func waitForCmd(cmd *exec.Cmd, rf *runFiles, j *jobObjectRunner) (string, int) {
+	done := make(chan error, 1)
+	go func() { done <- cmd.Wait() }()
+	select {
+	case <-done:
+	case <-time.After(j.Timeout):
+		cmd.Process.Kill()
+		<-done
+		out, ec := readResult(filepath.Join(j.Home, ".win7-agent", "run", rf.id))
+		return out + "\n[TIMEOUT: direct child killed]", ec
+	}
+	out, ec := readResult(filepath.Join(j.Home, ".win7-agent", "run", rf.id))
+	return out, ec
 }

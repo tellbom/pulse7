@@ -1,3 +1,5 @@
-{"args":"{}","ok":true,"result_bytes":94,"task":"t0904-201428","tool":"checkpoint","ts":"2026-09-04T20:14:29+08:00"}
-{"args":"{\"path\": \"C:\\\\Users\\\\user\\\\ws\\\\m2extra.txt\", \"content\": \"EXTRA-CONTENT\"}","ok":false,"result_bytes":85,"task":"t0904-201428","tool":"write","ts":"2026-09-04T20:14:29+08:00"}
-{"args":"{}","ok":true,"result_bytes":96,"task":"t0904-201428","tool":"rollback","ts":"2026-09-04T20:14:29+08:00"}
+{"args":"{\"path\": \"note.txt\"}","ok":true,"result_bytes":16,"task":"t0905-002635-543","tool":"read","ts":"2026-09-05T00:26:35+08:00"}
+{"args":"{\"path\": \"m3/probe.txt\", \"content\": \"M3-PROBE-LINE\"}","ok":true,"result_bytes":58,"task":"t0905-002635-543","tool":"write","ts":"2026-09-05T00:26:35+08:00"}
+{"args":"{}","ok":true,"result_bytes":98,"task":"t0905-002635-543","tool":"checkpoint","ts":"2026-09-05T00:26:36+08:00"}
+{"args":"{\"command\": \"echo M3-SHELL-OK \u003e m3shell.txt\"}","ok":true,"result_bytes":31,"task":"t0905-002635-543","tool":"shell","ts":"2026-09-05T00:26:36+08:00"}
+{"args":"{}","ok":true,"result_bytes":100,"task":"t0905-002635-543","tool":"rollback","ts":"2026-09-05T00:26:36+08:00"}

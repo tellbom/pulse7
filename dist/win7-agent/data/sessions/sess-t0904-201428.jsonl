@@ -1,7 +1,0 @@
-{"role":"user","content":"M2-GIT sequence"}
-{"role":"assistant","tool_calls":[{"id":"call-ckpt","type":"function","function":{"name":"checkpoint","arguments":"{}"}}]}
-{"role":"tool","content":"checkpoint t0904-201428/1 (7453ce1, mode=private-checkpoint-repo, tree=ba5c77f, dirty-files=1)","tool_call_id":"call-ckpt"}
-{"role":"assistant","tool_calls":[{"id":"call-write2","type":"function","function":{"name":"write","arguments":"{\"path\": \"C:\\\\Users\\\\user\\\\ws\\\\m2extra.txt\", \"content\": \"EXTRA-CONTENT\"}"}}]}
-{"role":"tool","content":"error: path C:\\Users\\user\\ws\\m2extra.txt outside workspace E:\\win7-agent\\runtest2\\ws2","tool_call_id":"call-write2"}
-{"role":"assistant","tool_calls":[{"id":"call-rb","type":"function","function":{"name":"rollback","arguments":"{}"}}]}
-{"role":"tool","content":"rolled back to t0904-201428/1; worktree restored; manifest cleanup removed 0 agent-created files","tool_call_id":"call-rb"}
