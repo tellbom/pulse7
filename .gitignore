@@ -1,0 +1,6 @@
+tools/
+dist/win7-agent/runtime/
+dist/win7-agent/*.exe
+poc/runtest*/
+poc/run/
+*.tmp

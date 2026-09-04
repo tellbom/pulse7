@@ -1,0 +1,11 @@
+[status-before]: 
+ M a.txt
+[head-before]: 
+ab50fc4cbccf62028cc17f06525af047fc50cf36
+MARK restore-ok 
+[head-after]: 
+ab50fc4cbccf62028cc17f06525af047fc50cf36
+[status-after]: 
+
+---------- A.TXT: 0
+MARK restore-content-ok

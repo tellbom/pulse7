@@ -1,0 +1,62 @@
+===== GATE B : Go 1.20.14 cross-compiled binary =====
+poc-b OK
+go: go1.20.14 windows amd64
+host: WIN-65VKOKP8G13
+cwd: C:\Users\user\win7-agent
+args: [poc-b.exe]
+MARK gateb-ok
+===== GATE C : go-openai over mock endpoint (HTTP) =====
+[phase1] content: Hello from mock. 浣犲ソWIN7 non-stream
+MARK phase1-json-ok
+[phase2][delta] "Hello "
+[phase2][delta] "from "
+[phase2][delta] "mock. 浣犲ソWIN7"
+[phase2] stream ended ([DONE])
+[phase2] full="Hello from mock. 浣犲ソWIN7" contains_unicode_marker=true
+MARK phase2-unicode-ok
+MARK phase2-sse-ok
+MARK phase3-toolcall-ok
+[phase3] tool_call id=call_1 name=get_time args={}
+[phase3] local tool executed: LOCAL_TIME=2026-09-04T16:31:42+08:00
+[phase3] final: FINAL_ACK:LOCAL_TIME=2026-09-04T16:31:42+08:00
+MARK phase3-roundtrip-ok
+RESULT: PASS
+MARK gatec-http-ok
+===== GATE D : HTTPS TLS1.2+ with real cert verification =====
+[phase1] content: Hello from mock. 浣犲ソWIN7 non-stream
+MARK phase1-json-ok
+[phase2][delta] "Hello "
+[phase2][delta] "from "
+[phase2][delta] "mock. 浣犲ソWIN7"
+[phase2] stream ended ([DONE])
+[phase2] full="Hello from mock. 浣犲ソWIN7" contains_unicode_marker=true
+MARK phase2-unicode-ok
+MARK phase2-sse-ok
+MARK phase3-toolcall-ok
+[phase3] tool_call id=call_1 name=get_time args={}
+[phase3] local tool executed: LOCAL_TIME=2026-09-04T16:31:42+08:00
+[phase3] final: FINAL_ACK:LOCAL_TIME=2026-09-04T16:31:42+08:00
+MARK phase3-roundtrip-ok
+RESULT: PASS
+MARK gated-https-ok
+MARK noca-ok (expected failure): Post "https://127.0.0.1:8443/v1/chat/completions": net/http: TLS handshake timeout
+MARK gated-noca-ok
+----- schannel contrast (PS2.0 expected to FAIL) -----
+PS-SCHANNEL-FAILED: 使用“1”个参数调用“DownloadString”时发生异常:“基础连接
+已经关闭: 发送时发生错误。”
+===== SERVER LOG =====
+[srv] cert material written: ca.pem cert.pem key.pem
+[srv] HTTPS(TLS1.2+) listening 127.0.0.1:8443
+[srv] HTTP listening 127.0.0.1:8080
+[srv] POST /v1/chat/completions proto=http tls=none stream=false tools=0 last_role=user
+[srv] POST /v1/chat/completions proto=http tls=none stream=true tools=0 last_role=user
+[srv] POST /v1/chat/completions proto=http tls=none stream=false tools=1 last_role=user
+[srv] POST /v1/chat/completions proto=http tls=none stream=false tools=1 last_role=tool
+[srv] POST /v1/chat/completions proto=https tls=TLS1.3 stream=false tools=0 last_role=user
+[srv] POST /v1/chat/completions proto=https tls=TLS1.3 stream=true tools=0 last_role=user
+[srv] POST /v1/chat/completions proto=https tls=TLS1.3 stream=false tools=1 last_role=user
+[srv] POST /v1/chat/completions proto=https tls=TLS1.3 stream=false tools=1 last_role=tool
+2026/09/04 16:31:52 http: TLS handshake error from 127.0.0.1:63558: EOF
+2026/09/04 16:31:52 http: TLS handshake error from 127.0.0.1:63559: tls: client offered only unsupported versions: [301]
+2026/09/04 16:31:53 http: TLS handshake error from 127.0.0.1:63560: tls: client offered only unsupported versions: [301]
+===== GATE B/C/D DONE =====

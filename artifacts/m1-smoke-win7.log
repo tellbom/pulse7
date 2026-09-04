@@ -1,0 +1,31 @@
+M1-SMOKE-START 
+=== win7-agent exec ===
+
+[tool] read({"path": "C:\\Users\\user\\ws\\note.txt"})
+[tool-result] HELLO-FROM-WIN7-NOTE  | 
+
+[tool] get_time({})
+[tool-result] 2026-09-04T18:43:41+08:00
+
+[tool] shell({"command": "echo SHELL-OK > C:\\Users\\user\\ws\\shell-out.txt"})
+[confirm] AUTO-ALLOWED (--yolo): echo SHELL-OK > C:\Users\user\ws\shell-out.txt
+[tool-result] exitcode=0 | SHELL-OK  | 
+MOCK-FINAL: received 3 tool results: <HELLO-FROM-WIN7-NOTE  > <2026-09-04T18:43:41+08:00> <exitcode=0 SHELL-OK  >
+=== EXEC-DONE ===
+AGENT-EXIT=0 
+---WS-DIR--- 
+note.txt
+real3.txt
+---NOTE.TXT--- 
+HELLO-FROM-WIN7-NOTE 
+---SHELL-OUT.TXT--- 
+系统找不到指定的文件。
+---AUDIT--- 
+{"args":"{\"path\": \"C:\\\\Users\\\\user\\\\ws\\\\note.txt\"}","ok":true,"result_bytes":23,"tool":"read","ts":"2026-09-04T18:43:41+08:00"}
+{"args":"{}","ok":true,"result_bytes":25,"tool":"get_time","ts":"2026-09-04T18:43:41+08:00"}
+{"args":"{\"command\": \"echo SHELL-OK \u003e C:\\\\Users\\\\user\\\\ws\\\\shell-out.txt\"}","ok":true,"result_bytes":22,"tool":"shell","ts":"2026-09-04T18:43:41+08:00"}
+---MOCK.LOG--- 
+[mock] listening 127.0.0.1:8080
+[mock] stream=true tools=3 last_role=user
+[mock] stream=true tools=3 last_role=tool
+M1-SMOKE-DONE 

@@ -1,0 +1,57 @@
+===OS=== 
+
+Microsoft Windows [版本 6.1.7601]
+
+
+BuildNumber=7601
+Caption=Microsoft Windows 7 专业版 
+OSArchitecture=64-bit
+Version=6.1.7601
+
+
+
+===CPU=== 
+
+
+Name=12th Gen Intel(R) Core(TM) i9-12900K
+
+
+Name=12th Gen Intel(R) Core(TM) i9-12900K
+
+
+
+===MEM=== 
+
+
+TotalPhysicalMemory=8589402112
+
+
+
+===DISK=== 
+Caption  FreeSpace    Size          
+C:       72076840960  107371032576  
+D:                                  
+
+===PS=== 
+2.0
+===RUNTIMES=== 
+Python 3.8.1
+'node' 不是内部或外部命令，也不是可运行的程序
+或批处理文件。
+'go' 不是内部或外部命令，也不是可运行的程序
+或批处理文件。
+git version 2.44.0.windows.1
+===WHERE=== 
+C:\Program Files\Git\cmd\git.exe
+C:\Users\user\AppData\Local\Programs\Python\Python38\python.exe
+信息: 用提供的模式无法找到文件。
+===DOTNET=== 
+信息: 用提供的模式无法找到文件。
+
+HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full
+    Release    REG_DWORD    0x6041f
+
+===TLS12=== 
+===SANDBOXIE=== 
+===DONE===
+错误: 系统找不到指定的注册表项或值。

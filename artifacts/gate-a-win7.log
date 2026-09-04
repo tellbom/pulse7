@@ -1,0 +1,86 @@
+===== GATE A : MinGit 2.46.2 x64 =====
+git version 2.46.2.windows.1
+MARK version-ok 
+Initialized empty Git repository in C:/Users/user/win7-agent/pocdata/repoA/.git/
+MARK init-ok 
+MARK add-ok 
+[main (root-commit) f915cc9] user-commit-1
+ 4 files changed, 3 insertions(+)
+ create mode 100644 a.txt
+ create mode 100644 keep.txt
+ create mode 100644 orig.txt
+ create mode 100644 tracked-bin.exe
+MARK commit-ok 
+[status]:
+[log]:
+f915cc9 user-commit-1
+----- PART 2: private-ref checkpoint, no history pollution -----
+MARK privateref-ok 
+[user view - git log --oneline on HEAD, must NOT contain checkpoint]:
+f915cc9 user-commit-1
+[agent view - log of private ref]:
+ab50fc4 agent-checkpoint-1
+f915cc9 user-commit-1
+[for-each-ref]:
+ab50fc4cbccf62028cc17f06525af047fc50cf36 commit	refs/win7-agent/checkpoints/t1/1
+----- PART 3: extended change set -----
+[status --porcelain]:
+MM a.txt
+ D keep.txt
+ D orig.txt
+ M tracked-bin.exe
+?? .gitignore
+?? created.txt
+?? m1.txt
+?? m2.txt
+?? newdir/
+?? orig-moved.txt
+[diff --stat vs checkpoint]:
+ a.txt           |   1 +
+ keep.txt        |   1 -
+ orig.txt        |   1 -
+ tracked-bin.exe | Bin 1978880 -> 1978898 bytes
+ 4 files changed, 1 insertion(+), 2 deletions(-)
+----- rollback: reset --hard to private ref -----
+HEAD is now at ab50fc4 agent-checkpoint-1
+MARK reset-ok 
+alpha-line-1 
+alpha-line-2 
+
+---------- A.TXT: 0
+MARK rollback-content-ok
+MARK deleted-file-restored
+MARK rename-reverted
+MARK binary-rollback-ok 
+[status after reset - untracked leftovers need manifest cleanup]:
+?? .gitignore
+?? created.txt
+?? m1.txt
+?? m2.txt
+?? newdir/
+?? orig-moved.txt
+----- manifest-style cleanup of created files -----
+MARK cleanup-created
+MARK cleanup-renamed-leftover
+MARK cleanup-newdir
+MARK cleanup-gitignore
+[final status, expect empty]:
+MARK part3-final-clean
+----- PART 4: non-git workspace via separate git-dir/work-tree -----
+Initialized empty Git repository in C:/Users/user/win7-agent/pocdata/ckptB/checkpoint.git/
+MARK bare-init-ok 
+MARK sep-ckpt-ok 
+[sep status]:
+AM u1.txt
+A  u2.txt
+?? c1.txt
+HEAD is now at 43e8c8c ck-B1
+MARK sep-reset-ok 
+userfile-1 
+
+---------- C:\USERS\USER\WIN7-AGENT\POCDATA\WSB\U1.TXT: 0
+MARK sep-content-ok
+MARK sep-manifest-cleanup
+[sep final status, expect empty]:
+MARK part4-done
+===== GATE A DONE =====

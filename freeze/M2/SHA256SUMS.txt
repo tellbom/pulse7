@@ -1,0 +1,6 @@
+4a3616eb04b78180d16de764223c5550c379de8bcd5ead375a51889f527c1492 *dist/win7-agent/win7-agent.exe
+0dca60869825ceb8b6108be69f0c536174fbca45e11300f2c14c34632d8238ed *tools/dl/MinGit-2.46.2-64-bit.zip
+18239310d6ad247e1a0d56afe0d58af961e67375dd3bc0c160e028d23cc282b6 *tools/dl/Sandboxie-Classic-x64-v5.73.2.exe
+0e0d0190406ead891d94ecf00f961bb5cfa15ddd47499d2649f12eee80aee110 *tools/dl/go1.20.14.windows-amd64.zip
+exe-src-ref:
+agent/ source tree (incl vendor) at commit m2-freeze
