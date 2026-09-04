@@ -104,6 +104,50 @@ type manifest struct {
 	path string
 }
 
+// endOfTaskSummary: external side effects (network, out-of-workspace files,
+// registry) are NOT covered by git rollback; at task end the user at least
+// gets the list of shell commands this task executed. Also flags runs that
+// stopped at the round cap without a final answer.
+func endOfTaskSummary(r *Registry, maxed bool) {
+	if r == nil {
+		return
+	}
+	if f, err := os.Open(r.auditPath); err == nil {
+		defer f.Close()
+		var cmds []string
+		sc := bufio.NewScanner(f)
+		for sc.Scan() {
+			var e struct {
+				Task string `json:"task"`
+				Tool string `json:"tool"`
+				Args string `json:"args"`
+				Ts   string `json:"ts"`
+			}
+			if json.Unmarshal(sc.Bytes(), &e) != nil || e.Task != r.taskID || e.Tool != "shell" {
+				continue
+			}
+			var a struct {
+				Command string `json:"command"`
+			}
+			cmd := e.Args
+			if json.Unmarshal([]byte(e.Args), &a) == nil && a.Command != "" {
+				cmd = a.Command
+			}
+			cmds = append(cmds, fmt.Sprintf("  %d. %s  (%s)", len(cmds)+1, cmd, e.Ts))
+		}
+		if len(cmds) > 0 {
+			fmt.Println("本次任务执行的 shell 命令（不可通过 rollback 回退）：")
+			for _, c := range cmds {
+				fmt.Println(c)
+			}
+			fmt.Println("文件改动已存 checkpoint，可 rollback；以上命令的外部影响不可回退。")
+		}
+	}
+	if maxed {
+		fmt.Println("[警告] 本次任务达到最大轮次上限后停止，任务很可能未完成。")
+	}
+}
+
 func (m *manifest) record(op, p string) {
 	if m == nil {
 		return

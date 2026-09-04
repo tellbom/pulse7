@@ -26,7 +26,7 @@ func runMock(seconds int) {
 		json.Unmarshal(body, &req)
 		var lastRole, lastContent string
 		nTools := 0
-		hasM2Git, hasM3, hasT3 := false, false, false
+		hasM2Git, hasM3, hasT3, hasT4max, hasT4norm := false, false, false, false, false
 		for _, m := range req.Messages {
 			if m.Role == openai.ChatMessageRoleTool {
 				nTools++
@@ -40,6 +40,12 @@ func runMock(seconds int) {
 				}
 				if strings.Contains(m.Content, "T3-GIT") {
 					hasT3 = true
+				}
+				if strings.Contains(m.Content, "T4-MAX") {
+					hasT4max = true
+				}
+				if strings.Contains(m.Content, "T4-NORM") {
+					hasT4norm = true
 				}
 			}
 		}
@@ -57,6 +63,15 @@ func runMock(seconds int) {
 		w.Header().Set("Content-Type", "text/event-stream")
 
 		switch {
+		case len(req.Tools) > 0 && hasT4max:
+			// never answers -> drives the agent into the round cap
+			emitCalls(w, fl, []mockCall{{0, "t4m-" + fmt.Sprint(nTools), "get_time", `{}`}})
+		case len(req.Tools) > 0 && hasT4norm:
+			if nTools == 0 {
+				emitCalls(w, fl, []mockCall{{0, "t4n-s", "shell", `{"command": "echo T4-NORM-SHELL"}`}})
+			} else {
+				sseContent(w, fl, "MOCK-FINAL: T4 normal task complete.")
+			}
 		case len(req.Tools) > 0 && hasT3:
 			switch nTools {
 			case 0:

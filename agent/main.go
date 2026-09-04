@@ -43,6 +43,9 @@ var sess *session
 var curRunner sandboxRunner
 var curCfg *config
 
+// errMaxRounds: the turn stopped at the round cap without a final answer.
+var errMaxRounds = errors.New("too many tool rounds")
+
 func main() {
 	cfg := &config{}
 	flag.StringVar(&cfg.baseURL, "base-url", "http://127.0.0.1:8080/v1", "OpenAI-compatible base URL")
@@ -180,7 +183,9 @@ func runExec(cfg *config, prompt string) {
 	}
 	fmt.Println("=== win7-agent exec (headless) ===")
 	pushMsg(&msgs, openai.ChatCompletionMessage{Role: openai.ChatMessageRoleUser, Content: prompt})
-	if _, err := streamTurn(client, reg, cfg, &msgs); err != nil {
+	_, err = streamTurn(client, reg, cfg, &msgs)
+	endOfTaskSummary(reg, errors.Is(err, errMaxRounds))
+	if err != nil {
 		fmt.Println("EXEC-ERROR:", err)
 		os.Exit(1)
 	}
@@ -231,8 +236,10 @@ func runRepl(cfg *config) {
 			continue
 		}
 		pushMsg(&msgs, openai.ChatCompletionMessage{Role: openai.ChatMessageRoleUser, Content: line})
-		if _, err := streamTurn(client, reg, cfg, &msgs); err != nil {
-			fmt.Println("ERROR:", err)
+		_, stErr := streamTurn(client, reg, cfg, &msgs)
+		endOfTaskSummary(reg, errors.Is(stErr, errMaxRounds))
+		if stErr != nil {
+			fmt.Println("ERROR:", stErr)
 		}
 	}
 }
@@ -318,7 +325,7 @@ func streamTurn(client *openai.Client, reg *Registry, cfg *config, msgs *[]opena
 			})
 		}
 	}
-	return "", errors.New("too many tool rounds")
+	return "", errMaxRounds
 }
 
 // truncateContext: minimal context manager — drop oldest middle messages over the char budget.
