@@ -2,7 +2,8 @@
 set B=C:\Users\user\win7-agent
 set W=C:\Users\user\ws4
 cd /d %B%
-echo M3-GATE-START > m3-gate.log
+del m3-gate.log >nul 2^&1
+echo M3-GATE-START %date% %time% > m3-gate.log
 taskkill /f /im win7-agent.exe >nul 2>&1
 rd /s /q %W% 2>nul
 mkdir %W%
@@ -17,4 +18,5 @@ echo [ws4 dir]: >> m3-gate.log
 dir /b %W% >> m3-gate.log
 echo [m3shell.txt content]: >> m3-gate.log
 type %W%\m3shell.txt >> m3-gate.log 2>&1
-echo M3-GATE-DONE >> m3-gate.log
+echo M3-GATE-DONE %date% %time% >> m3-gate.log
+if not exist m3-gate.log echo GATE-FAIL-NO-LOG-M3-GATE >> m3-gate.log

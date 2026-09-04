@@ -2,7 +2,8 @@
 set B=C:\Users\user\win7-agent
 set W=C:\Users\user\ws4
 cd /d %B%
-echo M3B-START > m3b2-gate.log
+del m3b2-gate.log >nul 2^&1
+echo M3B-START %date% %time% > m3b2-gate.log
 taskkill /f /im win7-agent.exe >nul 2>&1
 echo M3-NOTE-B > %W%\note.txt
 start /b cmd /c "win7-agent.exe mock 300 > mock3b.log 2>&1"
@@ -23,4 +24,5 @@ dir /b %W% >> m3b2-gate.log
 echo [ws-life kept]: >> m3b2-gate.log
 dir /b C:\Users\user\ws-life >> m3b2-gate.log
 if exist "C:\Program Files\Sandboxie\Start.exe" echo SANDBOXIE-KEPT-OK >> m3b2-gate.log
-echo M3B-DONE >> m3b2-gate.log
+echo M3B-DONE %date% %time% >> m3b2-gate.log
+if not exist m3b2-gate.log echo GATE-FAIL-NO-LOG-M3B >> m3b2-gate.log
