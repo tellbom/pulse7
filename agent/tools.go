@@ -248,6 +248,9 @@ func (r *Registry) toolShell(argsJSON string) (string, error) {
 	if a.Command == "" {
 		return "", errors.New("empty command")
 	}
+	if blocked, why := gitWriteBlocked(a.Command); blocked {
+		return "", errors.New(why)
+	}
 	if !r.confirm(a.Command) {
 		return "", errors.New("denied by user (confirmation)")
 	}
@@ -458,6 +461,48 @@ func (r *Registry) toolRollback(argsJSON string) (string, error) {
 	}
 	removed := r.man.RemoveCreated()
 	return fmt.Sprintf("%s; manifest cleanup removed %d agent-created files", res, removed), nil
+}
+
+// gitWriteBlocked rejects git MUTATING subcommands through the shell tool so
+// the private-ref checkpoint design cannot be bypassed (a push is simply
+// unrecoverable). Read-only subcommands pass. Covers global args like
+// "git -C <path> commit" and "git --git-dir=... push"; compound lines are
+// split on &, | and newlines.
+var gitWriteSubs = map[string]bool{
+	"commit": true, "push": true, "reset": true, "checkout": true, "merge": true,
+	"rebase": true, "cherry-pick": true, "clean": true, "stash": true,
+}
+
+const gitBlockedMsg = "该 git 写操作已被 win7-agent 禁止（会绕过 checkpoint 保护，push 后无法回退）。请用日常语言向用户说明，由用户自行在终端执行。"
+
+func gitWriteBlocked(cmdline string) (bool, string) {
+	for _, part := range strings.FieldsFunc(strings.ToLower(cmdline),
+		func(r rune) bool { return r == '&' || r == '|' || r == '\n' || r == '\r' }) {
+		f := strings.Fields(part)
+		for i := 0; i < len(f); i++ {
+			tok := f[i]
+			if tok != "git" && !strings.HasSuffix(tok, `\git.exe`) && !strings.HasSuffix(tok, "/git") && tok != "git.exe" {
+				continue
+			}
+			j := i + 1
+			for j < len(f) { // skip global options before the subcommand
+				a := f[j]
+				if a == "-c" || a == "-C" || a == "--git-dir" || a == "--work-tree" || a == "--namespace" {
+					j += 2
+					continue
+				}
+				if strings.HasPrefix(a, "-") {
+					j++
+					continue
+				}
+				break
+			}
+			if j < len(f) && gitWriteSubs[f[j]] {
+				return true, gitBlockedMsg + "（被拦截: git " + f[j] + "）"
+			}
+		}
+	}
+	return false, ""
 }
 
 func (r *Registry) confirm(command string) bool {

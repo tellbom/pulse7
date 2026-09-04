@@ -26,7 +26,7 @@ func runMock(seconds int) {
 		json.Unmarshal(body, &req)
 		var lastRole, lastContent string
 		nTools := 0
-		hasM2Git, hasM3 := false, false
+		hasM2Git, hasM3, hasT3 := false, false, false
 		for _, m := range req.Messages {
 			if m.Role == openai.ChatMessageRoleTool {
 				nTools++
@@ -37,6 +37,9 @@ func runMock(seconds int) {
 				}
 				if strings.Contains(m.Content, "M3-SMOKE") {
 					hasM3 = true
+				}
+				if strings.Contains(m.Content, "T3-GIT") {
+					hasT3 = true
 				}
 			}
 		}
@@ -54,6 +57,19 @@ func runMock(seconds int) {
 		w.Header().Set("Content-Type", "text/event-stream")
 
 		switch {
+		case len(req.Tools) > 0 && hasT3:
+			switch nTools {
+			case 0:
+				emitCalls(w, fl, []mockCall{{0, "t3-a", "shell", `{"command": "git status"}`}})
+			case 1:
+				emitCalls(w, fl, []mockCall{{0, "t3-b", "shell", `{"command": "git commit -m x"}`}})
+			case 2:
+				emitCalls(w, fl, []mockCall{{0, "t3-c", "shell", `{"command": "git -C ws5 commit -m x"}`}})
+			case 3:
+				emitCalls(w, fl, []mockCall{{0, "t3-d", "shell", `{"command": "git --git-dir=.git push origin main"}`}})
+			default:
+				sseContent(w, fl, "MOCK-FINAL: T3 git-guard sequence complete.")
+			}
 		case len(req.Tools) > 0 && strings.Contains(lastContent, "T2-ROLLBACK"):
 			// cross-session rollback probe: only calls rollback (no checkpoint
 			// in this run) so it must resolve a PREVIOUS session's ref
