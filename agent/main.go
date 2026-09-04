@@ -130,6 +130,7 @@ func setupEnv(cfg *config, taskID string) (*Registry, error) {
 	}
 	curRunner, curCfg = runner, cfg
 	purgeStaleRunDirs(homeDir(), time.Hour)
+	purgeStaleIndexTemps(filepath.Join(cfg.exeDirStore(), "data", "sessions"), time.Hour)
 
 	auditPath := filepath.Join(exeDir, "data", "sessions", "audit.jsonl")
 	manPath := filepath.Join(exeDir, "data", "sessions", "manifest-"+taskID+".jsonl")

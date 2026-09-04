@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -53,6 +54,25 @@ func purgeStaleRunDirs(home string, maxAge time.Duration) {
 		}
 		if info.ModTime().Before(cutoff) {
 			os.RemoveAll(filepath.Join(runDir, e.Name()))
+		}
+	}
+}
+
+// purgeStaleIndexTemps: checkpoint temp indexes (index-<task>-<seq>.tmp)
+// under data\sessions have no other cleanup path; drop those older than
+// maxAge (fresh ones belong to possibly-still-running sessions).
+func purgeStaleIndexTemps(sessionsDir string, maxAge time.Duration) {
+	entries, err := os.ReadDir(sessionsDir)
+	if err != nil {
+		return
+	}
+	cutoff := time.Now().Add(-maxAge)
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasPrefix(e.Name(), "index-") || !strings.HasSuffix(e.Name(), ".tmp") {
+			continue
+		}
+		if info, err := e.Info(); err == nil && info.ModTime().Before(cutoff) {
+			os.Remove(filepath.Join(sessionsDir, e.Name()))
 		}
 	}
 }
