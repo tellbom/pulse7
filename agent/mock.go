@@ -54,6 +54,10 @@ func runMock(seconds int) {
 		w.Header().Set("Content-Type", "text/event-stream")
 
 		switch {
+		case len(req.Tools) > 0 && strings.Contains(lastContent, "T2-ROLLBACK"):
+			// cross-session rollback probe: only calls rollback (no checkpoint
+			// in this run) so it must resolve a PREVIOUS session's ref
+			emitCalls(w, fl, []mockCall{{0, "t2-rb", "rollback", `{}`}})
 		case len(req.Tools) > 0 && hasM3:
 			// relative paths so the same trigger works on any --workspace
 			switch nTools {

@@ -149,27 +149,57 @@ func (g *gitOps) Checkpoint() (string, error) {
 	return fmt.Sprintf("checkpoint %s/%d (%s, mode=%s, tree=%s, dirty-files=%d)", g.taskID, g.seq, short(commit), mode, short(tree), n), nil
 }
 
-// Rollback: restore worktree to the given (or latest) checkpoint. Never moves
-// the user's branch in mode 1; agent-created files are cleaned by the caller
-// using the task manifest (never a blanket `git clean`).
+// refs returns all persisted checkpoint refs (the durable record — sessions
+// come and go, refs stay). Sorted by refname; taskID format tMMDD-HHMMSS-mmm
+// keeps chronological order.
+func (g *gitOps) refs() ([]string, error) {
+	out, err := g.gitRun("", "for-each-ref", "--format=%(refname)", "refs/win7-agent/checkpoints/")
+	if err != nil {
+		return nil, err
+	}
+	var list []string
+	for _, l := range strings.Split(out, "\n") {
+		if l = strings.TrimSpace(l); l != "" {
+			list = append(list, l)
+		}
+	}
+	return list, nil
+}
+
+// Rollback: restore worktree to the given (or latest persisted) checkpoint.
+// Resolution is scan-based so checkpoints from PREVIOUS sessions are usable;
+// the in-memory seq only names new checkpoints. Never moves the user's branch
+// in mode 1; agent-created files are cleaned by the caller via the manifest.
 func (g *gitOps) Rollback(toSeq int) (string, error) {
-	if toSeq <= 0 {
-		toSeq = g.seq
+	list, err := g.refs()
+	if err != nil || len(list) == 0 {
+		return "", fmt.Errorf("no checkpoints found under refs/win7-agent/checkpoints/ (%v)", err)
 	}
-	if toSeq > g.seq || g.seq == 0 {
-		return "", fmt.Errorf("no checkpoint to roll back to (latest=%d)", g.seq)
+	target := list[len(list)-1]
+	if toSeq > 0 {
+		want := g.ref(toSeq)
+		found := false
+		for _, r := range list {
+			if r == want {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return "", fmt.Errorf("checkpoint %s not found (available: %d, latest %s)", want, len(list), target)
+		}
+		target = want
 	}
-	ref := g.ref(toSeq)
 	if g.mode == 1 {
-		if out, err := g.gitRun("", "restore", "--source="+ref, "--staged", "--worktree", "--", "."); err != nil {
+		if out, err := g.gitRun("", "restore", "--source="+target, "--staged", "--worktree", "--", "."); err != nil {
 			return "", fmt.Errorf("git restore: %v: %s", err, out)
 		}
 	} else {
-		if out, err := g.gitRun("", "reset", "--hard", ref); err != nil {
+		if out, err := g.gitRun("", "reset", "--hard", target); err != nil {
 			return "", fmt.Errorf("git reset: %v: %s", err, out)
 		}
 	}
-	return fmt.Sprintf("rolled back to %s/%d; worktree restored", g.taskID, toSeq), nil
+	return fmt.Sprintf("rolled back to %s; worktree restored (checkpoints available: %d)", target, len(list)), nil
 }
 
 func short(sha string) string {
