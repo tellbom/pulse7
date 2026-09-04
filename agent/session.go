@@ -65,11 +65,9 @@ func loadSession(path string) ([]openai.ChatCompletionMessage, error) {
 	return msgs, nil
 }
 
-// pairToolCalls: after an interrupted run the session tail may contain an
-// assistant tool_call without its result, which would make the next API
-// request invalid. Append a synthetic tool result right after each unanswered
-// call; no crash-window guessing, no auto-retry — judgment stays with the
-// LLM and the user.
+// pairToolCalls: an interrupted run can leave an assistant tool_call without its
+// result; append a synthetic tool result so the next API request is valid. No
+// window guessing, no auto-retry — judgment stays with the LLM and the user.
 func pairToolCalls(msgs []openai.ChatCompletionMessage) ([]openai.ChatCompletionMessage, int) {
 	answered := map[string]bool{}
 	for _, m := range msgs {
@@ -88,8 +86,7 @@ func pairToolCalls(msgs []openai.ChatCompletionMessage) ([]openai.ChatCompletion
 			for _, c := range m.ToolCalls {
 				if !answered[c.ID] {
 					out = append(out, openai.ChatCompletionMessage{
-						Role: openai.ChatMessageRoleTool, ToolCallID: c.ID, Content: note,
-					})
+						Role: openai.ChatMessageRoleTool, ToolCallID: c.ID, Content: note})
 					added++
 				}
 			}
@@ -98,43 +95,28 @@ func pairToolCalls(msgs []openai.ChatCompletionMessage) ([]openai.ChatCompletion
 	return out, added
 }
 
-// manifest: thin task change log (created/modified) written by write/edit.
-// Used by rollback to remove only agent-created leftovers — never `git clean`.
-type manifest struct {
-	path string
-}
-
-// endOfTaskSummary: external side effects (network, out-of-workspace files,
-// registry) are NOT covered by git rollback; at task end the user at least
-// gets the list of shell commands this task executed. Also flags runs that
-// stopped at the round cap without a final answer.
+// endOfTaskSummary: shell side effects are not covered by git rollback; at
+// task end the user gets the list of shell commands this task executed, plus
+// a warning when the run stopped at the round cap without a final answer.
 func endOfTaskSummary(r *Registry, maxed bool) {
 	if r == nil {
 		return
 	}
 	if f, err := os.Open(r.auditPath); err == nil {
-		defer f.Close()
 		var cmds []string
 		sc := bufio.NewScanner(f)
 		for sc.Scan() {
-			var e struct {
-				Task string `json:"task"`
-				Tool string `json:"tool"`
-				Args string `json:"args"`
-				Ts   string `json:"ts"`
+			var e struct{ Task, Tool, Args, Ts string }
+			var a struct{ Command string }
+			if json.Unmarshal(sc.Bytes(), &e) == nil && e.Task == r.taskID && e.Tool == "shell" {
+				cmd := e.Args
+				if json.Unmarshal([]byte(e.Args), &a) == nil && a.Command != "" {
+					cmd = a.Command
+				}
+				cmds = append(cmds, fmt.Sprintf("  %d. %s  (%s)", len(cmds)+1, cmd, e.Ts))
 			}
-			if json.Unmarshal(sc.Bytes(), &e) != nil || e.Task != r.taskID || e.Tool != "shell" {
-				continue
-			}
-			var a struct {
-				Command string `json:"command"`
-			}
-			cmd := e.Args
-			if json.Unmarshal([]byte(e.Args), &a) == nil && a.Command != "" {
-				cmd = a.Command
-			}
-			cmds = append(cmds, fmt.Sprintf("  %d. %s  (%s)", len(cmds)+1, cmd, e.Ts))
 		}
+		f.Close()
 		if len(cmds) > 0 {
 			fmt.Println("本次任务执行的 shell 命令（不可通过 rollback 回退）：")
 			for _, c := range cmds {
@@ -146,6 +128,12 @@ func endOfTaskSummary(r *Registry, maxed bool) {
 	if maxed {
 		fmt.Println("[警告] 本次任务达到最大轮次上限后停止，任务很可能未完成。")
 	}
+}
+
+// manifest: thin task change log (created/modified) written by write/edit.
+// Used by rollback to remove only agent-created leftovers — never `git clean`.
+type manifest struct {
+	path string
 }
 
 func (m *manifest) record(op, p string) {

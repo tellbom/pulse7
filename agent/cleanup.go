@@ -58,9 +58,9 @@ func purgeStaleRunDirs(home string, maxAge time.Duration) {
 	}
 }
 
-// purgeStaleIndexTemps: checkpoint temp indexes (index-<task>-<seq>.tmp)
-// under data\sessions have no other cleanup path; drop those older than
-// maxAge (fresh ones belong to possibly-still-running sessions).
+// purgeStaleIndexTemps: checkpoint temp indexes (index-*.tmp) under
+// data\sessions have no other cleanup path; drop those older than maxAge
+// (fresh ones may belong to a still-running session).
 func purgeStaleIndexTemps(sessionsDir string, maxAge time.Duration) {
 	entries, err := os.ReadDir(sessionsDir)
 	if err != nil {
