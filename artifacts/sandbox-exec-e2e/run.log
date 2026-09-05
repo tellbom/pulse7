@@ -1,0 +1,34 @@
+SEF-START 2026/09/05 ÷‹¡˘ 19:55:43.97 
+===== S1 fix bug (core verdict) ===== 
+each pays: 30.0
+each pays: 30.0
+each pays: 30.0
+each pays: 30.0
+===== S2 add feature (core verdict) ===== 
+add: 5
+hello
+add: 5
+hello
+===== S3 vague ===== 
+notes.txt
+===== R1 real project ===== 
+fatal: detected dubious ownership in repository at 'C:/Users/user/T7/process-copy'
+'C:/Users/user/T7/process-copy' is owned by:
+	BUILTIN/Administrators (S-1-5-32-544)
+but the current user is:
+	WIN-65VKOKP8G13/user (S-1-5-21-917271793-1091559825-690284621-1000)
+To add an exception for this directory, call:
+
+	git config --global --add safe.directory C:/Users/user/T7/process-copy
+[project-copy] CLEAN - ready for testing
+===== R2 explore ===== 
+fatal: detected dubious ownership in repository at 'C:/Users/user/T7/process-copy'
+'C:/Users/user/T7/process-copy' is owned by:
+	BUILTIN/Administrators (S-1-5-32-544)
+but the current user is:
+	WIN-65VKOKP8G13/user (S-1-5-21-917271793-1091559825-690284621-1000)
+To add an exception for this directory, call:
+
+	git config --global --add safe.directory C:/Users/user/T7/process-copy
+[project-copy] CLEAN - ready for testing
+SEF-DONE 2026/09/05 ÷‹¡˘ 20:00:35.98 

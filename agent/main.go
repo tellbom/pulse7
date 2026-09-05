@@ -1,4 +1,4 @@
-// win7-agent M2: agent loop + files + git checkpoints + auto-degrading sandbox.
+// pulse7: agent loop (formerly win7-agent) + files + git checkpoints + auto-degrading sandbox.
 // Build: GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build
 package main
 
@@ -187,7 +187,7 @@ func main() {
 		runMock(secs)
 	case "exec":
 		if len(args) < 2 {
-			fmt.Println("usage: win7-agent exec \"task ...\"")
+			fmt.Println("usage: pulse7 exec \"task ...\"")
 			os.Exit(2)
 		}
 		cfg.execMode = true
@@ -204,7 +204,7 @@ func main() {
 		}
 		fmt.Println("config ensured:", configPath(cfg.exeDirStore()))
 	default:
-		fmt.Println("usage: win7-agent [repl | exec \"task\" | mock <sec>] [flags]")
+		fmt.Println("usage: pulse7 [repl | exec \"task\" | mock <sec>] [flags]")
 		os.Exit(2)
 	}
 }
@@ -303,7 +303,8 @@ func baseSystemPrompt() string {
 		"1. 如果任务描述不明确（范围、目标或验收标准看不清），先用只读工具（read / ls / grep）了解现状，" +
 		"然后向用户提一个具体的问题，等回答后再动手；不要自行推断需求范围。\n" +
 		"2. 只做用户明确要求的改动；没有要求的事情（重构、重命名、移动文件、建目录）即使看起来更好也不要做。\n" +
-		"3. 动手前先 checkpoint，改动后验证，最后简要说明改了什么、怎么验证的。"
+		"3. 动手前先 checkpoint，最后简要说明改了什么。改动后如需验证，运行程序或测试（例如 python x.py）。" +
+			"不要用 type / more / findstr 等命令回读文件来确认内容——工具返回的 diff 已经是准确的。"
 }
 func loadAgentMd(ws string) string {
 	b, err := os.ReadFile(filepath.Join(ws, "AGENT.md"))
@@ -348,7 +349,7 @@ func runExec(cfg *config, prompt string) {
 		}
 		fmt.Printf("resumed %d messages from %s\n", len(msgs), resumeTarget)
 	}
-	outln("=== win7-agent exec (headless) ===")
+	outln("=== pulse7 exec (headless) ===")
 	if len(msgs) == 0 {
 		sys := baseSystemPrompt()
 		if s := loadAgentMd(cfg.workspace); s != "" {
@@ -408,7 +409,7 @@ func runRepl(cfg *config) {
 		}
 		fmt.Printf("resumed %d messages from %s\n", len(msgs), resumeTarget)
 	}
-	fmt.Println("win7-agent M2 REPL (model:", cfg.model, "workspace:", reg.policy.Workspace, ")")
+	fmt.Println("pulse7 REPL (model:", cfg.model, "workspace:", reg.policy.Workspace, ")")
 	if len(msgs) == 0 {
 		sys := baseSystemPrompt()
 		if s := loadAgentMd(cfg.workspace); s != "" {

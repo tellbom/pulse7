@@ -15,20 +15,22 @@ func quietExec(name string, args ...string) {
 	exec.Command(name, args...).Run()
 }
 
-// M3-C: automatic cleanup. Product rule: the agent controls its own garbage;
-// user workspaces are never touched.
+// Cleanup design (revised RC 0.3.2):
 //
-//   per shell run    -> wrapper temp dir removed (defer in runners) + box terminate
+//   per shell run    -> wrapper temp dir removed (defer in runners) ONLY.
+//                       NO /terminate here — the per-shell /terminate was
+//                       killing the box before the next command could start,
+//                       causing ~86% intermittent shell failures (finding #1).
 //   session end      -> terminate box + delete_sandbox_silent (config-gated)
 //   startup          -> purge stale wrapper dirs (>1h) left by crashed runs
+//
+// Process leak risk: commands that daemonize (rare in a coding agent's
+// usage) could linger in the box until session end. The session-end
+// /terminate catches them. For extreme cases, /box /listpids can detect
+// accumulation, but per-shell termination caused more harm than good.
 func afterShellCleanup(runner sandboxRunner) {
-	s, ok := runner.(*sbxRunner)
-	if !ok {
-		return
-	}
-	// dedicated agent box: terminating after each run kills stragglers
-	// (long sleepers, orphaned children) without side effects.
-	quietExec(s.StartExe, "/box:"+s.Box, "/terminate")
+	// Intentionally empty: see comment above. Wrapper dir cleanup happens
+	// in the runner's defer os.RemoveAll(rf.dir), which is sufficient.
 }
 
 func sessionEndCleanup(runner sandboxRunner, cfg *config) {
@@ -41,7 +43,7 @@ func sessionEndCleanup(runner sandboxRunner, cfg *config) {
 
 // purgeStaleRunDirs: remove leftover wrapper staging dirs older than maxAge.
 func purgeStaleRunDirs(home string, maxAge time.Duration) {
-	runDir := filepath.Join(home, ".win7-agent", "run")
+	runDir := filepath.Join(home, ".pulse7", "run")
 	entries, err := os.ReadDir(runDir)
 	if err != nil {
 		return

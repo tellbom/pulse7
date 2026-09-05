@@ -97,8 +97,15 @@ func (g *gitOps) gitRun(indexFile string, args ...string) (string, error) {
 	return strings.TrimSpace(string(b)), err
 }
 
+// checkpoint ref namespaces: pulse7 is the new primary; win7-agent is the
+// legacy namespace whose checkpoints must remain discoverable for rollback.
+const (
+	refPrefixNew = "refs/pulse7/checkpoints/"
+	refPrefixOld = "refs/win7-agent/checkpoints/"
+)
+
 func (g *gitOps) ref(seq int) string {
-	return fmt.Sprintf("refs/win7-agent/checkpoints/%s/%d", g.taskID, seq)
+	return fmt.Sprintf("%s%s/%d", refPrefixNew, g.taskID, seq)
 }
 
 func (g *gitOps) Checkpoint() (string, error) {
@@ -149,11 +156,17 @@ func (g *gitOps) Checkpoint() (string, error) {
 	return fmt.Sprintf("checkpoint %s/%d (%s, mode=%s, tree=%s, dirty-files=%d)", g.taskID, g.seq, short(commit), mode, short(tree), n), nil
 }
 
-// refs returns all persisted checkpoint refs (the durable record). refnames
-// contain no spaces; taskID format tMMDD-HHMMSS-mmm keeps them chronological.
+// refs returns all persisted checkpoint refs from BOTH namespaces (pulse7
+// primary + win7-agent legacy). refnames contain no spaces.
 func (g *gitOps) refs() ([]string, error) {
-	out, err := g.gitRun("", "for-each-ref", "--format=%(refname)", "refs/win7-agent/checkpoints/")
-	return strings.Fields(out), err
+	out, err := g.gitRun("", "for-each-ref", "--format=%(refname)", refPrefixNew)
+	if err != nil {
+		return nil, err
+	}
+	list := strings.Fields(out)
+	oldOut, _ := g.gitRun("", "for-each-ref", "--format=%(refname)", refPrefixOld)
+	list = append(list, strings.Fields(oldOut)...)
+	return list, nil
 }
 
 // Rollback: restore worktree to the given (or latest persisted) checkpoint —
@@ -162,7 +175,7 @@ func (g *gitOps) refs() ([]string, error) {
 func (g *gitOps) Rollback(toSeq int) (string, error) {
 	list, err := g.refs()
 	if err != nil || len(list) == 0 {
-		return "", fmt.Errorf("no checkpoints found under refs/win7-agent/checkpoints/ (%v)", err)
+		return "", fmt.Errorf("no checkpoints found under refs/pulse7/ or refs/win7-agent/ (%v)", err)
 	}
 	target := list[len(list)-1]
 	if toSeq > 0 {

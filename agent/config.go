@@ -32,7 +32,7 @@ func defaultAgentConfig() agentConfig {
 		APIKey:            "dummy",
 		Model:             "mock-model",
 		Workspace:         ".",
-		Box:               "Win7Agent",
+		Box:               "Win7Agent", // Sandboxie box name kept for compat; changing would orphan existing boxes
 		StartExe:          `C:\Program Files\Sandboxie\Start.exe`,
 		SandboxRoot:       `C:\Sandbox`,
 		SandboxPreference: "auto",
@@ -86,7 +86,10 @@ func applyConfigToFlags(cfg *config, ac agentConfig, fs *flag.FlagSet) {
 	use("api-key", func() {
 		cfg.apiKey = ac.APIKey
 		if cfg.apiKey == "" || cfg.apiKey == "REPLACE_ME" || cfg.apiKey == "dummy" {
-			cfg.apiKey = os.Getenv("WIN7_AGENT_API_KEY") // key source: flag > config > env
+			cfg.apiKey = os.Getenv("PULSE7_API_KEY") // pulse7 primary
+			if cfg.apiKey == "" {
+				cfg.apiKey = os.Getenv("WIN7_AGENT_API_KEY") // legacy fallback
+			}
 		}
 	})
 	use("model", func() { cfg.model = ac.Model })

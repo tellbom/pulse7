@@ -135,10 +135,10 @@ func (j *jobObjectRunner) Run(command string) (string, int, error) {
 	case <-time.After(j.Timeout):
 		procTerminateJobObject.Call(job, 1)
 		<-done
-		out, ec := readResult(filepath.Join(j.Home, ".win7-agent", "run", rf.id))
+		out, ec := readResult(filepath.Join(j.Home, ".pulse7", "run", rf.id))
 		return out + "\n[TIMEOUT: job tree terminated]", ec, nil
 	}
-	out, ec := readResult(filepath.Join(j.Home, ".win7-agent", "run", rf.id))
+	out, ec := readResult(filepath.Join(j.Home, ".pulse7", "run", rf.id))
 	return out, ec, nil
 }
 
@@ -151,9 +151,9 @@ func waitForCmd(cmd *exec.Cmd, rf *runFiles, j *jobObjectRunner) (string, int) {
 	case <-time.After(j.Timeout):
 		cmd.Process.Kill()
 		<-done
-		out, ec := readResult(filepath.Join(j.Home, ".win7-agent", "run", rf.id))
+		out, ec := readResult(filepath.Join(j.Home, ".pulse7", "run", rf.id))
 		return out + "\n[TIMEOUT: direct child killed]", ec
 	}
-	out, ec := readResult(filepath.Join(j.Home, ".win7-agent", "run", rf.id))
+	out, ec := readResult(filepath.Join(j.Home, ".pulse7", "run", rf.id))
 	return out, ec
 }
