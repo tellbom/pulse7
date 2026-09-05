@@ -41,7 +41,7 @@ func sessionEndCleanup(runner sandboxRunner, cfg *config) {
 
 // purgeStaleRunDirs: remove leftover wrapper staging dirs older than maxAge.
 func purgeStaleRunDirs(home string, maxAge time.Duration) {
-	runDir := filepath.Join(home, ".win7-agent", "run")
+	runDir := filepath.Join(home, ".pulse7", "run")
 	entries, err := os.ReadDir(runDir)
 	if err != nil {
 		return

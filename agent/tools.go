@@ -494,7 +494,7 @@ func (r *Registry) toolRollback(argsJSON string) (string, error) {
 var gitWriteSubs = map[string]bool{"commit": true, "push": true, "reset": true, "checkout": true,
 	"merge": true, "rebase": true, "cherry-pick": true, "clean": true, "stash": true}
 
-const gitBlockedMsg = "该 git 写操作已被 win7-agent 禁止（会绕过 checkpoint 保护，push 后无法回退）。请用日常语言向用户说明，由用户自行在终端执行。"
+const gitBlockedMsg = "该 git 写操作已被 pulse7 禁止（会绕过 checkpoint 保护，push 后无法回退）。请用日常语言向用户说明，由用户自行在终端执行。"
 
 func gitWriteBlocked(cmdline string) (bool, string) {
 	for _, part := range strings.FieldsFunc(strings.ToLower(cmdline),

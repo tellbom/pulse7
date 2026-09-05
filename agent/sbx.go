@@ -60,7 +60,7 @@ func (s *sbxRunner) Run(command string) (string, int, error) {
 		time.Sleep(800 * time.Millisecond)
 	}
 
-	ctnDir := filepath.Join(s.SandboxRoot, userName(), s.Box, "user", "current", ".win7-agent", "run", rf.id)
+	ctnDir := filepath.Join(s.SandboxRoot, userName(), s.Box, "user", "current", ".pulse7", "run", rf.id)
 	out, ec := readResult(ctnDir)
 
 	if timedOut {

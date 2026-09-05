@@ -1,4 +1,4 @@
-// win7-agent M2: agent loop + files + git checkpoints + auto-degrading sandbox.
+// pulse7: agent loop (formerly win7-agent) + files + git checkpoints + auto-degrading sandbox.
 // Build: GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build
 package main
 
@@ -187,7 +187,7 @@ func main() {
 		runMock(secs)
 	case "exec":
 		if len(args) < 2 {
-			fmt.Println("usage: win7-agent exec \"task ...\"")
+			fmt.Println("usage: pulse7 exec \"task ...\"")
 			os.Exit(2)
 		}
 		cfg.execMode = true
@@ -204,7 +204,7 @@ func main() {
 		}
 		fmt.Println("config ensured:", configPath(cfg.exeDirStore()))
 	default:
-		fmt.Println("usage: win7-agent [repl | exec \"task\" | mock <sec>] [flags]")
+		fmt.Println("usage: pulse7 [repl | exec \"task\" | mock <sec>] [flags]")
 		os.Exit(2)
 	}
 }
@@ -348,7 +348,7 @@ func runExec(cfg *config, prompt string) {
 		}
 		fmt.Printf("resumed %d messages from %s\n", len(msgs), resumeTarget)
 	}
-	outln("=== win7-agent exec (headless) ===")
+	outln("=== pulse7 exec (headless) ===")
 	if len(msgs) == 0 {
 		sys := baseSystemPrompt()
 		if s := loadAgentMd(cfg.workspace); s != "" {
@@ -408,7 +408,7 @@ func runRepl(cfg *config) {
 		}
 		fmt.Printf("resumed %d messages from %s\n", len(msgs), resumeTarget)
 	}
-	fmt.Println("win7-agent M2 REPL (model:", cfg.model, "workspace:", reg.policy.Workspace, ")")
+	fmt.Println("pulse7 REPL (model:", cfg.model, "workspace:", reg.policy.Workspace, ")")
 	if len(msgs) == 0 {
 		sys := baseSystemPrompt()
 		if s := loadAgentMd(cfg.workspace); s != "" {

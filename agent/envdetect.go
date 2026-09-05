@@ -133,7 +133,7 @@ func serviceStates() string {
 
 // doctorCmd: full environment report for support/install logs.
 func doctorCmd(cfg *config) {
-	fmt.Println("=== win7-agent doctor ===")
+	fmt.Println("=== pulse7 doctor ===")
 	ws, _ := filepath.Abs(cfg.workspace)
 	fmt.Printf("exe-dir: %s\n", cfg.exeDirStore())
 	cfgDir := filepath.Dir(configPath(cfg.exeDirStore()))
@@ -161,7 +161,7 @@ func doctorCmd(cfg *config) {
 		fmt.Printf("MODE: JobObject (auto-degraded: %s) - no system patch required\n", reason)
 	}
 	_ = runner
-	fmt.Println("=== doctor done ===")
+	fmt.Println("=== pulse7 doctor done ===")
 }
 
 func fileExists(p string) bool {
