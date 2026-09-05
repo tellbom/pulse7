@@ -38,7 +38,7 @@ func probeStartExe(s *sbxRunner) bool {
 	cmd.SysProcAttr = sysProcHidden()
 	runErr := cmd.Run()
 	ctnDir := filepath.Join(s.SandboxRoot, userName(), s.Box,
-		"user", "current", ".win7-agent", "run", rf.id)
+		"user", "current", ".pulse7", "run", rf.id)
 	out, ec := readResult(ctnDir)
 	probeDebug = fmt.Sprintf("bat=%s runErr=%v ctxErr=%v ec=%d out=%q ctn=%s",
 		rf.batPath, runErr, ctx.Err(), ec, out, ctnDir)
