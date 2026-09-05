@@ -360,7 +360,8 @@ func streamTurn(client *openai.Client, reg *Registry, cfg *config, msgs *[]opena
 		if interrupted() {
 			return "", errInterrupted
 		}
-		truncateContext(msgs, cfg.maxCtx)
+		maybeCompressContext(ctx, client, cfg, msgs)
+		maybeCompressContext(ctx, client, cfg, msgs)
 		req := openai.ChatCompletionRequest{
 			Model:    cfg.model,
 			Messages: *msgs,

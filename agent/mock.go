@@ -26,7 +26,7 @@ func runMock(seconds int) {
 		json.Unmarshal(body, &req)
 		var lastRole, lastContent string
 		nTools := 0
-		hasM2Git, hasM3, hasT3, hasT4max, hasT4norm, hasT2diff := false, false, false, false, false, false
+		hasM2Git, hasM3, hasT3, hasT4max, hasT4norm, hasT2diff, hasT4c := false, false, false, false, false, false, false
 		for _, m := range req.Messages {
 			if m.Role == openai.ChatMessageRoleTool {
 				nTools++
@@ -50,6 +50,9 @@ func runMock(seconds int) {
 				if strings.Contains(m.Content, "T2DIFF") {
 					hasT2diff = true
 				}
+				if strings.Contains(m.Content, "T4-COMPRESS") {
+					hasT4c = true
+				}
 			}
 		}
 		if n := len(req.Messages); n > 0 {
@@ -57,6 +60,34 @@ func runMock(seconds int) {
 			lastContent = req.Messages[n-1].Content
 		}
 		fmt.Printf("[mock] tools=%d last_role=%s nToolMsgs=%d\n", len(req.Tools), lastRole, nTools)
+
+		// M4-T4: non-stream summarize requests get a plain JSON completion
+		// (go-openai parses JSON, not SSE, for CreateChatCompletion).
+		if !req.Stream && strings.Contains(lastContent, "压缩为一段摘要") {
+			if strings.Contains(fmt.Sprint(req.Messages), "T4-COMPRESS-FAIL") {
+				http.Error(w, "mock summarize failure", 500)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"id": "mock-summarize", "object": "chat.completion", "model": req.Model,
+				"choices": []interface{}{map[string]interface{}{
+					"index": 0, "finish_reason": "stop",
+					"message": map[string]interface{}{
+						"role": "assistant",
+						"content": "（摘要）此前任务按指示多次读取 big.txt，未发生任何文件修改，当前目标是继续执行并收尾。",
+					},
+				}},
+			})
+			return
+		}
+
+		// M4-T4: fail the summarize request when the scenario asks for it
+		// (compression must fall back to truncation, not kill the task).
+		if strings.Contains(lastContent, "压缩为一段摘要") && strings.Contains(fmt.Sprint(req.Messages), "T4-COMPRESS-FAIL") {
+			http.Error(w, "mock summarize failure", 500)
+			return
+		}
 
 		fl, ok := w.(http.Flusher)
 		if !ok {
@@ -66,6 +97,15 @@ func runMock(seconds int) {
 		w.Header().Set("Content-Type", "text/event-stream")
 
 		switch {
+		case len(req.Tools) > 0 && hasT4c:
+			// every round reads the big file again; with a small --max-ctx the
+			// agent must compress mid-task and still converge at the end.
+			if nTools >= 6 {
+				sseContent(w, fl, "MOCK-FINAL: compress scenario complete.")
+			} else {
+				emitCalls(w, fl, []mockCall{{0, "t4c-" + fmt.Sprint(nTools), "read",
+					`{"path": "big.txt"}`}})
+			}
 		case len(req.Tools) > 0 && strings.Contains(lastContent, "T3AGMD"):
 			// verification trigger: checks AGENT.md really reached the model
 			if len(req.Messages) > 0 && req.Messages[0].Role == openai.ChatMessageRoleSystem &&
