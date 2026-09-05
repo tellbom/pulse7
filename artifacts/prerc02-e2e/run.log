@@ -1,0 +1,14 @@
+PRERC02-E2E-START 2026/09/05 ÷‹¡˘ 16:58:56.49 
+===== S1 clear task ===== 
+each pays: 30.0
+each pays: 30.0
+===== S2 clear task ===== 
+add: 5
+trim: hello
+add: 5
+trim: hello
+===== S3 vague task ===== 
+[S3 dir after]: 
+notes.txt
+old_tmp.py
+PRERC02-E2E-DONE 2026/09/05 ÷‹¡˘ 17:00:26.78 
