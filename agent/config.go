@@ -83,7 +83,12 @@ func applyConfigToFlags(cfg *config, ac agentConfig, fs *flag.FlagSet) {
 		}
 	}
 	use("base-url", func() { cfg.baseURL = ac.BaseURL })
-	use("api-key", func() { cfg.apiKey = ac.APIKey })
+	use("api-key", func() {
+		cfg.apiKey = ac.APIKey
+		if cfg.apiKey == "" || cfg.apiKey == "REPLACE_ME" || cfg.apiKey == "dummy" {
+			cfg.apiKey = os.Getenv("WIN7_AGENT_API_KEY") // key source: flag > config > env
+		}
+	})
 	use("model", func() { cfg.model = ac.Model })
 	use("workspace", func() { cfg.workspace = ac.Workspace })
 	use("box", func() { cfg.box = ac.Box })
