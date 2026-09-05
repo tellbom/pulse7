@@ -1,0 +1,47 @@
+M3-GATE-START 
+===== M3-A: desktop session ===== 
+sandbox: Sandboxie (box=Win7Agent)
+=== win7-agent exec (headless) ===
+
+[tool] read({"path": "note.txt"})
+[tool-result] M3-NOTE  | 
+
+[tool] write({"path": "m3/probe.txt", "content": "M3-PROBE-LINE"})
+[tool-result] created C:\Users\user\ws4\m3\probe.txt (13 bytes)
+
+[tool] checkpoint({})
+[tool-result] checkpoint t0905-141829-006/1 (e038005, mode=private-checkpoint-repo, tree=e481f25, dirty-files=0)
+
+[tool] shell({"command": "echo M3-SHELL-OK > m3shell.txt"})
+[confirm] AUTO-ALLOWED (--yolo): echo M3-SHELL-OK > m3shell.txt
+[tool-result] exitcode=0 | [sandbox=Sandboxie] | 
+
+[tool] rollback({})
+[tool-result] rolled back to refs/win7-agent/checkpoints/t0905-141829-006/1; worktree restored (checkpoints available: 11); manifest cleanup removed 1 agent-created files
+MOCK-FINAL: M3 suite complete.
+本次任务执行的 shell 命令（不可通过 rollback 回退）：
+  1. echo M3-SHELL-OK > m3shell.txt  (2026-09-05T14:18:30+08:00)
+文件改动已存 checkpoint，可 rollback；以上命令的外部影响不可回退。
+=== EXEC-DONE ===
+A-EXIT=0 
+=== win7-agent doctor ===
+exe-dir: C:\Users\user\win7-agent
+config/data writable: OK (C:\Users\user\win7-agent\data)
+config file: C:\Users\user\win7-agent\config\agent.json (exists=false)
+workspace: C:\Users\user\win7-agent
+session: id=1 SESSIONNAME="" interactive=true
+os: Microsoft Windows [�汾 6.1.7601] arch=AMD64
+mingit: git version 2.46.2.windows.1 (<nil>)
+start.exe: C:\Program Files\Sandboxie\Start.exe present=true
+sbiesvc/sbiedrv: SbieSvc=4  RUNNING SbieDrv=4  RUNNING
+sandboxie config: box=Win7Agent OpenFilePath=C:\Users\user\win7-agent (reloaded)
+probe result: OK -> Sandboxie
+MODE: Sandboxie (box=Win7Agent)
+=== doctor done ===
+[ws4 dir]: 
+m3
+m3shell.txt
+note.txt
+[m3shell.txt content]: 
+M3-SHELL-OK 
+M3-GATE-DONE 

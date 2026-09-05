@@ -4,3 +4,5 @@ dist/win7-agent/*.exe
 poc/runtest*/
 poc/run/
 *.tmp
+real-e2e/agent.local.json
+dist/rc-0.1/

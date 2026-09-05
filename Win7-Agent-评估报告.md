@@ -2,9 +2,9 @@
 
 | 项目 | 内容 |
 |---|---|
-| 文档状态 | **v3.2 —— 实施基线（M0.5/M1/M2 全部真机验证完成，含降级实测）** |
+| 文档状态 | **v4.0 —— M3 完成**（M0.5/M1/M2/M3 全部真机验证；四组 Gate + 安装/卸载生命周期 PASS；git tag `m2-freeze`、`m3-complete`） |
 | 日期 | 2026-09-05 |
-| 测试机 | Win7 专业版 SP1 x64 虚拟机（宿主机 192.168.124.3:22 VMware Workstation 17.6.3，VM 经 NAT 端口转发 2222；VM 状态已恢复，SbieSvc/SbieDrv RUNNING） |
+| 测试机 | Win7 专业版 SP1 x64 虚拟机（宿主机 192.168.124.3:22 VMware 17.6.3；VM 经 NAT 2222；当前状态：服务恢复 RUNNING、自动登录正常、无残留任务） |
 | 方向 | **A 路线**：Go 1.20.14 编排层 + 冻结复用第三方组件，Agent 本体运行于 Win7 本机 |
 | 生产硬约束 | **① KB4474419 仅为开发/测试验证条件，禁止转化为生产安装前置；② 生产环境 Sandboxie 驱动不可用时必须自动降级（Job Object），绝不要求用户补系统补丁** —— 已在代码层实现（启动探测 + 横幅声明 + 降级运行），见 §10 |
 
@@ -15,7 +15,8 @@
 | v1.0–v2.1 | 评估与两轮评审收敛（详见历史） |
 | v3.0 | M0.5 五 Gate 真机执行全 PASS + 冻结清单；M1 最短链路真机 E2E PASS |
 | v3.1 | M2 完成：文件工具、git checkpoint/rollback、会话/恢复、wrapper 修复、沙盒自动降级实现 |
-| **v3.2** | **降级实测真机 PASS**（零 Sandboxie 启动状态下 JobObject 自动接管，会话 0 亦可用）；测试机资源故障经宿主机 vmrun 硬复位解决；新增运维发现：SbieSvc 停止而驱动仍加载会拖垮全系统进程创建（§12.3）；宿主机访问信息更新 |
+| v3.2 | 降级实测真机 PASS（零 Sandboxie 启动状态下 JobObject 自动接管，会话 0 亦可用）；测试机资源故障经宿主机 vmrun 硬复位解决；新增运维发现 |
+| **v4.0** | **M3 完成并冻结（freeze/M3/）**：doctor/init 子命令、agent.json、Sandboxie 配置自动化（SbieIni 非管理员可写 + /reload）、三级清理、安装/卸载生命周期；**探针定版为副作用探针**（走生产 wrapper 机制，容器必须出现 PROBE-OK——/listpids 与退出码均被实测证伪）；会话判定改 ProcessIdToSessionId；四组 Gate + 生命周期全 PASS |
 
 ---
 
@@ -109,8 +110,9 @@ M2 交付物：`win7-agent.exe`（SHA256 `4a3616eb04b78180d16de764223c5550c379de
 | M0 / M0.5（Gate A–E + 冻结） | ✅ 全 PASS |
 | M1 最小 Agent Loop（真机 E2E） | ✅ |
 | M2 文件工具 + git checkpoint/rollback + 会话/恢复 + headless(exec) + wrapper 修复 + **自动降级** | ✅ **全部完成（含零 Sandboxie 真机降级实测 PASS）** |
-| M3 安装器（探测/降级矩阵产品化、box 定期清理、/reload 流程） | ⬜ |
-| M4（可选）B 路线对比 | ⬜ |
+| M3 安装器 / Bootstrap / 运行环境产品化 | ✅ **完成（2026-09-05，git tag m3-complete）**：A 环境探测（doctor）/ B Sandboxie 配置自动化 / C 三级清理 / D 会话感知启动 / E config\agent.json / F 安装-卸载生命周期；四组 Gate（A Sandboxie 桌面、B 零沙盒降级、C 受限令牌、D 会话0）+ 完整生命周期真机 PASS；期间发现并修复 9 项缺陷（清单见 freeze/M3/MANIFEST.md，含探针假阳性/假阴性两轮定版） |
+| 真实 LLM E2E（待 API Key） / 桌面 REPL 人工验收 | ⬜ 穿插项 |
+| Release Candidate 0.1 → 小规模内网用户试用 | ⬜ 下一步（M4/B 路线维持 optional 不做） |
 
 ## 14. 参考资料与仓库结构
 
