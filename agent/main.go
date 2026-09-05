@@ -249,7 +249,9 @@ func runRepl(cfg *config) {
 func streamTurn(client *openai.Client, reg *Registry, cfg *config, msgs *[]openai.ChatCompletionMessage) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
-	for round := 0; round < 8; round++ {
+	// M4-T0: cap raised 8->30; RC0.1's toy tasks burned all 8 rounds doing
+	// useful work (fix verified) and got cut off before the final answer.
+	for round := 0; round < 30; round++ {
 		truncateContext(msgs, cfg.maxCtx)
 		req := openai.ChatCompletionRequest{
 			Model:    cfg.model,
@@ -304,6 +306,11 @@ func streamTurn(client *openai.Client, reg *Registry, cfg *config, msgs *[]opena
 		stream.Close()
 		if len(toolAcc) == 0 {
 			fmt.Println()
+			// M4-T0: persist the final assistant answer so the session file
+			// distinguishes convergence from cap-stop and --resume sees it.
+			pushMsg(msgs, openai.ChatCompletionMessage{
+				Role: openai.ChatMessageRoleAssistant, Content: content.String(),
+			})
 			return content.String(), nil
 		}
 		calls := make([]openai.ToolCall, 0, len(order))
