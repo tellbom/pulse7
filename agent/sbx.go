@@ -69,6 +69,14 @@ func (s *sbxRunner) Run(command string) (string, int, error) {
 	if runErr != nil && ec == -1 {
 		return fmt.Sprintf("start.exe failed: %v\nconsole: %s", runErr, consoleOut), -1, runErr
 	}
+	if ec == -1 && len(out) == 0 {
+		// T2: wrapper produced no output AND no exit code — the sandbox
+		// blocked the command from starting. Tell the model explicitly so
+		// it stops retrying the same command.
+		return "[沙盒阻止] 该命令在 Sandboxie 沙盒内无法启动（wrapper 无输出，exitcode=-1）。" +
+			"这是环境限制，不是命令本身的错误——重试同一命令不会成功。" +
+			"可考虑：改用其他方式验证；或向用户说明需要为该程序配置沙盒例外。", -1, nil
+	}
 	return out, ec, nil
 }
 
