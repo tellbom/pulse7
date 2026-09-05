@@ -26,7 +26,7 @@ func runMock(seconds int) {
 		json.Unmarshal(body, &req)
 		var lastRole, lastContent string
 		nTools := 0
-		hasM2Git, hasM3, hasT3, hasT4max, hasT4norm, hasT2diff, hasT4c := false, false, false, false, false, false, false
+		hasM2Git, hasM3, hasT3, hasT4max, hasT4norm, hasT2diff, hasT4c, hasTG := false, false, false, false, false, false, false, false
 		for _, m := range req.Messages {
 			if m.Role == openai.ChatMessageRoleTool {
 				nTools++
@@ -52,6 +52,9 @@ func runMock(seconds int) {
 				}
 				if strings.Contains(m.Content, "T4-COMPRESS") {
 					hasT4c = true
+				}
+				if strings.Contains(m.Content, "TGREP") {
+					hasTG = true
 				}
 			}
 		}
@@ -97,6 +100,16 @@ func runMock(seconds int) {
 		w.Header().Set("Content-Type", "text/event-stream")
 
 		switch {
+		case len(req.Tools) > 0 && hasTG:
+			switch nTools {
+			case 0:
+				emitCalls(w, fl, []mockCall{
+					{0, "tg-t", "tree", `{}`},
+					{1, "tg-g", "grep", `{"pattern": "error", "glob": "*.txt"}`},
+				})
+			default:
+				sseContent(w, fl, "MOCK-FINAL: TGREP sequence complete.")
+			}
 		case len(req.Tools) > 0 && hasT4c:
 			// every round reads the big file again; with a small --max-ctx the
 			// agent must compress mid-task and still converge at the end.

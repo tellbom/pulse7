@@ -7,7 +7,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"time"
 
@@ -113,10 +112,22 @@ func NewRegistry(policy *Policy, runner sandboxRunner, auditPath, manPath string
 	r.register(openai.Tool{
 		Type: openai.ToolTypeFunction,
 		Function: &openai.FunctionDefinition{
-			Name: "grep", Description: "Regex search across workspace files. Returns file:line matches.",
+			Name: "tree", Description: "Show project directory structure as a tree. Use this FIRST to understand project layout instead of calling ls repeatedly. Directories show child count. Skips .git/node_modules/vendor/dist/build/target/__pycache__/.venv/bin/obj and hidden dirs.",
+			Parameters: map[string]interface{}{"type": "object", "properties": map[string]interface{}{
+				"path":       map[string]interface{}{"type": "string", "description": "starting directory (default: workspace root)"},
+				"max_depth":  map[string]interface{}{"type": "integer", "description": "max directory depth (default: 3)"},
+				"max_entries": map[string]interface{}{"type": "integer", "description": "max lines of output (default: 300)"},
+			}},
+		},
+	}, r.toolTree)
+	r.register(openai.Tool{
+		Type: openai.ToolTypeFunction,
+		Function: &openai.FunctionDefinition{
+			Name: "grep", Description: "Search text across workspace files using ripgrep (fast) or Go fallback. Supports regex, case sensitivity, and file type filter. Returns file:line matches.",
 			Parameters: map[string]interface{}{"type": "object", "properties": map[string]interface{}{
 				"pattern": map[string]interface{}{"type": "string"},
 				"path":    map[string]interface{}{"type": "string", "description": "optional sub path"},
+				"glob":    map[string]interface{}{"type": "string", "description": "file glob filter, e.g. *.cs"},
 			}, "required": []string{"pattern"}},
 		},
 	}, r.toolGrep)
@@ -391,59 +402,7 @@ func (r *Registry) toolEdit(argsJSON string) (string, error) {
 	return fmt.Sprintf("replaced 1 occurrence in %s\n%s", abs, diffSummary(string(b), nb, 40)), nil
 }
 
-func (r *Registry) toolGrep(argsJSON string) (string, error) {
-	var a struct {
-		Pattern string `json:"pattern"`
-		Path    string `json:"path"`
-	}
-	if err := json.Unmarshal([]byte(argsJSON), &a); err != nil {
-		return "", err
-	}
-	re, err := regexp.Compile(a.Pattern)
-	if err != nil {
-		return "", fmt.Errorf("bad regex: %v", err)
-	}
-	root := r.workspace
-	if a.Path != "" {
-		root, err = r.absPath(a.Path)
-		if err != nil {
-			return "", err
-		}
-	}
-	var lines []string
-	filepath.WalkDir(root, func(p string, d os.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
-			if d != nil && d.IsDir() && d.Name() == ".git" {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		if d.IsDir() || len(lines) >= 50 {
-			return nil
-		}
-		if fi, _ := d.Info(); fi != nil && fi.Size() > 1024*1024 {
-			return nil
-		}
-		b, err := os.ReadFile(p)
-		if err != nil {
-			return nil
-		}
-		rel, _ := filepath.Rel(r.workspace, p)
-		for i, line := range strings.Split(string(b), "\n") {
-			if re.MatchString(line) {
-				lines = append(lines, fmt.Sprintf("%s:%d: %s", rel, i+1, strings.TrimSpace(line)))
-				if len(lines) >= 50 {
-					break
-				}
-			}
-		}
-		return nil
-	})
-	if len(lines) == 0 {
-		return "no matches", nil
-	}
-	return strings.Join(lines, "\n"), nil
-}
+// toolGrep moved to grep.go (T2 retrieval: ripgrep with Go fallback)
 
 func (r *Registry) toolGlob(argsJSON string) (string, error) {
 	var a struct {
