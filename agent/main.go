@@ -46,6 +46,13 @@ var sess *session
 var curRunner sandboxRunner
 var curCfg *config
 
+// teeOut: all user-visible output goes here (stdout + agent.log when active).
+var teeOut io.Writer = os.Stdout
+
+func out(format string, a ...interface{}) { fmt.Fprintf(teeOut, format, a...) }
+func outln(a ...interface{})             { fmt.Fprintln(teeOut, a...) }
+func outPrint(s string)                  { fmt.Fprint(teeOut, s) }
+
 // errMaxRounds: the turn stopped at the round cap without a final answer.
 var errMaxRounds = errors.New("too many tool rounds")
 
@@ -156,6 +163,21 @@ func main() {
 	if len(args) > 0 {
 		sub = args[0]
 	}
+
+	// T3 (PreRC02): tee stdout to data\logs\agent.log — on Win7 /it sessions,
+	// spawning sandboxed shell children can corrupt the Go process's console
+	// handles, making subsequent fmt.Print output vanish from `>>` redirects.
+	// The log file is unaffected and is the durable record.
+	if sub == "exec" || sub == "repl" {
+		logDir := filepath.Join(cfg.exeDirStore(), "data", "logs")
+		os.MkdirAll(logDir, 0o755)
+		if lf, err := os.OpenFile(filepath.Join(logDir, "agent.log"),
+			os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644); err == nil {
+			teeOut = io.MultiWriter(os.Stdout, lf)
+			fmt.Fprintf(lf, "\n=== session start %s ===\n", time.Now().Format(time.RFC3339))
+		}
+	}
+
 	switch sub {
 	case "mock":
 		secs := 180
@@ -204,9 +226,9 @@ func setupEnv(cfg *config, taskID string) (*Registry, error) {
 
 	runner, reason, _ := selectSandboxMode(cfg, ws, false)
 	if reason != "" {
-		fmt.Printf("sandbox: %s (auto-degraded: %s) - no system patch required\n", runner.Mode(), reason)
+		out("sandbox: %s (auto-degraded: %s) - no system patch required\n", runner.Mode(), reason)
 	} else {
-		fmt.Printf("sandbox: %s (box=%s)\n", runner.Mode(), cfg.box)
+		out("sandbox: %s (box=%s)\n", runner.Mode(), cfg.box)
 	}
 	curRunner, curCfg = runner, cfg
 	purgeStaleRunDirs(homeDir(), time.Hour)
@@ -326,7 +348,7 @@ func runExec(cfg *config, prompt string) {
 		}
 		fmt.Printf("resumed %d messages from %s\n", len(msgs), resumeTarget)
 	}
-	fmt.Println("=== win7-agent exec (headless) ===")
+	outln("=== win7-agent exec (headless) ===")
 	if len(msgs) == 0 {
 		sys := baseSystemPrompt()
 		if s := loadAgentMd(cfg.workspace); s != "" {
@@ -341,12 +363,25 @@ func runExec(cfg *config, prompt string) {
 		finalizeInterrupted(&msgs, reg)
 		os.Exit(130)
 	}
+	// T5: distinguish "ends with a question for the user" from clean completion
+	if msgsLen := len(msgs); msgsLen > 0 && msgs[msgsLen-1].Role == openai.ChatMessageRoleAssistant {
+		c := msgs[msgsLen-1].Content
+		if strings.Contains(c, "？") || strings.Contains(c, "?") {
+			if strings.Contains(c, "具体") || strings.Contains(c, "指什么") ||
+				strings.Contains(c, "哪些") || strings.Contains(c, "希望") ||
+				strings.Contains(c, "还是") || strings.Contains(c, "请告诉我") {
+				fmt.Println("\n[需要用户回答] 模型提出了问题，回答后可用 --resume 续跑")
+				endOfTaskSummary(reg, false)
+				os.Exit(2)
+			}
+		}
+	}
 	endOfTaskSummary(reg, errors.Is(err, errMaxRounds))
 	if err != nil {
 		fmt.Println("EXEC-ERROR:", err)
 		os.Exit(1)
 	}
-	fmt.Println("=== EXEC-DONE ===")
+	outln("=== EXEC-DONE ===")
 }
 
 func runRepl(cfg *config) {
@@ -386,7 +421,7 @@ func runRepl(cfg *config) {
 	sc := bufio.NewScanner(os.Stdin)
 	sc.Buffer(make([]byte, 64*1024), 256*1024)
 	for {
-		fmt.Print("> ")
+		outPrint("> ")
 		if !sc.Scan() {
 			break
 		}
@@ -455,7 +490,7 @@ func streamTurn(client *openai.Client, reg *Registry, cfg *config, msgs *[]opena
 			}
 			d := chunk.Choices[0].Delta
 			if d.Content != "" {
-				fmt.Print(d.Content)
+				outPrint(d.Content)
 				content.WriteString(d.Content)
 			}
 			for _, tc := range d.ToolCalls {
@@ -480,7 +515,7 @@ func streamTurn(client *openai.Client, reg *Registry, cfg *config, msgs *[]opena
 		}
 		stream.Close()
 		if len(toolAcc) == 0 {
-			fmt.Println()
+			outln()
 			// M4-T0: persist the final assistant answer so the session file
 			// distinguishes convergence from cap-stop and --resume sees it.
 			pushMsg(msgs, openai.ChatCompletionMessage{
