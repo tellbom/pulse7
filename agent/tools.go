@@ -387,19 +387,36 @@ func (r *Registry) toolEdit(argsJSON string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	switch strings.Count(string(b), a.OldString) {
+	original := string(b)
+	// T1 (final-fix): normalize line endings for matching, but PRESERVE the
+	// file's original style on write-back. Windows files are CRLF; the model
+	// sends \n. Matching \n against \r\n fails, causing re-edit loops.
+	normFile := strings.ReplaceAll(original, "\r\n", "\n")
+	normOld := strings.ReplaceAll(a.OldString, "\r\n", "\n")
+	normNew := strings.ReplaceAll(a.NewString, "\r\n", "\n")
+	switch strings.Count(normFile, normOld) {
 	case 0:
 		return "", errors.New("old_string not found")
 	}
-	if strings.Count(string(b), a.OldString) > 1 {
+	if strings.Count(normFile, normOld) > 1 {
 		return "", errors.New("old_string is ambiguous (multiple occurrences)")
 	}
-	nb := strings.Replace(string(b), a.OldString, a.NewString, 1)
-	if err := os.WriteFile(abs, []byte(nb), 0644); err != nil {
+	// do the replacement in normalized space, then restore original style
+	replaced := strings.Replace(normFile, normOld, normNew, 1)
+	result := replaced
+	if strings.Contains(original, "\r\n") {
+		result = strings.ReplaceAll(replaced, "\n", "\r\n")
+	}
+	note := ""
+	if strings.Contains(original, "\r\n") && strings.Contains(original, "\n") &&
+		!strings.HasSuffix(original, "\n") {
+		note = "\n(注：文件含混合换行符，已按 CRLF 风格写回)"
+	}
+	if err := os.WriteFile(abs, []byte(result), 0644); err != nil {
 		return "", err
 	}
 	r.man.record("modified", abs)
-	return fmt.Sprintf("replaced 1 occurrence in %s\n%s", abs, diffSummary(string(b), nb, 40)), nil
+	return fmt.Sprintf("replaced 1 occurrence in %s\n%s%s", abs, diffSummary(original, result, 40), note), nil
 }
 
 // toolGrep moved to grep.go (T2 retrieval: ripgrep with Go fallback)
