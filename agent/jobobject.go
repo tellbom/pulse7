@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sync/atomic"
 	"syscall"
 	"time"
 	"unsafe"
@@ -16,10 +17,12 @@ import (
 // so the application-level guardrails (path policy / confirm gate / audit /
 // git rollback) remain the safety net.
 type jobObjectRunner struct {
-	Workspace   string
-	Home        string
-	Timeout     time.Duration
-	MemLimitMB  uint64
+	Workspace  string
+	Home       string
+	Timeout    time.Duration
+	MemLimitMB uint64
+
+	curJob uintptr // current job handle while a command runs (0 otherwise)
 }
 
 var (
@@ -70,6 +73,13 @@ type jobObjectExtendedLimit struct {
 
 func (j *jobObjectRunner) Mode() string { return "JobObject" }
 
+// Interrupt kills the whole current job tree (M4-T1 Ctrl-C path).
+func (j *jobObjectRunner) Interrupt() {
+	if job := atomic.LoadUintptr(&j.curJob); job != 0 {
+		procTerminateJobObject.Call(job, 1)
+	}
+}
+
 func (j *jobObjectRunner) Run(command string) (string, int, error) {
 	rf, err := buildRunFiles(j.Home, j.Workspace, command)
 	if err != nil {
@@ -82,6 +92,8 @@ func (j *jobObjectRunner) Run(command string) (string, int, error) {
 		return "", -1, errors.New("CreateJobObject failed")
 	}
 	defer procCloseHandle.Call(job)
+	atomic.StoreUintptr(&j.curJob, job)
+	defer atomic.StoreUintptr(&j.curJob, 0)
 
 	var info jobObjectExtendedLimit
 	info.BasicLimitInformation.LimitFlags = jobObjectLimitKillOnJobClose | jobObjectLimitJobMemory

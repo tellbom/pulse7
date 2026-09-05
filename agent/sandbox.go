@@ -15,6 +15,8 @@ import (
 type sandboxRunner interface {
 	Run(command string) (string, int, error)
 	Mode() string
+	// Interrupt kills whatever this runner is currently executing (M4-T1).
+	Interrupt()
 }
 
 // probeStartExe validates the REAL production shell path end-to-end: it runs

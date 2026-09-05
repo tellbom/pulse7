@@ -63,6 +63,12 @@ func runMock(seconds int) {
 		w.Header().Set("Content-Type", "text/event-stream")
 
 		switch {
+		case len(req.Tools) > 0 && strings.Contains(lastContent, "T1-HANG"):
+			emitCalls(w, fl, []mockCall{{0, "t1h", "shell",
+				`{"command": "ping -n 120 127.0.0.1 >nul & echo DONE-SLEEP"}`}})
+		case len(req.Tools) > 0 && strings.Contains(lastContent, "T1-WAIT"):
+			time.Sleep(25 * time.Second) // agent sits in Recv; Ctrl-C must cancel it
+			sseContent(w, fl, "MOCK-FINAL: slow reply after wait.")
 		case len(req.Tools) > 0 && hasT4max:
 			// never answers -> drives the agent into the round cap
 			emitCalls(w, fl, []mockCall{{0, "t4m-" + fmt.Sprint(nTools), "get_time", `{}`}})

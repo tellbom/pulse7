@@ -23,9 +23,20 @@ type sbxRunner struct {
 	Home        string
 	Workspace   string
 	Timeout     time.Duration
+
+	curCmd *exec.Cmd // current Start.exe host process while a command runs
 }
 
 func (s *sbxRunner) Mode() string { return "Sandboxie" }
+
+// Interrupt stops the current execution: kill the Start.exe host we spawned
+// and terminate the whole dedicated box (M4-T1 Ctrl-C path).
+func (s *sbxRunner) Interrupt() {
+	if c := s.curCmd; c != nil && c.Process != nil {
+		c.Process.Kill()
+	}
+	exec.Command(s.StartExe, "/box:"+s.Box, "/terminate").Run()
+}
 
 func (s *sbxRunner) Run(command string) (string, int, error) {
 	rf, err := buildRunFiles(s.Home, s.Workspace, command)
@@ -40,6 +51,8 @@ func (s *sbxRunner) Run(command string) (string, int, error) {
 	defer cancel()
 	cmd := exec.CommandContext(ctx, s.StartExe, "/silent", "/box:"+s.Box, "/wait", "cmd.exe", "/c", rf.batPath)
 	cmd.SysProcAttr = sysProcHidden()
+	s.curCmd = cmd
+	defer func() { s.curCmd = nil }()
 	consoleOut, runErr := cmd.CombinedOutput()
 	timedOut := ctx.Err() == context.DeadlineExceeded
 	if timedOut {

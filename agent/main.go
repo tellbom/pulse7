@@ -10,8 +10,10 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	openai "github.com/sashabaranov/go-openai"
@@ -46,6 +48,68 @@ var curCfg *config
 // errMaxRounds: the turn stopped at the round cap without a final answer.
 var errMaxRounds = errors.New("too many tool rounds")
 
+// M4-T1 interrupt machinery: first Ctrl-C = controlled stop (kill children,
+// complete the session, print the summary); second Ctrl-C = immediate exit.
+var (
+	interruptFlag int32
+	turnCancel    context.CancelFunc
+)
+
+var errInterrupted = errors.New("interrupted by user")
+
+func watchInterrupt() {
+	sig := make(chan os.Signal, 2)
+	signal.Notify(sig, os.Interrupt)
+	go func() {
+		for range sig {
+			if atomic.AddInt32(&interruptFlag, 1) >= 2 {
+				fmt.Println("\n[强制退出]")
+				os.Exit(130)
+			}
+			fmt.Println("\n[收到中断，正在停止（再按一次立即退出）…]")
+			if curRunner != nil {
+				curRunner.Interrupt()
+			}
+			if turnCancel != nil {
+				turnCancel()
+			}
+		}
+	}()
+}
+
+func interrupted() bool { return atomic.LoadInt32(&interruptFlag) > 0 }
+
+// finalizeInterrupted completes the session: unanswered tool_calls get a
+// synthetic result so --resume works, then the T4 summary is printed.
+func finalizeInterrupted(msgs *[]openai.ChatCompletionMessage, reg *Registry) {
+	const note = "用户中断，该调用未完成，无法确定是否已执行。\n" +
+		"请先用只读工具（read / ls / grep）检查当前实际状态，再决定下一步；若需重试请先向用户说明。"
+	answered := map[string]bool{}
+	for _, m := range *msgs {
+		if m.Role == openai.ChatMessageRoleTool {
+			answered[m.ToolCallID] = true
+		}
+	}
+	patched := 0
+	for _, m := range *msgs {
+		if m.Role != openai.ChatMessageRoleAssistant {
+			continue
+		}
+		for _, c := range m.ToolCalls {
+			if !answered[c.ID] {
+				pushMsg(msgs, openai.ChatCompletionMessage{
+					Role: openai.ChatMessageRoleTool, ToolCallID: c.ID, Content: note})
+				patched++
+			}
+		}
+	}
+	if patched > 0 {
+		fmt.Printf("[中断] 已为 %d 个未完成的工具调用补写结果\n", patched)
+	}
+	endOfTaskSummary(reg, false)
+	fmt.Println("=== 已中断；可用 --resume 继续本会话 ===")
+}
+
 func main() {
 	cfg := &config{}
 	flag.StringVar(&cfg.baseURL, "base-url", "http://127.0.0.1:8080/v1", "OpenAI-compatible base URL")
@@ -70,6 +134,7 @@ func main() {
 		cfg.exeDir = filepath.Dir(exe)
 	}
 	applyConfigToFlags(cfg, loadAgentConfig(configPath(cfg.exeDirStore())), flag.CommandLine)
+	watchInterrupt()
 
 	args := flag.Args()
 	sub := "repl"
@@ -185,6 +250,10 @@ func runExec(cfg *config, prompt string) {
 	fmt.Println("=== win7-agent exec (headless) ===")
 	pushMsg(&msgs, openai.ChatCompletionMessage{Role: openai.ChatMessageRoleUser, Content: prompt})
 	_, err = streamTurn(client, reg, cfg, &msgs)
+	if interrupted() {
+		finalizeInterrupted(&msgs, reg)
+		os.Exit(130)
+	}
 	endOfTaskSummary(reg, errors.Is(err, errMaxRounds))
 	if err != nil {
 		fmt.Println("EXEC-ERROR:", err)
@@ -238,6 +307,10 @@ func runRepl(cfg *config) {
 		}
 		pushMsg(&msgs, openai.ChatCompletionMessage{Role: openai.ChatMessageRoleUser, Content: line})
 		_, stErr := streamTurn(client, reg, cfg, &msgs)
+		if interrupted() {
+			finalizeInterrupted(&msgs, reg)
+			continue
+		}
 		endOfTaskSummary(reg, errors.Is(stErr, errMaxRounds))
 		if stErr != nil {
 			fmt.Println("ERROR:", stErr)
@@ -248,10 +321,12 @@ func runRepl(cfg *config) {
 // streamTurn runs one agent turn: stream reply; execute tool calls; feed results; loop until final answer.
 func streamTurn(client *openai.Client, reg *Registry, cfg *config, msgs *[]openai.ChatCompletionMessage) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-	defer cancel()
-	// M4-T0: cap raised 8->30; RC0.1's toy tasks burned all 8 rounds doing
-	// useful work (fix verified) and got cut off before the final answer.
+	turnCancel = cancel
+	defer func() { turnCancel = nil; cancel() }()
 	for round := 0; round < 30; round++ {
+		if interrupted() {
+			return "", errInterrupted
+		}
 		truncateContext(msgs, cfg.maxCtx)
 		req := openai.ChatCompletionRequest{
 			Model:    cfg.model,
@@ -273,6 +348,9 @@ func streamTurn(client *openai.Client, reg *Registry, cfg *config, msgs *[]opena
 			}
 			if err != nil {
 				stream.Close()
+				if interrupted() {
+					return "", errInterrupted
+				}
 				return "", err
 			}
 			if len(chunk.Choices) == 0 {
@@ -321,6 +399,9 @@ func streamTurn(client *openai.Client, reg *Registry, cfg *config, msgs *[]opena
 		}
 		pushMsg(msgs, openai.ChatCompletionMessage{Role: openai.ChatMessageRoleAssistant, ToolCalls: calls})
 		for _, c := range calls {
+			if interrupted() {
+				return "", errInterrupted
+			}
 			fmt.Printf("\n[tool] %s(%s)\n", c.Function.Name, c.Function.Arguments)
 			res := reg.Execute(c.Function.Name, c.Function.Arguments)
 			preview := strings.ReplaceAll(res, "\n", " | ")
