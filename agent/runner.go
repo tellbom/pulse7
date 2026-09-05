@@ -21,13 +21,13 @@ type runFiles struct {
 
 func buildRunFiles(home, workspace, command string) (*runFiles, error) {
 	id := strconv.FormatInt(time.Now().UnixNano(), 10)
-	dir := filepath.Join(home, ".win7-agent", "run", id)
+	dir := filepath.Join(home, ".pulse7", "run", id)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return nil, err
 	}
 	inner := filepath.Join(dir, "inner.cmd")
 	bat := filepath.Join(dir, "run.bat")
-	rel := `.win7-agent\run\` + id
+	rel := `.pulse7\run\` + id
 	if err := os.WriteFile(inner, []byte(command+"\r\n"), 0644); err != nil {
 		return nil, err
 	}
