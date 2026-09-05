@@ -1,0 +1,10 @@
+[mock] listening 127.0.0.1:8080
+[mock] tools=10 last_role=user nToolMsgs=0
+[mock] tools=10 last_role=tool nToolMsgs=1
+[mock] tools=10 last_role=tool nToolMsgs=2
+[mock] tools=10 last_role=tool nToolMsgs=3
+[mock] tools=0 last_role=user nToolMsgs=0
+[mock] tools=10 last_role=tool nToolMsgs=3
+[mock] tools=10 last_role=user nToolMsgs=0
+[mock] tools=10 last_role=tool nToolMsgs=1
+[mock] tools=10 last_role=tool nToolMsgs=2

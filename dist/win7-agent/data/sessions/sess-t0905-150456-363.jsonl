@@ -1,0 +1,12 @@
+{"role":"_meta","workspace":"E:\\win7-agent\\runtest2\\ws5"}
+{"role":"user","content":"M3-SMOKE suite"}
+{"role":"assistant","tool_calls":[{"id":"m3-read","type":"function","function":{"name":"read","arguments":"{\"path\": \"note.txt\"}"}},{"id":"m3-write","type":"function","function":{"name":"write","arguments":"{\"path\": \"m3/probe.txt\", \"content\": \"M3-PROBE-LINE\"}"}}]}
+{"role":"tool","content":"SUITE-NOTE\n","tool_call_id":"m3-read"}
+{"role":"tool","content":"created E:\\win7-agent\\runtest2\\ws5\\m3\\probe.txt (1 行)\n预览:\nM3-PROBE-LINE","tool_call_id":"m3-write"}
+{"role":"assistant","tool_calls":[{"id":"m3-ckpt","type":"function","function":{"name":"checkpoint","arguments":"{}"}}]}
+{"role":"tool","content":"checkpoint t0905-150456-363/1 (5265239, mode=private-checkpoint-repo, tree=13f046e, dirty-files=5)","tool_call_id":"m3-ckpt"}
+{"role":"assistant","tool_calls":[{"id":"m3-shell","type":"function","function":{"name":"shell","arguments":"{\"command\": \"echo M3-SHELL-OK \u003e m3shell.txt\"}"}}]}
+{"role":"tool","content":"exitcode=0\n[sandbox=JobObject]\n","tool_call_id":"m3-shell"}
+{"role":"assistant","tool_calls":[{"id":"m3-rb","type":"function","function":{"name":"rollback","arguments":"{}"}}]}
+{"role":"tool","content":"rolled back to refs/win7-agent/checkpoints/t0905-150456-363/1; worktree restored (checkpoints available: 12); manifest cleanup removed 1 agent-created files","tool_call_id":"m3-rb"}
+{"role":"assistant","content":"MOCK-FINAL: M3 suite complete."}

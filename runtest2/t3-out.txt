@@ -1,0 +1,17 @@
+sandbox: JobObject (auto-degraded: Sandboxie Start.exe not installed) - no system patch required
+=== win7-agent exec (headless) ===
+
+[tool] shell({"command": "git status"})
+[confirm] AUTO-ALLOWED (--yolo): git status
+[tool-result] exitcode=0 | [sandbox=JobObject] | On branch m3.1-hardening | Changes not staged for commit: |   (use "git add/rm <file>..." to update what will be committed) |   (use "git restore <file>..." to discard changes in working directory) | 	modified:   "../../Win7-Agent-\350\257\204\344\274\260\346\212\2 ...
+
+[tool] shell({"command": "git commit -m x"})
+[tool-result] error: 该 git 写操作已被 win7-agent 禁止（会绕过 checkpoint 保护，push 后无法回退）。请用日常语言向用户说明，由用户自行在终端执行。（被拦截: git commit）
+
+[tool] shell({"command": "git -C ws5 commit -m x"})
+[tool-result] error: 该 git 写操作已被 win7-agent 禁止（会绕过 checkpoint 保护，push 后无法回退）。请用日常语言向用户说明，由用户自行在终端执行。（被拦截: git commit）
+
+[tool] shell({"command": "git --git-dir=.git push origin main"})
+[tool-result] error: 该 git 写操作已被 win7-agent 禁止（会绕过 checkpoint 保护，push 后无法回退）。请用日常语言向用户说明，由用户自行在终端执行。（被拦截: git push）
+MOCK-FINAL: T3 git-guard sequence complete.
+=== EXEC-DONE ===

@@ -1,0 +1,19 @@
+@echo off
+rem Usage: set WIN7_AGENT_API_KEY first, then run this from the agent dir.
+rem Runs all 3 scenarios against the real model, saves sessions next to workspaces.
+setlocal
+set E=<E2E_DIR>
+set AGENT=<AGENT_DIR>
+cd /d %AGENT%
+echo ===== S1 =====
+%AGENT%\win7-agent.exe --base-url <BASE_URL> --model <MODEL> --workspace %E%\S1 --yolo --session %E%\out-s1.jsonl exec "运行 python calc.py 会报错。请修复这个脚本，使 4 个人平分 120 的金额并正确输出每人金额，应为 30.0。修复后运行验证。"
+python %E%\S1\calc.py
+echo ===== S2 =====
+cmd /c %E%\reset.cmd >nul
+%AGENT%\win7-agent.exe --base-url <BASE_URL> --model <MODEL> --workspace %E%\S2 --yolo --session %E%\out-s2.jsonl exec "给这个项目加一个小功能：在合适的文件里新增 trim 函数，参数 s，去除字符串首尾空格并返回；然后在 main.py 里对前后各带两个空格的 hello 字符串调用 trim 并打印结果。完成后运行 python main.py 验证输出包含 hello。"
+python %E%\S2\main.py
+echo ===== S3 =====
+cmd /c %E%\reset.cmd >nul
+%AGENT%\win7-agent.exe --base-url <BASE_URL> --model <MODEL> --workspace %E%\S3 --yolo --session %E%\out-s3.jsonl exec "把这个项目整理一下，让它更好。"
+echo [S3 workspace after]:
+dir /b %E%\S3

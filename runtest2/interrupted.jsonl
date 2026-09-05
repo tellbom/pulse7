@@ -1,0 +1,3 @@
+{"role":"user","content":"T1-HANG resumetest"}
+{"role":"assistant","tool_calls":[{"id":"t1h","type":"function","function":{"name":"shell","arguments":"{\"command\": \"ping -n 120 127.0.0.1 \u003enul \u0026 echo DONE-SLEEP\"}"}}]}
+{"role":"tool","content":"exitcode=-1\n[sandbox=JobObject]\n","tool_call_id":"t1h"}
