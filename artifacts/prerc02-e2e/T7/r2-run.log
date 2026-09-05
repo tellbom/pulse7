@@ -1,0 +1,12 @@
+找不到 C:\Users\user\win7-agent\t7-r2.cmd
+R2-START 2026/09/05 周六 17:28:39.09 
+R2-EXIT=%ERRORLEVEL% 
+fatal: detected dubious ownership in repository at 'C:/Users/user/T7/process-copy'
+'C:/Users/user/T7/process-copy' is owned by:
+	BUILTIN/Administrators (S-1-5-32-544)
+but the current user is:
+	WIN-65VKOKP8G13/user (S-1-5-21-917271793-1091559825-690284621-1000)
+To add an exception for this directory, call:
+
+	git config --global --add safe.directory C:/Users/user/T7/process-copy
+R2-DONE 2026/09/05 周六 17:32:18.03 

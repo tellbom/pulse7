@@ -8,3 +8,4 @@ real-e2e/agent.local.json
 dist/rc-0.1/
 runtest2/
 dist/win7-agent/data/
+artifacts/prerc02-e2e/T7/process-copy*
