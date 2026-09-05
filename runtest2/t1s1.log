@@ -1,5 +1,0 @@
-sandbox: JobObject (auto-degraded: Sandboxie Start.exe not installed) - no system patch required
-=== win7-agent exec (headless) ===
-
-[tool] shell({"command": "ping -n 120 127.0.0.1 >nul & echo DONE-SLEEP"})
-[confirm] AUTO-ALLOWED (--yolo): ping -n 120 127.0.0.1 >nul & echo DONE-SLEEP

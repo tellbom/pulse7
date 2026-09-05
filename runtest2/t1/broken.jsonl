@@ -1,2 +1,0 @@
-{"role":"user","content":"M3-SMOKE t1"}
-{"role":"assistant","tool_calls":[{"index":null,"id":"call-x1","type":"function","function":{"name":"get_time","arguments":"{}"}}]}
