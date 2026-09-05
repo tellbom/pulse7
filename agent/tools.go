@@ -261,6 +261,56 @@ func (r *Registry) toolShell(argsJSON string) (string, error) {
 	return fmt.Sprintf("exitcode=%d\n[sandbox=%s]\n%s", ec, r.runner.Mode(), out), nil
 }
 
+// diffSummary renders a bounded line diff (M4-T2): common prefix/suffix are
+// aligned, the changed middle gets +/- markers with 2 context lines on each
+// side, output is capped at cap lines with an overflow notice.
+func diffSummary(oldS, newS string, cap int) string {
+	norm := func(s string) []string { return strings.Split(strings.ReplaceAll(s, "\r\n", "\n"), "\n") }
+	o, n := norm(oldS), norm(newS)
+	pre := 0
+	for pre < len(o) && pre < len(n) && o[pre] == n[pre] {
+		pre++
+	}
+	suf := 0
+	for suf < len(o)-pre && suf < len(n)-pre && o[len(o)-1-suf] == n[len(n)-1-suf] {
+		suf++
+	}
+	lo := pre - 2
+	if lo < 0 {
+		lo = 0
+	}
+	hiN := len(n) - suf + 2
+	if hiN > len(n) {
+		hiN = len(n)
+	}
+	var b []string
+	if lo > 0 {
+		b = append(b, fmt.Sprintf("  (前略 %d 行未变)", lo))
+	}
+	for i := lo; i < pre; i++ {
+		b = append(b, "  "+o[i])
+	}
+	for i := pre; i < len(o)-suf; i++ {
+		b = append(b, "- "+o[i])
+	}
+	for i := pre; i < len(n)-suf; i++ {
+		b = append(b, "+ "+n[i])
+	}
+	for i := len(n) - suf; i < hiN; i++ {
+		b = append(b, "  "+n[i])
+	}
+	overflow := 0
+	if len(b) > cap {
+		overflow = len(b) - cap
+		b = b[:cap]
+	}
+	out := strings.Join(b, "\n")
+	if overflow > 0 {
+		out += fmt.Sprintf("\n... 另有 %d 行改动未显示", overflow)
+	}
+	return out
+}
+
 func (r *Registry) toolWrite(argsJSON string) (string, error) {
 	var a struct {
 		Path    string `json:"path"`
@@ -278,17 +328,32 @@ func (r *Registry) toolWrite(argsJSON string) (string, error) {
 	}
 	_, statErr := os.Stat(abs)
 	existed := statErr == nil
+	var oldText string
+	if existed {
+		if b, err := os.ReadFile(abs); err == nil {
+			oldText = string(b)
+		}
+	}
 	if err := os.WriteFile(abs, []byte(a.Content), 0644); err != nil {
 		return "", err
 	}
-	op := "modified"
-	if !existed {
-		op = "created"
-		r.man.record("created", abs)
-	} else {
+	if existed {
 		r.man.record("modified", abs)
+	} else {
+		r.man.record("created", abs)
 	}
-	return fmt.Sprintf("%s %s (%d bytes)", op, abs, len(a.Content)), nil
+	if !existed {
+		lines := strings.Count(a.Content, "\n") + 1
+		preview := strings.Split(strings.TrimRight(a.Content, "\n"), "\n")
+		if len(preview) > 5 {
+			preview = append(preview[:5], "...")
+		}
+		return fmt.Sprintf("created %s (%d 行)\n预览:\n%s", abs, lines, strings.Join(preview, "\n")), nil
+	}
+	if oldText != a.Content {
+		return fmt.Sprintf("modified %s\n%s", abs, diffSummary(oldText, a.Content, 40)), nil
+	}
+	return fmt.Sprintf("modified %s (内容未变化)", abs), nil
 }
 
 func (r *Registry) toolEdit(argsJSON string) (string, error) {
@@ -323,7 +388,7 @@ func (r *Registry) toolEdit(argsJSON string) (string, error) {
 		return "", err
 	}
 	r.man.record("modified", abs)
-	return fmt.Sprintf("replaced 1 occurrence in %s", abs), nil
+	return fmt.Sprintf("replaced 1 occurrence in %s\n%s", abs, diffSummary(string(b), nb, 40)), nil
 }
 
 func (r *Registry) toolGrep(argsJSON string) (string, error) {

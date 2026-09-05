@@ -26,7 +26,7 @@ func runMock(seconds int) {
 		json.Unmarshal(body, &req)
 		var lastRole, lastContent string
 		nTools := 0
-		hasM2Git, hasM3, hasT3, hasT4max, hasT4norm := false, false, false, false, false
+		hasM2Git, hasM3, hasT3, hasT4max, hasT4norm, hasT2diff := false, false, false, false, false, false
 		for _, m := range req.Messages {
 			if m.Role == openai.ChatMessageRoleTool {
 				nTools++
@@ -47,6 +47,9 @@ func runMock(seconds int) {
 				if strings.Contains(m.Content, "T4-NORM") {
 					hasT4norm = true
 				}
+				if strings.Contains(m.Content, "T2DIFF") {
+					hasT2diff = true
+				}
 			}
 		}
 		if n := len(req.Messages); n > 0 {
@@ -63,6 +66,23 @@ func runMock(seconds int) {
 		w.Header().Set("Content-Type", "text/event-stream")
 
 		switch {
+		case len(req.Tools) > 0 && hasT2diff:
+			switch nTools {
+			case 0:
+				emitCalls(w, fl, []mockCall{{0, "t2d-w", "write",
+					`{"path": "small.txt", "content": "a\nb\nc\nd\ne\nf\ng"}`}})
+			case 1:
+				emitCalls(w, fl, []mockCall{{0, "t2d-e", "edit",
+					`{"path": "small.txt", "old_string": "d", "new_string": "D-CHANGED"}`}})
+			case 2:
+				emitCalls(w, fl, []mockCall{{0, "t2d-s", "shell",
+					`{"command": "for /l %%i in (1,1,500) do @echo line%%i >> big.txt"}`}})
+			case 3:
+				emitCalls(w, fl, []mockCall{{0, "t2d-w2", "write",
+					`{"path": "big.txt", "content": "short now"}`}})
+			default:
+				sseContent(w, fl, "MOCK-FINAL: T2 diff sequence complete.")
+			}
 		case len(req.Tools) > 0 && strings.Contains(lastContent, "T1-HANG"):
 			emitCalls(w, fl, []mockCall{{0, "t1h", "shell",
 				`{"command": "ping -n 120 127.0.0.1 >nul & echo DONE-SLEEP"}`}})
