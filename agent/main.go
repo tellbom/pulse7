@@ -273,6 +273,16 @@ func newTaskID() string {
 
 // loadAgentMd reads workspace AGENT.md as project conventions for the system
 // prompt (M4-T3). Hard cap 8KB with an explicit truncation warning.
+// baseSystemPrompt is the always-on behavior prompt (prompt-tune round):
+// vague requirements -> inspect first, then ask the user ONE concrete
+// question instead of inferring scope; write/edit touch only what was asked.
+func baseSystemPrompt() string {
+	return "你是运行在用户工作区里的编程助手。行为准则：\n" +
+		"1. 如果任务描述不明确（范围、目标或验收标准看不清），先用只读工具（read / ls / grep）了解现状，" +
+		"然后向用户提一个具体的问题，等回答后再动手；不要自行推断需求范围。\n" +
+		"2. 只做用户明确要求的改动；没有要求的事情（重构、重命名、移动文件、建目录）即使看起来更好也不要做。\n" +
+		"3. 动手前先 checkpoint，改动后验证，最后简要说明改了什么、怎么验证的。"
+}
 func loadAgentMd(ws string) string {
 	b, err := os.ReadFile(filepath.Join(ws, "AGENT.md"))
 	if err != nil || len(b) == 0 {
@@ -318,10 +328,12 @@ func runExec(cfg *config, prompt string) {
 	}
 	fmt.Println("=== win7-agent exec (headless) ===")
 	if len(msgs) == 0 {
+		sys := baseSystemPrompt()
 		if s := loadAgentMd(cfg.workspace); s != "" {
-			pushMsg(&msgs, openai.ChatCompletionMessage{Role: openai.ChatMessageRoleSystem, Content: s})
+			sys += "\n\n" + s
 			fmt.Printf("[AGENT.md] 已注入项目约定（%d 字节）\n", len(s))
 		}
+		pushMsg(&msgs, openai.ChatCompletionMessage{Role: openai.ChatMessageRoleSystem, Content: sys})
 	}
 	pushMsg(&msgs, openai.ChatCompletionMessage{Role: openai.ChatMessageRoleUser, Content: prompt})
 	_, err = streamTurn(client, reg, cfg, &msgs)
@@ -363,10 +375,12 @@ func runRepl(cfg *config) {
 	}
 	fmt.Println("win7-agent M2 REPL (model:", cfg.model, "workspace:", reg.policy.Workspace, ")")
 	if len(msgs) == 0 {
+		sys := baseSystemPrompt()
 		if s := loadAgentMd(cfg.workspace); s != "" {
-			pushMsg(&msgs, openai.ChatCompletionMessage{Role: openai.ChatMessageRoleSystem, Content: s})
+			sys += "\n\n" + s
 			fmt.Printf("[AGENT.md] 已注入项目约定（%d 字节）\n", len(s))
 		}
+		pushMsg(&msgs, openai.ChatCompletionMessage{Role: openai.ChatMessageRoleSystem, Content: sys})
 	}
 	fmt.Println("commands: /exit /clear")
 	sc := bufio.NewScanner(os.Stdin)

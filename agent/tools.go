@@ -92,7 +92,7 @@ func NewRegistry(policy *Policy, runner sandboxRunner, auditPath, manPath string
 	r.register(openai.Tool{
 		Type: openai.ToolTypeFunction,
 		Function: &openai.FunctionDefinition{
-			Name: "write", Description: "Create or overwrite a text file inside the workspace.",
+			Name: "write", Description: "Create or overwrite a text file inside the workspace. ONLY write what the user explicitly asked for - do not create extra files, restructure, or 'improve' beyond the request.",
 			Parameters: map[string]interface{}{"type": "object", "properties": map[string]interface{}{
 				"path":    map[string]interface{}{"type": "string"},
 				"content": map[string]interface{}{"type": "string"},
@@ -102,7 +102,7 @@ func NewRegistry(policy *Policy, runner sandboxRunner, auditPath, manPath string
 	r.register(openai.Tool{
 		Type: openai.ToolTypeFunction,
 		Function: &openai.FunctionDefinition{
-			Name: "edit", Description: "Replace an exact unique string in a file. Fails if not found or ambiguous.",
+			Name: "edit", Description: "Replace an exact unique string in a file. Fails if not found or ambiguous. ONLY make the change the user asked for - no opportunistic refactors or renames.",
 			Parameters: map[string]interface{}{"type": "object", "properties": map[string]interface{}{
 				"path": map[string]interface{}{"type": "string"},
 				"old_string": map[string]interface{}{"type": "string"},
