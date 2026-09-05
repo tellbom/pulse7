@@ -303,7 +303,8 @@ func baseSystemPrompt() string {
 		"1. 如果任务描述不明确（范围、目标或验收标准看不清），先用只读工具（read / ls / grep）了解现状，" +
 		"然后向用户提一个具体的问题，等回答后再动手；不要自行推断需求范围。\n" +
 		"2. 只做用户明确要求的改动；没有要求的事情（重构、重命名、移动文件、建目录）即使看起来更好也不要做。\n" +
-		"3. 动手前先 checkpoint，改动后验证，最后简要说明改了什么、怎么验证的。"
+		"3. 动手前先 checkpoint，最后简要说明改了什么。改动后如需验证，运行程序或测试（例如 python x.py）。" +
+			"不要用 type / more / findstr 等命令回读文件来确认内容——工具返回的 diff 已经是准确的。"
 }
 func loadAgentMd(ws string) string {
 	b, err := os.ReadFile(filepath.Join(ws, "AGENT.md"))
