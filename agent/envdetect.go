@@ -145,6 +145,11 @@ func doctorCmd(cfg *config) {
 	}
 	fmt.Printf("config file: %s (exists=%v)\n", configPath(cfg.exeDirStore()), fileExists(configPath(cfg.exeDirStore())))
 	fmt.Printf("workspace: %s\n", ws)
+	if fi, err := os.Stat(filepath.Join(ws, "AGENT.md")); err == nil {
+		fmt.Printf("agent.md: detected (%d bytes, injected into system prompt)\n", fi.Size())
+	} else {
+		fmt.Println("agent.md: not found (optional project conventions file)")
+	}
 
 	runner, reason, report := selectSandboxMode(cfg, ws, true)
 	for _, line := range report {

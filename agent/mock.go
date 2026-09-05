@@ -66,6 +66,14 @@ func runMock(seconds int) {
 		w.Header().Set("Content-Type", "text/event-stream")
 
 		switch {
+		case len(req.Tools) > 0 && strings.Contains(lastContent, "T3AGMD"):
+			// verification trigger: checks AGENT.md really reached the model
+			if len(req.Messages) > 0 && req.Messages[0].Role == openai.ChatMessageRoleSystem &&
+				strings.Contains(req.Messages[0].Content, "禁止使用 f-string") {
+				sseContent(w, fl, "MOCK-FINAL: AGENTMD-OK (system prompt carries conventions)")
+			} else {
+				sseContent(w, fl, "MOCK-FINAL: AGENTMD-MISSING (no system conventions)")
+			}
 		case len(req.Tools) > 0 && hasT2diff:
 			switch nTools {
 			case 0:

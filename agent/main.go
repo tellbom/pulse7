@@ -224,6 +224,27 @@ func newTaskID() string {
 	return fmt.Sprintf("t%s-%03d", now.Format("0102-150405"), now.Nanosecond()/1e6)
 }
 
+// loadAgentMd reads workspace AGENT.md as project conventions for the system
+// prompt (M4-T3). Hard cap 8KB with an explicit truncation warning.
+func loadAgentMd(ws string) string {
+	b, err := os.ReadFile(filepath.Join(ws, "AGENT.md"))
+	if err != nil || len(b) == 0 {
+		return ""
+	}
+	const max = 8 << 10
+	truncated := false
+	if len(b) > max {
+		b = b[:max]
+		truncated = true
+	}
+	s := "以下是本项目的约定（来自工作区 AGENT.md），必须遵守：\n" + string(b)
+	if truncated {
+		fmt.Println("[警告] AGENT.md 超过 8KB，已截断后注入")
+		s += "\n（AGENT.md 过长，以上为截断内容）"
+	}
+	return s
+}
+
 func runExec(cfg *config, prompt string) {
 	taskID := newTaskID()
 	client := newClient(cfg)
@@ -248,6 +269,12 @@ func runExec(cfg *config, prompt string) {
 		fmt.Printf("resumed %d messages from %s\n", len(msgs), cfg.resumePath)
 	}
 	fmt.Println("=== win7-agent exec (headless) ===")
+	if len(msgs) == 0 {
+		if s := loadAgentMd(cfg.workspace); s != "" {
+			pushMsg(&msgs, openai.ChatCompletionMessage{Role: openai.ChatMessageRoleSystem, Content: s})
+			fmt.Printf("[AGENT.md] 已注入项目约定（%d 字节）\n", len(s))
+		}
+	}
 	pushMsg(&msgs, openai.ChatCompletionMessage{Role: openai.ChatMessageRoleUser, Content: prompt})
 	_, err = streamTurn(client, reg, cfg, &msgs)
 	if interrupted() {
@@ -286,6 +313,12 @@ func runRepl(cfg *config) {
 		fmt.Printf("resumed %d messages\n", len(msgs))
 	}
 	fmt.Println("win7-agent M2 REPL (model:", cfg.model, "workspace:", reg.policy.Workspace, ")")
+	if len(msgs) == 0 {
+		if s := loadAgentMd(cfg.workspace); s != "" {
+			pushMsg(&msgs, openai.ChatCompletionMessage{Role: openai.ChatMessageRoleSystem, Content: s})
+			fmt.Printf("[AGENT.md] 已注入项目约定（%d 字节）\n", len(s))
+		}
+	}
 	fmt.Println("commands: /exit /clear")
 	sc := bufio.NewScanner(os.Stdin)
 	sc.Buffer(make([]byte, 64*1024), 256*1024)
