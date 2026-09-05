@@ -1,0 +1,29 @@
+SR-START 2026/09/05 ÷‹¡˘ 20:23:58.35 
+===== S1 ===== 
+===== S2 ===== 
+add: 5
+hello
+===== S3 ===== 
+notes.txt
+===== R1 ===== 
+fatal: detected dubious ownership in repository at 'C:/Users/user/T7/process-copy'
+'C:/Users/user/T7/process-copy' is owned by:
+	BUILTIN/Administrators (S-1-5-32-544)
+but the current user is:
+	WIN-65VKOKP8G13/user (S-1-5-21-917271793-1091559825-690284621-1000)
+To add an exception for this directory, call:
+
+	git config --global --add safe.directory C:/Users/user/T7/process-copy
+[project-copy] CLEAN - ready for testing
+===== R2 ===== 
+fatal: detected dubious ownership in repository at 'C:/Users/user/T7/process-copy'
+'C:/Users/user/T7/process-copy' is owned by:
+	BUILTIN/Administrators (S-1-5-32-544)
+but the current user is:
+	WIN-65VKOKP8G13/user (S-1-5-21-917271793-1091559825-690284621-1000)
+To add an exception for this directory, call:
+
+	git config --global --add safe.directory C:/Users/user/T7/process-copy
+[project-copy] CLEAN - ready for testing
+===== Gate A ===== 
+SR-ALL-DONE 2026/09/05 ÷‹¡˘ 20:31:05.19 
