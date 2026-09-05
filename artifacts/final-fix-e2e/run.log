@@ -1,0 +1,40 @@
+FF-START 2026/09/05 ÷‹¡˘ 23:23:15.74 
+===== S1 ===== 
+each pays: 30.0
+===== S2 (T1 verdict) ===== 
+add: 5
+hello
+===== S3 ===== 
+notes.txt
+===== R1 ===== 
+fatal: detected dubious ownership in repository at 'C:/Users/user/T7/process-copy'
+'C:/Users/user/T7/process-copy' is owned by:
+	BUILTIN/Administrators (S-1-5-32-544)
+but the current user is:
+	WIN-65VKOKP8G13/user (S-1-5-21-917271793-1091559825-690284621-1000)
+To add an exception for this directory, call:
+
+	git config --global --add safe.directory C:/Users/user/T7/process-copy
+[project-copy] CLEAN - ready for testing
+===== R2 run 1 ===== 
+fatal: detected dubious ownership in repository at 'C:/Users/user/T7/process-copy'
+'C:/Users/user/T7/process-copy' is owned by:
+	BUILTIN/Administrators (S-1-5-32-544)
+but the current user is:
+	WIN-65VKOKP8G13/user (S-1-5-21-917271793-1091559825-690284621-1000)
+To add an exception for this directory, call:
+
+	git config --global --add safe.directory C:/Users/user/T7/process-copy
+[project-copy] CLEAN - ready for testing
+===== R2 run 2 ===== 
+fatal: detected dubious ownership in repository at 'C:/Users/user/T7/process-copy'
+'C:/Users/user/T7/process-copy' is owned by:
+	BUILTIN/Administrators (S-1-5-32-544)
+but the current user is:
+	WIN-65VKOKP8G13/user (S-1-5-21-917271793-1091559825-690284621-1000)
+To add an exception for this directory, call:
+
+	git config --global --add safe.directory C:/Users/user/T7/process-copy
+[project-copy] CLEAN - ready for testing
+===== Gate A ===== 
+FF-DONE 2026/09/05 ÷‹¡˘ 23:37:02.78 
