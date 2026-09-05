@@ -6,6 +6,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
+	"strings"
+	"time"
 
 	openai "github.com/sashabaranov/go-openai"
 )
@@ -43,6 +46,20 @@ func (s *session) Close() {
 	}
 }
 
+// writeMeta stamps a first meta line (workspace) on a FRESH session file so
+// --list can show where each session worked (M4-T5).
+func (s *session) writeMeta(workspace string) {
+	if s == nil {
+		return
+	}
+	if fi, err := s.f.Stat(); err == nil && fi.Size() > 0 {
+		return
+	}
+	if b, err := json.Marshal(map[string]string{"role": "_meta", "workspace": workspace}); err == nil {
+		s.f.Write(append(b, '\n'))
+	}
+}
+
 func loadSession(path string) ([]openai.ChatCompletionMessage, error) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -54,7 +71,7 @@ func loadSession(path string) ([]openai.ChatCompletionMessage, error) {
 	sc.Buffer(make([]byte, 64*1024), 1024*1024)
 	for sc.Scan() {
 		var m openai.ChatCompletionMessage
-		if err := json.Unmarshal(sc.Bytes(), &m); err == nil {
+		if err := json.Unmarshal(sc.Bytes(), &m); err == nil && m.Role != "" && m.Role != "_meta" {
 			msgs = append(msgs, m)
 		}
 	}
@@ -134,6 +151,66 @@ func endOfTaskSummary(r *Registry, maxed bool) {
 // Used by rollback to remove only agent-created leftovers — never `git clean`.
 type manifest struct {
 	path string
+}
+
+// sessionInfo is one --list row (M4-T5).
+type sessionInfo struct {
+	path      string
+	mtime     time.Time
+	workspace string
+	firstUser string
+	count     int
+}
+
+func listSessions(dir string, limit int) []sessionInfo {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil
+	}
+	var infos []sessionInfo
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasPrefix(e.Name(), "sess-") || !strings.HasSuffix(e.Name(), ".jsonl") {
+			continue
+		}
+		p := filepath.Join(dir, e.Name())
+		fi, err := e.Info()
+		if err != nil {
+			continue
+		}
+		info := sessionInfo{path: p, mtime: fi.ModTime()}
+		if f, err := os.Open(p); err == nil {
+			sc := bufio.NewScanner(f)
+			sc.Buffer(make([]byte, 64*1024), 1024*1024)
+			for sc.Scan() {
+				var m struct {
+					Role      string `json:"role"`
+					Content   string `json:"content"`
+					Workspace string `json:"workspace"`
+				}
+				if json.Unmarshal(sc.Bytes(), &m) != nil || m.Role == "" || m.Role == "_meta" {
+					if m.Role == "_meta" {
+						info.workspace = m.Workspace
+					}
+					continue
+				}
+				if m.Role == openai.ChatMessageRoleUser && info.firstUser == "" {
+					r := []rune(m.Content)
+					if len(r) > 60 {
+						r = r[:60]
+					}
+					info.firstUser = string(r)
+				}
+				info.count++
+			}
+			f.Close()
+		}
+		infos = append(infos, info)
+	}
+	sort.Slice(infos, func(i, j int) bool { return infos[i].mtime.After(infos[j].mtime) })
+	if len(infos) > limit {
+		infos = infos[:limit]
+	}
+	return infos
 }
 
 func (m *manifest) record(op, p string) {

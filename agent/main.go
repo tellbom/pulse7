@@ -31,6 +31,7 @@ type config struct {
 	memLimitMB                       int
 	cleanupOnExit                    bool
 	exeDir                           string
+	listSessions                     bool
 }
 
 func (c *config) exeDirStore() string {
@@ -124,6 +125,7 @@ func main() {
 	flag.IntVar(&cfg.maxCtx, "max-ctx", 48000, "max context chars before truncation")
 	flag.StringVar(&cfg.sessionPath, "session", "", "session .jsonl path (default auto)")
 	flag.StringVar(&cfg.resumePath, "resume", "", "resume from a session .jsonl")
+	flag.BoolVar(&cfg.listSessions, "list", false, "list recent sessions (time/workspace/first message/count)")
 	flag.StringVar(&cfg.sandboxPreference, "sandbox-preference", "auto", "auto | sandboxie | jobobject")
 	flag.IntVar(&cfg.memLimitMB, "memory-limit-mb", 2048, "JobObject memory cap in MB")
 	flag.BoolVar(&cfg.cleanupOnExit, "cleanup-on-exit", true, "terminate + clear agent sandbox box on exit")
@@ -135,6 +137,19 @@ func main() {
 	}
 	applyConfigToFlags(cfg, loadAgentConfig(configPath(cfg.exeDirStore())), flag.CommandLine)
 	watchInterrupt()
+
+	if cfg.listSessions {
+		dir := filepath.Join(cfg.exeDirStore(), "data", "sessions")
+		fmt.Printf("%-20s %-28s %4s  %s\n", "TIME", "WORKSPACE", "MSG", "FIRST MESSAGE")
+		for _, si := range listSessions(dir, 20) {
+			fmt.Printf("%-20s %-28s %4d  %s\n",
+				si.mtime.Format("01-02 15:04:05"),
+				func() string { w := si.workspace; if len(w) > 28 { w = "..." + w[len(w)-25:] }; return w }(),
+				si.count, si.firstUser)
+			_ = si.path
+		}
+		return
+	}
 
 	args := flag.Args()
 	sub := "repl"
@@ -210,7 +225,39 @@ func openSessionFor(cfg *config, taskID string) (*session, error) {
 		exe, _ := os.Executable()
 		path = filepath.Join(filepath.Dir(exe), "data", "sessions", "sess-"+taskID+".jsonl")
 	}
-	return openSession(path)
+	s, err := openSession(path)
+	if err == nil {
+		s.writeMeta(cfg.workspace)
+	}
+	return s, err
+}
+
+// resolveResume maps --resume values (M4-T5): a path or a session id
+// (filename stem) or "latest"; empty returns empty (no resume).
+func resolveResume(cfg *config, v string) string {
+	if v == "" || v == "latest" {
+		if v == "" {
+			return ""
+		}
+		infos := listSessions(filepath.Join(cfg.exeDirStore(), "data", "sessions"), 1)
+		if len(infos) == 0 {
+			return ""
+		}
+		return infos[0].path
+	}
+	if _, err := os.Stat(v); err == nil {
+		return v
+	}
+	dir := filepath.Join(cfg.exeDirStore(), "data", "sessions")
+	for _, cand := range []string{
+		filepath.Join(dir, v+".jsonl"),
+		filepath.Join(dir, "sess-"+v+".jsonl"),
+	} {
+		if _, err := os.Stat(cand); err == nil {
+			return cand
+		}
+	}
+	return v // let loadSession produce the error message
 }
 
 // pushMsg appends to the conversation and records it in the session file.
@@ -253,6 +300,7 @@ func runExec(cfg *config, prompt string) {
 		fmt.Println("SETUP-ERROR:", err)
 		os.Exit(1)
 	}
+	resumeTarget := resolveResume(cfg, cfg.resumePath) // resolve BEFORE the new session file makes itself "latest"
 	s, err := openSessionFor(cfg, taskID)
 	if err == nil {
 		sess = s
@@ -260,13 +308,13 @@ func runExec(cfg *config, prompt string) {
 	}
 	defer sessionEndCleanup(curRunner, curCfg)
 	var msgs []openai.ChatCompletionMessage
-	if cfg.resumePath != "" {
-		msgs, err = loadSession(cfg.resumePath)
+	if resumeTarget != "" {
+		msgs, err = loadSession(resumeTarget)
 		if err != nil {
 			fmt.Println("RESUME-ERROR:", err)
 			os.Exit(1)
 		}
-		fmt.Printf("resumed %d messages from %s\n", len(msgs), cfg.resumePath)
+		fmt.Printf("resumed %d messages from %s\n", len(msgs), resumeTarget)
 	}
 	fmt.Println("=== win7-agent exec (headless) ===")
 	if len(msgs) == 0 {
@@ -297,6 +345,7 @@ func runRepl(cfg *config) {
 		fmt.Println("SETUP-ERROR:", err)
 		os.Exit(1)
 	}
+	resumeTarget := resolveResume(cfg, cfg.resumePath) // resolve BEFORE the new session file makes itself "latest"
 	s, err := openSessionFor(cfg, taskID)
 	if err == nil {
 		sess = s
@@ -304,13 +353,13 @@ func runRepl(cfg *config) {
 	}
 	defer sessionEndCleanup(curRunner, curCfg)
 	var msgs []openai.ChatCompletionMessage
-	if cfg.resumePath != "" {
-		msgs, err = loadSession(cfg.resumePath)
+	if resumeTarget != "" {
+		msgs, err = loadSession(resumeTarget)
 		if err != nil {
 			fmt.Println("RESUME-ERROR:", err)
 			os.Exit(1)
 		}
-		fmt.Printf("resumed %d messages\n", len(msgs))
+		fmt.Printf("resumed %d messages from %s\n", len(msgs), resumeTarget)
 	}
 	fmt.Println("win7-agent M2 REPL (model:", cfg.model, "workspace:", reg.policy.Workspace, ")")
 	if len(msgs) == 0 {
