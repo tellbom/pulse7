@@ -80,7 +80,8 @@ go vet ./...
 1. **中文经 cmd/plink 会乱码**：cmd 按 GBK 读脚本。给 pulse7 传中文 prompt 的可靠模式 = prompt 存 UTF-8 文件 + PowerShell 读取后启动（模板：`C:\Users\user\win7-agent\snrun.cmd`，本地版 `E:\agent-uat\vm\runagent2.cmd`）。
 2. **PowerShell 2.0（Win7）把无 BOM 的 UTF-8 .ps1 当 ANSI 读**：ps1 里的中文字面量必坏。ps1 只写 ASCII，中文用 `[char]0xXXXX` 拼或 base64 内嵌。
 3. **bash printf 会吃 `\u` `\t` 等转义**：写含反斜杠/中文的文件用 python 脚本（`open(...,'wb').write(...)`）或编辑器直写，别用 printf/heredoc 内联。
-4. **zip 经 Shell COM 解压会把 UTF-8 文件名变 mojibake**：中文名文件用 base64 内嵌的 ps1 在目标机生成；整目录传输用 `pscp -r`。
+4. **zip 经 Shell COM 解压会把 UTF-8 文件名变 mojibake；pscp 传中文名文件同样会毁文件名**（sshd 侧按 GBK 建名）。中文名文件一律用 base64 内嵌的 ps1 在目标机生成（模板 `E:gent-uatm\mdfix.ps1` 生成器）；`pscp -r` 只用于纯 ASCII 文件名的目录。
+5. **给 Win7 用户看的 md/txt 一律 UTF-8 带 BOM**：Win7 记事本无 BOM 即按 ANSI 打开必乱码（真实用户首次试用即踩中，2026-09-06）。
 5. VM 上中文目录操作：先 `powershell -File list2.ps1`（`E:\agent-uat\vm\list2.ps1` 模式）拿真实 Unicode 名再引用。
 6. `pulse7` 每次 exec（含 --resume）都会建新 session 文件的历史行为在 rc-0.4 已改为 resume 复用原文件；EXEC-ERROR 会留空文件的问题也已修（惰性落盘）。
 
