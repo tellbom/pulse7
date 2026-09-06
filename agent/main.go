@@ -522,7 +522,7 @@ func runRepl(cfg *config) {
 		}
 		pushMsg(&msgs, openai.ChatCompletionMessage{Role: openai.ChatMessageRoleSystem, Content: sys})
 	}
-	outln("commands: /exit /clear")
+	outln("命令：/help /list /clear /exit（Ctrl-C 中止当前轮，会话保留）")
 	sc := bufio.NewScanner(os.Stdin)
 	sc.Buffer(make([]byte, 64*1024), 256*1024)
 	for {
@@ -533,14 +533,36 @@ func runRepl(cfg *config) {
 		// typed input follows the console codepage (GBK on a Chinese cmd);
 		// decode for the model — valid UTF-8 (pipe, or chcp 65001) passes through.
 		line := strings.TrimSpace(decodeShellOutput(sc.Bytes()))
-		switch line {
-		case "":
+		switch {
+		case line == "":
 			continue
-		case "/exit", "/quit":
+		case line == "/exit" || line == "/quit":
 			return
-		case "/clear":
+		case line == "/clear":
 			msgs = nil
-			fmt.Println("[context cleared]")
+			outln("[上下文已清空，可以开始新任务（历史会话文件保留）]")
+			continue
+		case line == "/help":
+			outln("可用命令：")
+			outln("  /help  显示本帮助")
+			outln("  /list  列出历史会话")
+			outln("  /clear 清空当前上下文，开始新任务（不删会话文件）")
+			outln("  /exit  退出（等同 /quit）")
+			outln("直接输入其他内容即作为任务发给模型。")
+			continue
+		case line == "/list":
+			dir := filepath.Join(cfg.exeDirStore(), "data", "sessions")
+			outln("历史会话（最近 20 条）：")
+			for _, si := range listSessions(dir, 20) {
+				w := si.workspace
+				if len(w) > 28 {
+					w = "..." + w[len(w)-25:]
+				}
+				out("%-20s %-28s %4d  %s\n", si.mtime.Format("01-02 15:04:05"), w, si.count, si.firstUser)
+			}
+			continue
+		case strings.HasPrefix(line, "/"):
+			outln("[未知命令 " + line + "——/help 查看可用命令；如需作为任务发送请去掉开头的 /]")
 			continue
 		}
 		pushMsg(&msgs, openai.ChatCompletionMessage{Role: openai.ChatMessageRoleUser, Content: line})
