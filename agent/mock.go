@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	openai "github.com/sashabaranov/go-openai"
@@ -19,6 +21,7 @@ import (
 //   tool result -> final answer echoing results
 //   otherwise   -> plain streaming text
 func runMock(seconds int) {
+	var slow500Count int32
 	mux := http.NewServeMux()
 	mux.HandleFunc("/v1/chat/completions", func(w http.ResponseWriter, r *http.Request) {
 		body, _ := io.ReadAll(r.Body)
@@ -63,6 +66,65 @@ func runMock(seconds int) {
 			lastContent = req.Messages[n-1].Content
 		}
 		fmt.Printf("[mock] tools=%d last_role=%s nToolMsgs=%d\n", len(req.Tools), lastRole, nTools)
+
+		// slow-network test triggers (test infrastructure for T1/T2):
+		//   SLOWDRIP delay=30s count=20 -> one chunk every delay, count times
+		//   SLOWQUEUE delay=45s          -> total silence, then a normal answer
+		//   SLOWSTALL                    -> connection open, never a first chunk
+		//   SLOWMID                      -> one chunk, then the stream stalls
+		//   FAIL500ONCE                  -> first request 500, retries succeed
+		//   FAIL401ALWAYS                -> permanent 401 (must NOT be retried)
+		if tok, params := slowTrigger(req); tok != "" {
+			switch tok {
+			case "FAIL500ONCE":
+				if atomic.AddInt32(&slow500Count, 1) == 1 {
+					http.Error(w, "mock 500 once", 500)
+					return
+				}
+				fl, _ := w.(http.Flusher)
+				w.Header().Set("Content-Type", "text/event-stream")
+				sseContent(w, fl, "MOCK-FINAL: recovered after one 500.")
+				fmt.Fprint(w, "data: [DONE]\n\n")
+				fl.Flush()
+				return
+			case "FAIL401ALWAYS":
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(401)
+				json.NewEncoder(w).Encode(map[string]interface{}{
+					"error": map[string]interface{}{"message": "invalid api key", "type": "auth", "code": "invalid_api_key"},
+				})
+				return
+			}
+			fl, ok := w.(http.Flusher)
+			if !ok {
+				http.Error(w, "no flusher", 500)
+				return
+			}
+			w.Header().Set("Content-Type", "text/event-stream")
+			switch tok {
+			case "SLOWDRIP":
+				for i := 0; i < params.count; i++ {
+					time.Sleep(params.delay)
+					sseContent(w, fl, fmt.Sprintf("drip-%d ", i+1))
+				}
+				sseContent(w, fl, "MOCK-FINAL: slow drip finished.")
+			case "SLOWQUEUE":
+				time.Sleep(params.delay)
+				sseContent(w, fl, "MOCK-FINAL: answered after a long queue.")
+			case "SLOWSTALL":
+				fl.Flush()
+				time.Sleep(2 * time.Hour) // no first chunk, ever
+				return
+			case "SLOWMID":
+				sseContent(w, fl, "first-chunk-")
+				fl.Flush()
+				time.Sleep(2 * time.Hour) // stream established, then stalls
+				return
+			}
+			fmt.Fprint(w, "data: [DONE]\n\n")
+			fl.Flush()
+			return
+		}
 
 		// M4-T4: non-stream summarize requests get a plain JSON completion
 		// (go-openai parses JSON, not SSE, for CreateChatCompletion).
@@ -262,6 +324,49 @@ type mockCall struct {
 	idx          int
 	id, name, ar string
 }
+
+// slowTriggerParams carries the parsed delay=/count= fields of a slow-network
+// trigger prompt (defaults: 30s drip interval, 20 chunks = 10 minutes).
+type slowTriggerParams struct {
+	delay time.Duration
+	count int
+}
+
+// slowTrigger scans the conversation for the first user message carrying a
+// slow-network trigger token and returns (token, params).
+func slowTrigger(req openai.ChatCompletionRequest) (string, slowTriggerParams) {
+	p := slowTriggerParams{delay: 30 * time.Second, count: 20}
+	for _, m := range req.Messages {
+		if m.Role != openai.ChatMessageRoleUser {
+			continue
+		}
+		tok := ""
+		for _, t := range []string{"SLOWDRIP", "SLOWQUEUE", "SLOWSTALL", "SLOWMID", "FAIL500ONCE", "FAIL401ALWAYS"} {
+			if strings.Contains(m.Content, t) {
+				tok = t
+				break
+			}
+		}
+		if tok == "" {
+			continue
+		}
+		for _, f := range strings.Fields(m.Content) {
+			if strings.HasPrefix(f, "delay=") {
+				if d, err := time.ParseDuration(strings.TrimPrefix(f, "delay=")); err == nil {
+					p.delay = d
+				}
+			}
+			if strings.HasPrefix(f, "count=") {
+				if n, err := strconv.Atoi(strings.TrimPrefix(f, "count=")); err == nil && n > 0 {
+					p.count = n
+				}
+			}
+		}
+		return tok, p
+	}
+	return "", p
+}
+
 
 func emitCalls(w http.ResponseWriter, fl http.Flusher, calls []mockCall) {
 	for _, c := range calls {
