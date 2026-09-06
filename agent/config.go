@@ -87,6 +87,24 @@ func writeAgentConfigTemplate(path string) error {
 	if err != nil {
 		return err
 	}
+	// JSON has no comments - ship the field docs as adjacent "_doc_" keys
+	// (unknown keys are ignored on load).
+	var m map[string]interface{}
+	if err := json.Unmarshal(b, &m); err != nil {
+		return os.WriteFile(path, append(b, '\n'), 0644)
+	}
+	for k, v := range map[string]string{
+		"_doc_llm_first_chunk_timeout_sec": "首字节超时(秒)：请求发出到收到第一个数据块的等待上限。内网高峰排队慢可调大；超时后会自动重试",
+		"_doc_llm_idle_timeout_sec":         "空闲超时(秒)：流式响应中相邻数据块的最大间隔，每收到数据即重置。持续吐字再慢也不会被掐断；只有长时间无任何数据才判定卡死",
+		"_doc_llm_max_retries":              "LLM 网络失败自动重试次数（退避 5 秒/15 秒）。连接失败、5xx、429、首字节超时会重试；鉴权/余额错误不重试",
+		"_doc_llm_compress_timeout_sec":     "上下文压缩调用的独立超时(秒)，不影响主对话",
+	} {
+		m[k] = v
+	}
+	b, err = json.MarshalIndent(m, "", "  ")
+	if err != nil {
+		return err
+	}
 	return os.WriteFile(path, append(b, '\n'), 0644)
 }
 
