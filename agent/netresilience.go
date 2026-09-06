@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
+	"net/url"
 	"strings"
 	"time"
 
@@ -140,6 +142,90 @@ func llmStreamOnce(ctx context.Context, client *openai.Client, cfg *config,
 				cfg.llmIdleTimeout, errIdleTimeout)
 		case <-ctx.Done():
 			return ctx.Err()
+		}
+	}
+}
+
+// llmRetryDelays: backoff between retry attempts (5s then 15s; later
+// attempts reuse the last value).
+var llmRetryDelays = []time.Duration{5 * time.Second, 15 * time.Second}
+
+func llmRetryDelay(attempt int) time.Duration {
+	if attempt <= 0 {
+		return llmRetryDelays[0]
+	}
+	if attempt >= len(llmRetryDelays) {
+		return llmRetryDelays[len(llmRetryDelays)-1]
+	}
+	return llmRetryDelays[attempt]
+}
+
+// retryableLLMError decides whether a failed request is worth re-sending.
+// Retryable: connection-level failures (refused/reset/TLS handshake
+// timeout), HTTP 5xx / 429, first-chunk timeout (queueing).
+// NOT retryable: 4xx parameter/auth errors, balance-exhausted (bigmodel
+// returns HTTP 429 + code 1113), idle timeout (an established stream
+// stalled - a retry hits the same stall), cancellation.
+func retryableLLMError(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, errIdleTimeout) || errors.Is(err, context.Canceled) {
+		return false
+	}
+	if errors.Is(err, errFirstChunkTimeout) {
+		return true
+	}
+	var apiErr *openai.APIError
+	if errors.As(err, &apiErr) {
+		s := err.Error()
+		if strings.Contains(s, "1113") || strings.Contains(s, "余额不足") {
+			return false
+		}
+		return apiErr.HTTPStatusCode == 429 || apiErr.HTTPStatusCode >= 500
+	}
+	var reqErr *openai.RequestError // non-JSON error bodies land here
+	if errors.As(err, &reqErr) {
+		return reqErr.HTTPStatusCode == 429 || reqErr.HTTPStatusCode >= 500
+	}
+	var netErr net.Error // covers *url.Error, dial/temp errors, TLS handshake timeout
+	if errors.As(err, &netErr) {
+		return true
+	}
+	var urlErr *url.Error
+	return errors.As(err, &urlErr)
+}
+
+// roundStream: one LLM round with retry. A retried attempt starts a fresh
+// sink, so half-received fragments from the failed attempt are discarded -
+// the whole request is re-sent, never stitched together.
+func roundStream(ctx context.Context, client *openai.Client, cfg *config,
+	req openai.ChatCompletionRequest) (string, []openai.ToolCall, error) {
+	var lastErr error
+	for attempt := 0; ; attempt++ {
+		if attempt > 0 {
+			delay := llmRetryDelay(attempt - 1)
+			fmt.Printf("[重试] LLM 请求失败（%v），%v 后第 %d 次重试...\n", lastErr, delay, attempt)
+			select {
+			case <-time.After(delay):
+			case <-ctx.Done():
+				return "", nil, ctx.Err()
+			}
+		}
+		sink := newStreamSink()
+		err := llmStreamOnce(ctx, client, cfg, req, sink)
+		if err == nil {
+			return sink.content.String(), sink.calls(), nil
+		}
+		lastErr = err
+		if ctx.Err() != nil || interrupted() {
+			return "", nil, err
+		}
+		if !retryableLLMError(err) || attempt >= cfg.llmMaxRetries {
+			if attempt >= cfg.llmMaxRetries && retryableLLMError(err) {
+				return "", nil, fmt.Errorf("重试 %d 次后仍失败: %w", cfg.llmMaxRetries, lastErr)
+			}
+			return "", nil, err
 		}
 	}
 }

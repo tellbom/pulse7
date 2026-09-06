@@ -29,6 +29,10 @@ type agentConfig struct {
 	// chunks and is reset by every chunk (slow streams are never killed).
 	LLMFirstChunkTimeoutSec int `json:"llm_first_chunk_timeout_sec"`
 	LLMIdleTimeoutSec       int `json:"llm_idle_timeout_sec"`
+	// T2 (slow-network): retry count for retryable LLM failures (backoff
+	// 5s / 15s). Non-retryable errors (4xx, balance-exhausted, idle timeout)
+	// never consume retries.
+	LLMMaxRetries int `json:"llm_max_retries"`
 }
 
 func defaultAgentConfig() agentConfig {
@@ -50,6 +54,7 @@ func defaultAgentConfig() agentConfig {
 		// take minutes) and a 2-minute idle gap before a stream is judged dead.
 		LLMFirstChunkTimeoutSec: 300,
 		LLMIdleTimeoutSec:       120,
+		LLMMaxRetries:           2,
 	}
 }
 
@@ -120,6 +125,11 @@ func applyConfigToFlags(cfg *config, ac agentConfig, fs *flag.FlagSet) {
 	use("llm-idle-timeout", func() {
 		if ac.LLMIdleTimeoutSec > 0 {
 			cfg.llmIdleTimeout = time.Duration(ac.LLMIdleTimeoutSec) * time.Second
+		}
+	})
+	use("llm-max-retries", func() {
+		if ac.LLMMaxRetries > 0 {
+			cfg.llmMaxRetries = ac.LLMMaxRetries
 		}
 	})
 }

@@ -27,6 +27,7 @@ type config struct {
 	maxCtx                           int
 	llmFirstChunkTimeout             time.Duration
 	llmIdleTimeout                   time.Duration
+	llmMaxRetries                    int
 	execMode                         bool
 	sessionPath, resumePath          string
 	sandboxPreference                string
@@ -136,6 +137,8 @@ func main() {
 		"LLM watchdog: max wait from request start to the first streamed chunk (queueing)")
 	flag.DurationVar(&cfg.llmIdleTimeout, "llm-idle-timeout", 120*time.Second,
 		"LLM watchdog: max gap between streamed chunks, reset on every chunk")
+	flag.IntVar(&cfg.llmMaxRetries, "llm-max-retries", 2,
+		"retries for retryable LLM failures (backoff 5s/15s)")
 	flag.StringVar(&cfg.sessionPath, "session", "", "session .jsonl path (default auto)")
 	flag.StringVar(&cfg.resumePath, "resume", "", "resume from a session .jsonl")
 	flag.BoolVar(&cfg.listSessions, "list", false, "list recent sessions (time/workspace/first message/count)")
@@ -477,24 +480,22 @@ func streamTurn(client *openai.Client, reg *Registry, cfg *config, msgs *[]opena
 			Tools:    reg.Definitions(),
 			Stream:   true,
 		}
-		sink := newStreamSink()
-		err := llmStreamOnce(ctx, client, cfg, req, sink)
+		content, calls, err := roundStream(ctx, client, cfg, req)
 		if err != nil {
 			if interrupted() {
 				return "", errInterrupted
 			}
 			return "", err
 		}
-		if len(sink.toolAcc) == 0 {
+		if len(calls) == 0 {
 			outln()
 			// M4-T0: persist the final assistant answer so the session file
 			// distinguishes convergence from cap-stop and --resume sees it.
 			pushMsg(msgs, openai.ChatCompletionMessage{
-				Role: openai.ChatMessageRoleAssistant, Content: sink.content.String(),
+				Role: openai.ChatMessageRoleAssistant, Content: content,
 			})
-			return sink.content.String(), nil
+			return content, nil
 		}
-		calls := sink.calls()
 		pushMsg(msgs, openai.ChatCompletionMessage{Role: openai.ChatMessageRoleAssistant, ToolCalls: calls})
 		for _, c := range calls {
 			if interrupted() {
