@@ -21,6 +21,7 @@ package main
 
 import (
 	"bytes"
+	"os"
 	"unicode/utf16"
 	"unicode/utf8"
 	"unsafe"
@@ -30,12 +31,51 @@ var (
 	procMultiByteToWideChar = k32.NewProc("MultiByteToWideChar")
 	procWideCharToMultiByte = k32.NewProc("WideCharToMultiByte")
 	procGetConsoleOutputCP  = k32.NewProc("GetConsoleOutputCP")
+	procGetStdHandle        = k32.NewProc("GetStdHandle")
+	procGetConsoleMode      = k32.NewProc("GetConsoleMode")
+	procWriteConsoleW       = k32.NewProc("WriteConsoleW")
 )
 
 const (
 	cpAcp = 0 // CP_ACP: system default Windows ANSI codepage
 	cpGBK = 936
 )
+
+// consoleWriter: stdout that is correct under ANY console codepage. When
+// the handle is a real console, text is written via WriteConsoleW (Unicode
+// API — no lossy codepage transcoding, Chinese/box-drawing/emoji all show);
+// when stdout is a pipe/file (redirect, tee), raw UTF-8 bytes pass through
+// so logs stay UTF-8.
+type consoleWriter struct {
+	h        uintptr
+	isConsole bool
+}
+
+func newConsoleWriter() *consoleWriter {
+	h, _, _ := procGetStdHandle.Call(^uintptr(10)) // STD_OUTPUT_HANDLE = -11
+	// The handle from GetStdHandle is for OUR process stdout; use it.
+	var mode uint32
+	ok, _, _ := procGetConsoleMode.Call(h, uintptr(unsafe.Pointer(&mode)))
+	return &consoleWriter{h: h, isConsole: ok != 0}
+}
+
+func (w *consoleWriter) Write(p []byte) (int, error) {
+	if !w.isConsole {
+		return os.Stdout.Write(p) // redirected: raw UTF-8 bytes
+	}
+	if len(p) == 0 {
+		return 0, nil
+	}
+	u16 := utf16.Encode([]rune(string(p)))
+	var written uint32
+	_, _, _ = procWriteConsoleW.Call(
+		w.h,
+		uintptr(unsafe.Pointer(&u16[0])),
+		uintptr(len(u16)),
+		uintptr(unsafe.Pointer(&written)),
+		0)
+	return len(p), nil
+}
 
 // consoleCodepage (A1): the codepage this machine's cmd.exe children used
 // for their output — this is what out.txt bytes are encoded in. Returns
@@ -158,11 +198,13 @@ func detectFileEncoding(b []byte) (enc fileEnc, hasBOM bool) {
 	case bytes.HasPrefix(b, utf8BOM):
 		return encUTF8, true
 	}
-	if utf8.Valid(b) {
-		return encUTF8, false
-	}
+	// NUL first: a file of ASCII control bytes IS valid UTF-8, but it is
+	// still binary — validity must not let it through.
 	if bytes.IndexByte(b, 0) >= 0 {
 		return encBinary, false
+	}
+	if utf8.Valid(b) {
+		return encUTF8, false
 	}
 	return encGBK, false
 }
