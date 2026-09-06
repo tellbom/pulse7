@@ -15,48 +15,74 @@ import (
 
 // session: append-only .jsonl record of the whole conversation; --resume
 // reloads it as context. No database by design.
+// T5 (slow-network): creation is LAZY - the file only materializes when the
+// first conversation record is written, so a run that dies before any message
+// lands (hard kill during connect/queueing) leaves no empty session file
+// behind for --list to confuse with real progress.
 type session struct {
-	f *os.File
+	f         *os.File
+	path      string
+	workspace string
+	n         int // conversation records written (meta line not counted)
 }
 
-func openSession(path string) (*session, error) {
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return nil, err
+func newSession(path, workspace string) *session {
+	return &session{path: path, workspace: workspace}
+}
+
+// open materializes the file (append mode) and stamps the workspace meta
+// line on a fresh file so --list can show where each session worked.
+func (s *session) open() {
+	if err := os.MkdirAll(filepath.Dir(s.path), 0o755); err != nil {
+		return
 	}
-	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	f, err := os.OpenFile(s.path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		return nil, err
+		return
 	}
-	return &session{f: f}, nil
+	s.f = f
+	if fi, err := f.Stat(); err == nil && fi.Size() == 0 {
+		if b, err := json.Marshal(map[string]string{"role": "_meta", "workspace": s.workspace}); err == nil {
+			f.Write(append(b, '\n'))
+		}
+	}
+}
+
+// file returns the backing path ("" until open).
+func (s *session) file() string {
+	if s == nil {
+		return ""
+	}
+	return s.path
+}
+
+// id returns the session id used by --resume (filename stem, sess- prefix
+// stripped; resolveResume accepts both shapes).
+func (s *session) id() string {
+	base := filepath.Base(s.file())
+	return strings.TrimPrefix(base, "sess-")
 }
 
 func (s *session) record(m openai.ChatCompletionMessage) {
 	if s == nil {
 		return
 	}
+	if s.f == nil {
+		s.open()
+	}
+	if s.f == nil {
+		return
+	}
 	b, err := json.Marshal(m)
 	if err == nil {
+		s.n++
 		s.f.Write(append(b, '\n'))
 	}
 }
 
 func (s *session) Close() {
-	if s != nil {
+	if s != nil && s.f != nil {
 		s.f.Close()
-	}
-}
-
-// writeMeta stamps a first meta line (workspace) on a FRESH session file so
-// --list can show where each session worked (M4-T5).
-func (s *session) writeMeta(workspace string) {
-	if s == nil {
-		return
-	}
-	if fi, err := s.f.Stat(); err == nil && fi.Size() > 0 {
-		return
-	}
-	if b, err := json.Marshal(map[string]string{"role": "_meta", "workspace": workspace}); err == nil {
-		s.f.Write(append(b, '\n'))
 	}
 }
 

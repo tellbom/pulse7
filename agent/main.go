@@ -119,7 +119,11 @@ func finalizeInterrupted(msgs *[]openai.ChatCompletionMessage, reg *Registry) {
 		fmt.Printf("[中断] 已为 %d 个未完成的工具调用补写结果\n", patched)
 	}
 	endOfTaskSummary(reg, false)
-	fmt.Println("=== 已中断；可用 --resume 继续本会话 ===")
+	if sess != nil && sess.file() != "" {
+		fmt.Printf("=== 已中断；续跑命令：pulse7.exe --resume %q \"继续\" ===\n", sess.id())
+	} else {
+		fmt.Println("=== 已中断；可用 --resume 继续本会话 ===")
+	}
 }
 
 func main() {
@@ -253,17 +257,17 @@ func setupEnv(cfg *config, taskID string) (*Registry, error) {
 		cfg.yolo, cfg.execMode, os.Stdin, exeDir, ws, taskID), nil
 }
 
-func openSessionFor(cfg *config, taskID string) (*session, error) {
+// openSessionFor returns a LAZY session (T5): the file appears only when the
+// first conversation record is written. With --resume set, it appends to the
+// ORIGINAL session file instead of forking a fresh one per exec, so --list
+// and retry guidance keep pointing at one stable id.
+func openSessionFor(cfg *config, taskID string) *session {
 	path := cfg.sessionPath
 	if path == "" {
 		exe, _ := os.Executable()
 		path = filepath.Join(filepath.Dir(exe), "data", "sessions", "sess-"+taskID+".jsonl")
 	}
-	s, err := openSession(path)
-	if err == nil {
-		s.writeMeta(cfg.workspace)
-	}
-	return s, err
+	return newSession(path, cfg.workspace)
 }
 
 // resolveResume maps --resume values (M4-T5): a path or a session id
@@ -346,11 +350,12 @@ func runExec(cfg *config, prompt string) {
 		os.Exit(1)
 	}
 	resumeTarget := resolveResume(cfg, cfg.resumePath) // resolve BEFORE the new session file makes itself "latest"
-	s, err := openSessionFor(cfg, taskID)
-	if err == nil {
-		sess = s
-		defer sess.Close()
+	if resumeTarget != "" {
+		// T5: append to the original file instead of forking a fresh one.
+		cfg.sessionPath = resumeTarget
 	}
+	sess = openSessionFor(cfg, taskID)
+	defer sess.Close()
 	defer sessionEndCleanup(curRunner, curCfg)
 	var msgs []openai.ChatCompletionMessage
 	if resumeTarget != "" {
@@ -392,6 +397,13 @@ func runExec(cfg *config, prompt string) {
 	endOfTaskSummary(reg, errors.Is(err, errMaxRounds))
 	if err != nil {
 		fmt.Println("EXEC-ERROR:", err)
+		// T5: hand the user a copy-paste resume command with the concrete
+		// session id, or say explicitly that nothing was saved.
+		if sess != nil && sess.n > 0 {
+			fmt.Printf("已完成的进度已保存。续跑命令：\n  pulse7.exe --resume %q %q\n", sess.id(), prompt)
+		} else {
+			fmt.Println("本次运行没有保存任何对话进度（未生成 session 文件）。")
+		}
 		os.Exit(1)
 	}
 	outln("=== EXEC-DONE ===")
@@ -406,11 +418,12 @@ func runRepl(cfg *config) {
 		os.Exit(1)
 	}
 	resumeTarget := resolveResume(cfg, cfg.resumePath) // resolve BEFORE the new session file makes itself "latest"
-	s, err := openSessionFor(cfg, taskID)
-	if err == nil {
-		sess = s
-		defer sess.Close()
+	if resumeTarget != "" {
+		// T5: append to the original file instead of forking a fresh one.
+		cfg.sessionPath = resumeTarget
 	}
+	sess = openSessionFor(cfg, taskID)
+	defer sess.Close()
 	defer sessionEndCleanup(curRunner, curCfg)
 	var msgs []openai.ChatCompletionMessage
 	if resumeTarget != "" {
