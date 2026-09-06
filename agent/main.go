@@ -96,7 +96,7 @@ func interrupted() bool { return atomic.LoadInt32(&interruptFlag) > 0 }
 
 // finalizeInterrupted completes the session: unanswered tool_calls get a
 // synthetic result so --resume works, then the T4 summary is printed.
-func finalizeInterrupted(msgs *[]openai.ChatCompletionMessage, reg *Registry) {
+func finalizeInterrupted(msgs *[]openai.ChatCompletionMessage, reg *Registry, endSt taskEndState) {
 	const note = "用户中断，该调用未完成，无法确定是否已执行。\n" +
 		"请先用只读工具（read / ls / grep）检查当前实际状态，再决定下一步；若需重试请先向用户说明。"
 	answered := map[string]bool{}
@@ -425,9 +425,12 @@ func runExec(cfg *config, prompt string) {
 		pushMsg(&msgs, openai.ChatCompletionMessage{Role: openai.ChatMessageRoleSystem, Content: sys})
 	}
 	pushMsg(&msgs, openai.ChatCompletionMessage{Role: openai.ChatMessageRoleUser, Content: prompt})
-	_, err = streamTurn(client, reg, cfg, &msgs)
+	taskStart := time.Now()
+	var stats turnStats
+	_, err = streamTurn(client, reg, cfg, &msgs, &stats)
+	endSt := taskEndState{rounds: stats.rounds, elapsed: time.Since(taskStart)}
 	if interrupted() {
-		finalizeInterrupted(&msgs, reg)
+		finalizeInterrupted(&msgs, reg, endSt)
 		exitWith(130, "INTERRUPTED", "")
 	}
 	// T5: distinguish "ends with a question for the user" from clean completion
@@ -448,7 +451,11 @@ func runExec(cfg *config, prompt string) {
 			}
 		}
 	}
-	endOfTaskSummary(reg, errors.Is(err, errMaxRounds))
+	endSt.status = "已完成"
+	if err != nil {
+		endSt.status = "出错中止"
+	}
+	printTaskEnd(reg, errors.Is(err, errMaxRounds), endSt)
 	if err != nil {
 		detail := fmt.Sprintf("EXEC-ERROR: %v", err)
 		// T5: hand the user a copy-paste resume command with the concrete
@@ -519,20 +526,30 @@ func runRepl(cfg *config) {
 			continue
 		}
 		pushMsg(&msgs, openai.ChatCompletionMessage{Role: openai.ChatMessageRoleUser, Content: line})
-		_, stErr := streamTurn(client, reg, cfg, &msgs)
+		turnStart := time.Now()
+		var stats turnStats
+		_, stErr := streamTurn(client, reg, cfg, &msgs, &stats)
+		endSt := taskEndState{rounds: stats.rounds, elapsed: time.Since(turnStart)}
 		if interrupted() {
-			finalizeInterrupted(&msgs, reg)
+			finalizeInterrupted(&msgs, reg, endSt)
 			continue
 		}
-		endOfTaskSummary(reg, errors.Is(stErr, errMaxRounds))
 		if stErr != nil {
-			fmt.Println("ERROR:", stErr)
+			printTaskEnd(reg, errors.Is(stErr, errMaxRounds), taskEndState{status: "出错中止", rounds: endSt.rounds, elapsed: endSt.elapsed})
+			outln("ERROR:", stErr)
+			continue
 		}
+		printTaskEnd(reg, false, taskEndState{status: "已完成", rounds: endSt.rounds, elapsed: endSt.elapsed})
 	}
 }
 
 // streamTurn runs one agent turn: stream reply; execute tool calls; feed results; loop until final answer.
-func streamTurn(client *openai.Client, reg *Registry, cfg *config, msgs *[]openai.ChatCompletionMessage) (string, error) {
+// turnStats (T3): per-turn counters surfaced in the terminal block.
+type turnStats struct {
+	rounds int
+}
+
+func streamTurn(client *openai.Client, reg *Registry, cfg *config, msgs *[]openai.ChatCompletionMessage, stats *turnStats) (string, error) {
 	// T1 (slow-network): no whole-turn time budget. The turn context carries
 	// only the interrupt cancellation; every LLM request is guarded by the
 	// first-chunk / idle watchdogs in llmStreamOnce instead. A stream that
@@ -545,6 +562,10 @@ func streamTurn(client *openai.Client, reg *Registry, cfg *config, msgs *[]opena
 			return "", errInterrupted
 		}
 		roundStart := time.Now()
+		if stats != nil {
+			stats.rounds = round + 1
+		}
+		out("[第 %d 轮 / 上限 30]\n", round+1)
 		maybeCompressContext(ctx, client, cfg, msgs)
 		maybeCompressContext(ctx, client, cfg, msgs)
 		req := openai.ChatCompletionRequest{
