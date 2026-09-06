@@ -66,9 +66,11 @@ func NewRegistry(policy *Policy, runner sandboxRunner, auditPath, manPath string
 	r.register(openai.Tool{
 		Type: openai.ToolTypeFunction,
 		Function: &openai.FunctionDefinition{
-			Name: "read", Description: "Read a text file inside the workspace.",
+			Name: "read", Description: "Read a text file inside the workspace. Long files are paginated: the result is annotated with the line range and total, and names the next offset while lines remain - page through large files with offset/limit instead of re-reading the whole file.",
 			Parameters: map[string]interface{}{"type": "object", "properties": map[string]interface{}{
-				"path": map[string]interface{}{"type": "string"},
+				"path":   map[string]interface{}{"type": "string"},
+				"offset": map[string]interface{}{"type": "integer", "description": "1-based start line (default 1)"},
+				"limit":  map[string]interface{}{"type": "integer", "description": "number of lines to read (default: auto, ~4KB window)"},
 			}, "required": []string{"path"}},
 		},
 	}, r.toolRead)
@@ -226,7 +228,9 @@ func (r *Registry) absPath(p string) (string, error) {
 
 func (r *Registry) toolRead(argsJSON string) (string, error) {
 	var a struct {
-		Path string `json:"path"`
+		Path   string `json:"path"`
+		Offset int    `json:"offset"`
+		Limit  int    `json:"limit"`
 	}
 	if err := json.Unmarshal([]byte(argsJSON), &a); err != nil {
 		return "", err
@@ -239,11 +243,65 @@ func (r *Registry) toolRead(argsJSON string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if len(b) > 4096 {
-		b = b[:4096]
-	}
-	return string(b), nil
+	return readPage(string(b), a.Offset, a.Limit), nil
 }
+
+// readPage: line-based pagination for the read tool (encoding-pagination T3).
+// offset is 1-based; limit<=0 means "auto" (as many lines as the historic
+// 4096-byte cap allows). Output is annotated with the line range and the
+// total, and while lines remain it names the next offset to continue with.
+// An offset beyond the end yields an explicit note, never an error.
+func readPage(content string, offset, limit int) string {
+	if content == "" {
+		return "[empty file]\n"
+	}
+	lines := strings.Split(content, "\n")
+	// A trailing "\n" produces one phantom empty element; it is not a line.
+	if lines[len(lines)-1] == "" {
+		lines = lines[:len(lines)-1]
+	}
+	total := len(lines)
+	auto := limit <= 0
+	if offset <= 0 {
+		offset = 1
+	}
+	if offset > total {
+		return fmt.Sprintf("[file has %d line(s); offset %d is beyond the end]\n", total, offset)
+	}
+	n := total - offset + 1 // lines available from offset
+	if auto {
+		// historic default: from offset, take as many lines as fit 4096 bytes
+		size := 0
+		n = 0
+		for i := offset - 1; i < total; i++ {
+			if size+len(lines[i])+1 > 4096 && n > 0 {
+				break
+			}
+			size += len(lines[i]) + 1
+			n++
+		}
+	} else if limit > maxReadLines {
+		limit = maxReadLines
+	}
+	if !auto && limit < n {
+		n = limit
+	}
+	last := offset + n - 1 // 1-based inclusive last line
+	var sb strings.Builder
+	fmt.Fprintf(&sb, "[第 %d-%d 行，共 %d 行]\n", offset, last, total)
+	for i := offset - 1; i <= last-1; i++ {
+		sb.WriteString(lines[i])
+		sb.WriteByte('\n')
+	}
+	if last < total {
+		fmt.Fprintf(&sb, "[...还有 %d 行未读；继续读取请传 offset=%d]\n", total-last, last+1)
+	}
+	return sb.String()
+}
+
+// maxReadLines caps an explicit limit so one call cannot dump a huge file
+// into the context; the annotation tells the model how to page further.
+const maxReadLines = 2000
 
 func (r *Registry) toolGetTime(string) (string, error) {
 	return time.Now().Format(time.RFC3339), nil
