@@ -33,6 +33,9 @@ type agentConfig struct {
 	// 5s / 15s). Non-retryable errors (4xx, balance-exhausted, idle timeout)
 	// never consume retries.
 	LLMMaxRetries int `json:"llm_max_retries"`
+	// T3 (slow-network): the context-compression summarize call runs under
+	// its own timeout so it cannot starve (or be starved by) the main loop.
+	LLMCompressTimeoutSec int `json:"llm_compress_timeout_sec"`
 }
 
 func defaultAgentConfig() agentConfig {
@@ -55,6 +58,7 @@ func defaultAgentConfig() agentConfig {
 		LLMFirstChunkTimeoutSec: 300,
 		LLMIdleTimeoutSec:       120,
 		LLMMaxRetries:           2,
+		LLMCompressTimeoutSec:   180,
 	}
 }
 
@@ -130,6 +134,11 @@ func applyConfigToFlags(cfg *config, ac agentConfig, fs *flag.FlagSet) {
 	use("llm-max-retries", func() {
 		if ac.LLMMaxRetries > 0 {
 			cfg.llmMaxRetries = ac.LLMMaxRetries
+		}
+	})
+	use("llm-compress-timeout", func() {
+		if ac.LLMCompressTimeoutSec > 0 {
+			cfg.llmCompressTimeout = time.Duration(ac.LLMCompressTimeoutSec) * time.Second
 		}
 	})
 }

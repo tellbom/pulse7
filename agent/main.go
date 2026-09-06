@@ -28,6 +28,7 @@ type config struct {
 	llmFirstChunkTimeout             time.Duration
 	llmIdleTimeout                   time.Duration
 	llmMaxRetries                    int
+	llmCompressTimeout               time.Duration
 	execMode                         bool
 	sessionPath, resumePath          string
 	sandboxPreference                string
@@ -139,6 +140,8 @@ func main() {
 		"LLM watchdog: max gap between streamed chunks, reset on every chunk")
 	flag.IntVar(&cfg.llmMaxRetries, "llm-max-retries", 2,
 		"retries for retryable LLM failures (backoff 5s/15s)")
+	flag.DurationVar(&cfg.llmCompressTimeout, "llm-compress-timeout", 180*time.Second,
+		"timeout budget of the context-compression summarize call")
 	flag.StringVar(&cfg.sessionPath, "session", "", "session .jsonl path (default auto)")
 	flag.StringVar(&cfg.resumePath, "resume", "", "resume from a session .jsonl")
 	flag.BoolVar(&cfg.listSessions, "list", false, "list recent sessions (time/workspace/first message/count)")

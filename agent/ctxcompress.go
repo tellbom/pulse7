@@ -12,6 +12,13 @@ import (
 	openai "github.com/sashabaranov/go-openai"
 )
 
+// T3 (slow-network): the summarize call gets its own timeout budget derived
+// from the interrupt context - it no longer shares a deadline with the main
+// conversation loop. Any failure still falls back to plain truncation;
+// compression must never kill a task.
+func compressCtx(parent context.Context, cfg *config) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(parent, cfg.llmCompressTimeout)
+}
 // M4-T4 context compression: instead of losing messages to a hard truncate
 // at the limit, summarize the OLDER conversation via one extra LLM call once
 // context exceeds 75% of the budget. System prompt (incl. AGENT.md) and the
@@ -66,7 +73,9 @@ func maybeCompressContext(ctx context.Context, client *openai.Client, cfg *confi
 		}
 		fmt.Fprintf(&b, "[%s] %s\n", m.Role, c)
 	}
-	resp, err := client.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
+	cctx, cancel := compressCtx(ctx, cfg)
+	defer cancel()
+	resp, err := client.CreateChatCompletion(cctx, openai.ChatCompletionRequest{
 		Model: cfg.model,
 		Messages: []openai.ChatCompletionMessage{{
 			Role: openai.ChatMessageRoleUser, Content: b.String(),
