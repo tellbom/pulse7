@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -243,7 +244,14 @@ func (r *Registry) toolRead(argsJSON string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return readPage(string(b), a.Offset, a.Limit), nil
+	// T1.1 (file-encoding): files themselves may be GBK — decode for the
+	// model instead of feeding mojibake/U+FFFD into context. Binary and
+	// UTF-16 files are refused with an explicit note, never guessed.
+	content, ok, reason := decodeFileBytes(b)
+	if !ok {
+		return fmt.Sprintf("[无法按文本读取 %s：%s]\n", abs, reason), nil
+	}
+	return readPage(content, a.Offset, a.Limit), nil
 }
 
 // readPage: line-based pagination for the read tool (encoding-pagination T3).
@@ -398,12 +406,28 @@ func (r *Registry) toolWrite(argsJSON string) (string, error) {
 	_, statErr := os.Stat(abs)
 	existed := statErr == nil
 	var oldText string
+	var out []byte
 	if existed {
-		if b, err := os.ReadFile(abs); err == nil {
-			oldText = string(b)
+		b, err := os.ReadFile(abs)
+		if err != nil {
+			return "", err
 		}
+		// T1.2 (file-encoding): overwriting keeps the file's original
+		// encoding and BOM (a GBK file stays GBK, else git shows the whole
+		// file as rewritten). Binary / UTF-16 files are refused rather than
+		// guessed. New files default to UTF-8 without BOM.
+		text, ok, reason := decodeFileBytes(b)
+		if !ok {
+			return "", fmt.Errorf("refusing to overwrite %s: %s", abs, reason)
+		}
+		oldText = text
+		enc, hasBOM := detectFileEncoding(b)
+		out = encodeFileBytes(a.Content, enc, hasBOM)
+	} else {
+		oldText = ""
+		out = []byte(a.Content)
 	}
-	if err := os.WriteFile(abs, []byte(a.Content), 0644); err != nil {
+	if err := os.WriteFile(abs, out, 0644); err != nil {
 		return "", err
 	}
 	if existed {
@@ -445,36 +469,73 @@ func (r *Registry) toolEdit(argsJSON string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	original := string(b)
-	// T1 (final-fix): normalize line endings for matching, but PRESERVE the
-	// file's original style on write-back. Windows files are CRLF; the model
-	// sends \n. Matching \n against \r\n fails, causing re-edit loops.
-	normFile := strings.ReplaceAll(original, "\r\n", "\n")
-	normOld := strings.ReplaceAll(a.OldString, "\r\n", "\n")
-	normNew := strings.ReplaceAll(a.NewString, "\r\n", "\n")
-	switch strings.Count(normFile, normOld) {
+	enc, hasBOM := detectFileEncoding(b)
+	if enc == encBinary {
+		return "", fmt.Errorf("%s is binary (NUL byte / UTF-32): edit refused, bytes untouched", abs)
+	}
+	if enc == encUTF16LE || enc == encUTF16BE {
+		return "", fmt.Errorf("%s is UTF-16: edit refused, bytes untouched", abs)
+	}
+	// A3 (file-encoding): the replacement happens on RAW BYTES, not on a
+	// decoded string. Decoding is a GUESS; guessing wrong during a
+	// decode->replace->re-encode cycle would rewrite the WHOLE file and
+	// destroy unrelated parts. On bytes, a wrong guess can only fail to
+	// match -> error -> safe failure.
+	oldB := utf8ToCodepage(a.OldString, cpForEnc(enc, hasBOM))
+	newB := utf8ToCodepage(a.NewString, cpForEnc(enc, hasBOM))
+	if enc == encGBK {
+		if !codepageRoundTrips(a.OldString, cpGBK) {
+			return "", errors.New("old_string contains characters not representable in the file's GBK encoding; refusing rather than corrupt")
+		}
+		if !codepageRoundTrips(a.NewString, cpGBK) {
+			return "", errors.New("new_string contains characters not representable in the file's GBK encoding; refusing rather than corrupt")
+		}
+	}
+	// Line-ending handling preserved from rc-0.3.3 T1, now in byte space:
+	// match with CRLF folded to LF, write back in the file's original style.
+	normFile := bytes.ReplaceAll(b, []byte("\r\n"), []byte("\n"))
+	if hasBOM {
+		normFile = bytes.TrimPrefix(normFile, utf8BOM)
+	}
+	normOld := bytes.ReplaceAll(oldB, []byte("\r\n"), []byte("\n"))
+	normNew := bytes.ReplaceAll(newB, []byte("\r\n"), []byte("\n"))
+	switch bytes.Count(normFile, normOld) {
 	case 0:
 		return "", errors.New("old_string not found")
 	}
-	if strings.Count(normFile, normOld) > 1 {
+	if bytes.Count(normFile, normOld) > 1 {
 		return "", errors.New("old_string is ambiguous (multiple occurrences)")
 	}
-	// do the replacement in normalized space, then restore original style
-	replaced := strings.Replace(normFile, normOld, normNew, 1)
+	replaced := bytes.Replace(normFile, normOld, normNew, 1)
 	result := replaced
-	if strings.Contains(original, "\r\n") {
-		result = strings.ReplaceAll(replaced, "\n", "\r\n")
+	if bytes.Contains(b, []byte("\r\n")) {
+		result = bytes.ReplaceAll(replaced, []byte("\n"), []byte("\r\n"))
+	}
+	if hasBOM {
+		result = append(append([]byte{}, utf8BOM...), result...)
 	}
 	note := ""
-	if strings.Contains(original, "\r\n") && strings.Contains(original, "\n") &&
-		!strings.HasSuffix(original, "\n") {
+	if bytes.Contains(b, []byte("\r\n")) && bytes.Contains(b, []byte("\n")) &&
+		!bytes.HasSuffix(b, []byte("\n")) {
 		note = "\n(注：文件含混合换行符，已按 CRLF 风格写回)"
 	}
-	if err := os.WriteFile(abs, []byte(result), 0644); err != nil {
+	if err := os.WriteFile(abs, result, 0644); err != nil {
 		return "", err
 	}
 	r.man.record("modified", abs)
-	return fmt.Sprintf("replaced 1 occurrence in %s\n%s%s", abs, diffSummary(original, result, 40), note), nil
+	origText, _, _ := decodeFileBytes(b)
+	newText, _, _ := decodeFileBytes(result)
+	return fmt.Sprintf("replaced 1 occurrence in %s\n%s%s", abs, diffSummary(origText, newText, 40), note), nil
+}
+
+// cpForEnc: the codepage to encode model strings into for byte-level
+// matching/writing against a file of the given encoding. UTF-8 needs no
+// codepage (identity), GBK is hardcoded per A2.
+func cpForEnc(enc fileEnc, hasBOM bool) uint {
+	if enc == encGBK {
+		return cpGBK
+	}
+	return 65001 // UTF-8: utf8ToCodepage's ASCII fast path covers it; non-ASCII stays UTF-8
 }
 
 // toolGrep moved to grep.go (T2 retrieval: ripgrep with Go fallback)

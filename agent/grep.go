@@ -41,8 +41,16 @@ func (r *Registry) toolGrep(argsJSON string) (string, error) {
 	// try ripgrep first
 	rgPath := rgExePath(r.exeDir)
 	if _, err := os.Stat(rgPath); err == nil {
-		result, err := r.grepViaRg(rgPath, a.Pattern, root, a.Glob)
+		result, err := r.grepViaRg(rgPath, a.Pattern, root, a.Glob, false)
 		if err == nil {
+			// T1.1: a non-ASCII pattern that found nothing may mean the files
+			// are GBK — the UTF-8 pattern bytes simply cannot match. Retry
+			// once with rg's GBK decoder (it transcodes matches to UTF-8).
+			if strings.Contains(result, "no matches") && !isASCII(a.Pattern) {
+				if retry, err2 := r.grepViaRg(rgPath, a.Pattern, root, a.Glob, true); err2 == nil {
+					return retry, nil
+				}
+			}
 			return result, nil
 		}
 		// rg failed (bad args etc) — fall through to Go implementation
@@ -50,10 +58,13 @@ func (r *Registry) toolGrep(argsJSON string) (string, error) {
 	return r.grepGo(a.Pattern, root, a.Glob)
 }
 
-func (r *Registry) grepViaRg(rgPath, pattern, root, glob string) (string, error) {
+func (r *Registry) grepViaRg(rgPath, pattern, root, glob string, gbk bool) (string, error) {
 	args := []string{
 		"--no-heading", "--line-number", "--no-messages", "--smart-case",
 		"--max-count", "200",
+	}
+	if gbk {
+		args = append(args, "-E", "gbk")
 	}
 	if glob != "" {
 		args = append(args, "-g", glob)
@@ -78,10 +89,14 @@ func (r *Registry) grepViaRg(rgPath, pattern, root, glob string) (string, error)
 	if len(lines) == 0 || (len(lines) == 1 && lines[0] == "") {
 		return "no matches [ripgrep]", nil
 	}
-	if len(lines) >= 200 {
-		return strings.Join(lines, "\n") + "\n... (ripgrep, capped at 200 lines)", nil
+	tag := " [ripgrep]"
+	if gbk {
+		tag = " [ripgrep gbk]"
 	}
-	return strings.Join(lines, "\n") + " [ripgrep]", nil
+	if len(lines) >= 200 {
+		return strings.Join(lines, "\n") + "\n... (ripgrep, capped at 200 lines)" + tag, nil
+	}
+	return strings.Join(lines, "\n") + tag, nil
 }
 
 // grepGo: the original Go implementation as fallback
