@@ -74,29 +74,47 @@ var (
 var errInterrupted = errors.New("interrupted by user")
 
 func watchInterrupt() {
-	sig := make(chan os.Signal, 2)
+	sig := make(chan os.Signal, 4)
 	signal.Notify(sig, os.Interrupt)
 	go func() {
+		var lastCtrl time.Time
 		for range sig {
-			if atomic.AddInt32(&interruptFlag, 1) >= 2 {
-				exitWith(130, "INTERRUPTED-FORCE", "second Ctrl-C: immediate exit")
+			// T4 (output-layering): in REPL a second Ctrl-C within 3s exits;
+			// a single press only aborts the running turn. exec keeps its
+			// rc-0.4 semantics exactly: first press = graceful stop + exit
+			// 130, ANY second press = immediate exit.
+			if curCfg != nil && curCfg.execMode {
+				if atomic.AddInt32(&interruptFlag, 1) >= 2 {
+					exitWith(130, "INTERRUPTED-FORCE", "second Ctrl-C: immediate exit (exec mode)")
+				}
+			} else if time.Since(lastCtrl) < 3*time.Second {
+				exitWith(130, "INTERRUPTED-FORCE", "second Ctrl-C within 3s: immediate exit")
 			}
-			fmt.Println("\n[收到中断，正在停止（再按一次立即退出）…]")
+			lastCtrl = time.Now()
+			atomic.AddInt32(&interruptFlag, 1)
+			if turnCancel == nil {
+				fmt.Println("\n[当前没有正在执行的任务（再按一次退出，或 /exit）]")
+				continue
+			}
+			fmt.Println("\n[收到中断，正在停止当前轮（3 秒内再按一次立即退出；REPL 下会话保留）…]")
 			if curRunner != nil {
 				curRunner.Interrupt()
 			}
-			if turnCancel != nil {
-				turnCancel()
-			}
+			turnCancel()
 		}
 	}()
 }
+
+// resetInterrupt clears the Ctrl-C latch after a turn ends (REPL continues
+// with a fresh latch; a stale count must not turn the NEXT single press into
+// a force-exit).
+func resetInterrupt() { atomic.StoreInt32(&interruptFlag, 0) }
 
 func interrupted() bool { return atomic.LoadInt32(&interruptFlag) > 0 }
 
 // finalizeInterrupted completes the session: unanswered tool_calls get a
 // synthetic result so --resume works, then the T4 summary is printed.
-func finalizeInterrupted(msgs *[]openai.ChatCompletionMessage, reg *Registry) {
+func finalizeInterrupted(msgs *[]openai.ChatCompletionMessage, reg *Registry, endSt taskEndState) {
 	const note = "用户中断，该调用未完成，无法确定是否已执行。\n" +
 		"请先用只读工具（read / ls / grep）检查当前实际状态，再决定下一步；若需重试请先向用户说明。"
 	answered := map[string]bool{}
@@ -222,6 +240,7 @@ func main() {
 		if lf, err := os.OpenFile(filepath.Join(logDir, "agent.log"),
 			os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644); err == nil {
 			teeOut = io.MultiWriter(newConsoleWriter(), lf)
+			logOnly = lf
 			fmt.Fprintf(lf, "\n=== session start %s ===\n", time.Now().Format(time.RFC3339))
 		}
 	}
@@ -424,9 +443,12 @@ func runExec(cfg *config, prompt string) {
 		pushMsg(&msgs, openai.ChatCompletionMessage{Role: openai.ChatMessageRoleSystem, Content: sys})
 	}
 	pushMsg(&msgs, openai.ChatCompletionMessage{Role: openai.ChatMessageRoleUser, Content: prompt})
-	_, err = streamTurn(client, reg, cfg, &msgs)
+	taskStart := time.Now()
+	var stats turnStats
+	_, err = streamTurn(client, reg, cfg, &msgs, &stats)
+	endSt := taskEndState{rounds: stats.rounds, elapsed: time.Since(taskStart)}
 	if interrupted() {
-		finalizeInterrupted(&msgs, reg)
+		finalizeInterrupted(&msgs, reg, endSt)
 		exitWith(130, "INTERRUPTED", "")
 	}
 	// T5: distinguish "ends with a question for the user" from clean completion
@@ -436,13 +458,22 @@ func runExec(cfg *config, prompt string) {
 			if strings.Contains(c, "具体") || strings.Contains(c, "指什么") ||
 				strings.Contains(c, "哪些") || strings.Contains(c, "希望") ||
 				strings.Contains(c, "还是") || strings.Contains(c, "请告诉我") {
-				fmt.Println("\n[需要用户回答] 模型提出了问题，回答后可用 --resume 续跑")
+				out("----------------------------------------\n")
+				out("需要你回答后才能继续：\n%s\n", c)
+				if sess != nil && sess.n > 0 {
+					out("\n回答后续跑：\n  pulse7.exe --resume %q \"你的回答\"\n", sess.id())
+				}
+				out("----------------------------------------\n")
 				endOfTaskSummary(reg, false)
 				exitWith(2, "AWAIT-USER-ANSWER", "")
 			}
 		}
 	}
-	endOfTaskSummary(reg, errors.Is(err, errMaxRounds))
+	endSt.status = "已完成"
+	if err != nil {
+		endSt.status = "出错中止"
+	}
+	printTaskEnd(reg, errors.Is(err, errMaxRounds), endSt)
 	if err != nil {
 		detail := fmt.Sprintf("EXEC-ERROR: %v", err)
 		// T5: hand the user a copy-paste resume command with the concrete
@@ -491,7 +522,7 @@ func runRepl(cfg *config) {
 		}
 		pushMsg(&msgs, openai.ChatCompletionMessage{Role: openai.ChatMessageRoleSystem, Content: sys})
 	}
-	fmt.Println("commands: /exit /clear")
+	outln("命令：/help /list /clear /exit（Ctrl-C 中止当前轮，会话保留）")
 	sc := bufio.NewScanner(os.Stdin)
 	sc.Buffer(make([]byte, 64*1024), 256*1024)
 	for {
@@ -502,43 +533,80 @@ func runRepl(cfg *config) {
 		// typed input follows the console codepage (GBK on a Chinese cmd);
 		// decode for the model — valid UTF-8 (pipe, or chcp 65001) passes through.
 		line := strings.TrimSpace(decodeShellOutput(sc.Bytes()))
-		switch line {
-		case "":
+		switch {
+		case line == "":
 			continue
-		case "/exit", "/quit":
+		case line == "/exit" || line == "/quit":
 			return
-		case "/clear":
+		case line == "/clear":
 			msgs = nil
-			fmt.Println("[context cleared]")
+			outln("[上下文已清空，可以开始新任务（历史会话文件保留）]")
+			continue
+		case line == "/help":
+			outln("可用命令：")
+			outln("  /help  显示本帮助")
+			outln("  /list  列出历史会话")
+			outln("  /clear 清空当前上下文，开始新任务（不删会话文件）")
+			outln("  /exit  退出（等同 /quit）")
+			outln("直接输入其他内容即作为任务发给模型。")
+			continue
+		case line == "/list":
+			dir := filepath.Join(cfg.exeDirStore(), "data", "sessions")
+			outln("历史会话（最近 20 条）：")
+			for _, si := range listSessions(dir, 20) {
+				w := si.workspace
+				if len(w) > 28 {
+					w = "..." + w[len(w)-25:]
+				}
+				out("%-20s %-28s %4d  %s\n", si.mtime.Format("01-02 15:04:05"), w, si.count, si.firstUser)
+			}
+			continue
+		case strings.HasPrefix(line, "/"):
+			outln("[未知命令 " + line + "——/help 查看可用命令；如需作为任务发送请去掉开头的 /]")
 			continue
 		}
 		pushMsg(&msgs, openai.ChatCompletionMessage{Role: openai.ChatMessageRoleUser, Content: line})
-		_, stErr := streamTurn(client, reg, cfg, &msgs)
+		turnStart := time.Now()
+		var stats turnStats
+		_, stErr := streamTurn(client, reg, cfg, &msgs, &stats)
+		endSt := taskEndState{rounds: stats.rounds, elapsed: time.Since(turnStart)}
 		if interrupted() {
-			finalizeInterrupted(&msgs, reg)
+			finalizeInterrupted(&msgs, reg, endSt)
+			outln("[已中止当前轮，会话保留。可以直接输入新的指示。]")
 			continue
 		}
-		endOfTaskSummary(reg, errors.Is(stErr, errMaxRounds))
 		if stErr != nil {
-			fmt.Println("ERROR:", stErr)
+			printTaskEnd(reg, errors.Is(stErr, errMaxRounds), taskEndState{status: "出错中止", rounds: endSt.rounds, elapsed: endSt.elapsed})
+			outln("ERROR:", stErr)
+			continue
 		}
+		printTaskEnd(reg, false, taskEndState{status: "已完成", rounds: endSt.rounds, elapsed: endSt.elapsed})
 	}
 }
 
 // streamTurn runs one agent turn: stream reply; execute tool calls; feed results; loop until final answer.
-func streamTurn(client *openai.Client, reg *Registry, cfg *config, msgs *[]openai.ChatCompletionMessage) (string, error) {
+// turnStats (T3): per-turn counters surfaced in the terminal block.
+type turnStats struct {
+	rounds int
+}
+
+func streamTurn(client *openai.Client, reg *Registry, cfg *config, msgs *[]openai.ChatCompletionMessage, stats *turnStats) (string, error) {
 	// T1 (slow-network): no whole-turn time budget. The turn context carries
 	// only the interrupt cancellation; every LLM request is guarded by the
 	// first-chunk / idle watchdogs in llmStreamOnce instead. A stream that
 	// keeps producing chunks is never killed for being slow.
 	ctx, cancel := context.WithCancel(context.Background())
 	turnCancel = cancel
-	defer func() { turnCancel = nil; cancel() }()
+	defer func() { turnCancel = nil; cancel(); resetInterrupt() }()
 	for round := 0; round < 30; round++ {
 		if interrupted() {
 			return "", errInterrupted
 		}
 		roundStart := time.Now()
+		if stats != nil {
+			stats.rounds = round + 1
+		}
+		out("[第 %d 轮 / 上限 30]\n", round+1)
 		maybeCompressContext(ctx, client, cfg, msgs)
 		maybeCompressContext(ctx, client, cfg, msgs)
 		req := openai.ChatCompletionRequest{
@@ -555,13 +623,15 @@ func streamTurn(client *openai.Client, reg *Registry, cfg *config, msgs *[]opena
 			return "", err
 		}
 		if len(calls) == 0 {
-			outln()
 			// M4-T0: persist the final assistant answer so the session file
 			// distinguishes convergence from cap-stop and --resume sees it.
 			pushMsg(msgs, openai.ChatCompletionMessage{
 				Role: openai.ChatMessageRoleAssistant, Content: content,
 			})
 			out("[第 %d 轮完成，耗时 %v]\n", round+1, time.Since(roundStart).Round(time.Second))
+			// T2 (output-layering): the answer already streamed with the
+			// narrative prefix; frame the clean text so it is unmissable.
+			frameAnswer(content)
 			return content, nil
 		}
 		pushMsg(msgs, openai.ChatCompletionMessage{Role: openai.ChatMessageRoleAssistant, ToolCalls: calls})
@@ -569,13 +639,9 @@ func streamTurn(client *openai.Client, reg *Registry, cfg *config, msgs *[]opena
 			if interrupted() {
 				return "", errInterrupted
 			}
-			fmt.Printf("\n[tool] %s(%s)\n", c.Function.Name, c.Function.Arguments)
+			printToolCall(c.Function.Name, c.Function.Arguments)
 			res := reg.Execute(c.Function.Name, c.Function.Arguments)
-			preview := strings.ReplaceAll(res, "\n", " | ")
-			if len(preview) > 300 {
-				preview = preview[:300] + " ..."
-			}
-			fmt.Printf("[tool-result] %s\n", preview)
+			printToolResult(c.Function.Name, c.Function.Arguments, res)
 			pushMsg(msgs, openai.ChatCompletionMessage{
 				Role: openai.ChatMessageRoleTool, ToolCallID: c.ID, Content: res,
 			})

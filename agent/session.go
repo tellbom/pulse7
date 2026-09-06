@@ -138,10 +138,41 @@ func pairToolCalls(msgs []openai.ChatCompletionMessage) ([]openai.ChatCompletion
 	return out, added
 }
 
+// taskEndState (T3 output-layering): one-line status + stats for the
+// terminal block. status is one of: 已完成 / 需要回答 / 出错中止 / 已中止.
+type taskEndState struct {
+	status  string
+	rounds  int
+	elapsed time.Duration
+}
+
+// printTaskEnd: the single terminal block users scan for. Merges the
+// historic endOfTaskSummary (shell side-effect list + checkpoint note)
+// so nothing is printed twice.
+func printTaskEnd(r *Registry, maxed bool, st taskEndState) {
+	out("========================================\n")
+	out("任务结束：%s（共 %d 轮，耗时 %v）\n", st.status, st.rounds, st.elapsed.Round(time.Second))
+	endOfTaskSummaryLines(r)
+	if maxed {
+		out("[警告] 本次任务达到最大轮次上限后停止，任务很可能未完成。\n")
+	}
+	out("========================================\n")
+}
+
 // endOfTaskSummary: shell side effects are not covered by git rollback; at
 // task end the user gets the list of shell commands this task executed, plus
 // a warning when the run stopped at the round cap without a final answer.
 func endOfTaskSummary(r *Registry, maxed bool) {
+	if r == nil {
+		return
+	}
+	endOfTaskSummaryLines(r)
+	if maxed {
+		fmt.Println("[警告] 本次任务达到最大轮次上限后停止，任务很可能未完成。")
+	}
+}
+
+func endOfTaskSummaryLines(r *Registry) {
 	if r == nil {
 		return
 	}
@@ -167,9 +198,6 @@ func endOfTaskSummary(r *Registry, maxed bool) {
 			}
 			fmt.Println("文件改动已存 checkpoint，可 rollback；以上命令的外部影响不可回退。")
 		}
-	}
-	if maxed {
-		fmt.Println("[警告] 本次任务达到最大轮次上限后停止，任务很可能未完成。")
 	}
 }
 
