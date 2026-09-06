@@ -36,6 +36,7 @@ type config struct {
 	cleanupOnExit                    bool
 	exeDir                           string
 	listSessions                     bool
+	promptFile                       string
 }
 
 func (c *config) exeDirStore() string {
@@ -149,6 +150,7 @@ func main() {
 	flag.StringVar(&cfg.sessionPath, "session", "", "session .jsonl path (default auto)")
 	flag.StringVar(&cfg.resumePath, "resume", "", "resume from a session .jsonl")
 	flag.BoolVar(&cfg.listSessions, "list", false, "list recent sessions (time/workspace/first message/count)")
+	flag.StringVar(&cfg.promptFile, "prompt-file", "", "read the task prompt from this UTF-8 file (recommended for Chinese/long prompts)")
 	flag.StringVar(&cfg.sandboxPreference, "sandbox-preference", "auto", "auto | sandboxie | jobobject")
 	flag.IntVar(&cfg.memLimitMB, "memory-limit-mb", 2048, "JobObject memory cap in MB")
 	flag.BoolVar(&cfg.cleanupOnExit, "cleanup-on-exit", true, "terminate + clear agent sandbox box on exit")
@@ -202,12 +204,31 @@ func main() {
 		}
 		runMock(secs)
 	case "exec":
-		if len(args) < 2 {
-			fmt.Println("usage: pulse7 exec \"task ...\"")
+		prompt := strings.Join(args[1:], " ")
+		if pf := cfg.promptFile; pf != "" {
+			if prompt != "" {
+				fmt.Println("EXEC-ERROR: --prompt-file and a positional prompt are mutually exclusive")
+				os.Exit(2)
+			}
+			b, err := os.ReadFile(pf)
+			if err != nil {
+				fmt.Println("EXEC-ERROR: cannot read --prompt-file:", err)
+				os.Exit(2)
+			}
+			// UTF-8 BOM (optional) is tolerated, then surrounding whitespace.
+			prompt = strings.TrimPrefix(string(b), string(rune(0xFEFF)))
+			prompt = strings.TrimSpace(prompt)
+			if prompt == "" {
+				fmt.Println("EXEC-ERROR: --prompt-file is empty:", pf)
+				os.Exit(2)
+			}
+		}
+		if prompt == "" {
+			fmt.Println("usage: pulse7 exec \"task ...\"  |  pulse7 exec --prompt-file <path>")
 			os.Exit(2)
 		}
 		cfg.execMode = true
-		runExec(cfg, strings.Join(args[1:], " "))
+		runExec(cfg, prompt)
 	case "repl":
 		runRepl(cfg)
 	case "doctor":
