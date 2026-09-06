@@ -28,7 +28,10 @@ func buildRunFiles(home, workspace, command string) (*runFiles, error) {
 	inner := filepath.Join(dir, "inner.cmd")
 	bat := filepath.Join(dir, "run.bat")
 	rel := `.pulse7\run\` + id
-	if err := os.WriteFile(inner, []byte(command+"\r\n"), 0644); err != nil {
+	// T2 (encoding): cmd.exe parses inner.cmd under the ANSI codepage (936 on
+	// a Chinese system), so the UTF-8 command must be transcoded or Chinese
+	// paths/arguments in it resolve to garbage.
+	if err := os.WriteFile(inner, append(utf8ToANSI(command), '\r', '\n'), 0644); err != nil {
 		return nil, err
 	}
 	content := "@echo off\r\n" +
@@ -46,5 +49,9 @@ func readResult(dir string) (string, int) {
 	ecB, _ := os.ReadFile(filepath.Join(dir, "ec.txt"))
 	ec := -1
 	fmt.Sscanf(string(ecB), "%d", &ec)
-	return string(outB), ec
+	// T2 (encoding): out.txt carries ANSI-codepage bytes (GBK on a Chinese
+	// console) for anything cmd/programs printed in the local language.
+	// Already-valid UTF-8 passes through untouched; only non-UTF-8 output is
+	// decoded via the system ANSI codepage.
+	return decodeShellOutput(outB), ec
 }
