@@ -25,14 +25,18 @@ var (
 // streamSink accumulates ONE streaming attempt: displayed text plus tool
 // calls reconstructed from deltas. A retried attempt builds a fresh sink so
 // half-received fragments are discarded, never concatenated.
+// Narrative text streams through a linePrefixer (T2 output-layering): the
+// model's running commentary is visually distinct from tool lines and from
+// the framed final answer.
 type streamSink struct {
 	content strings.Builder
+	narr    linePrefixer
 	toolAcc map[int]*openai.ToolCall
 	order   []int
 }
 
 func newStreamSink() *streamSink {
-	return &streamSink{toolAcc: map[int]*openai.ToolCall{}}
+	return &streamSink{toolAcc: map[int]*openai.ToolCall{}, narr: linePrefixer{prefix: "| "}}
 }
 
 func (s *streamSink) onChunk(chunk openai.ChatCompletionStreamResponse) {
@@ -41,7 +45,7 @@ func (s *streamSink) onChunk(chunk openai.ChatCompletionStreamResponse) {
 	}
 	d := chunk.Choices[0].Delta
 	if d.Content != "" {
-		outPrint(d.Content)
+		s.narr.write(d.Content)
 		s.content.WriteString(d.Content)
 	}
 	for _, tc := range d.ToolCalls {
@@ -149,6 +153,7 @@ func llmStreamOnce(ctx context.Context, client *openai.Client, cfg *config,
 			recvCh = c
 		case r := <-recvCh:
 			if errors.Is(r.err, io.EOF) {
+				sink.narr.flush()
 				return nil
 			}
 			if r.err != nil {

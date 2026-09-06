@@ -437,7 +437,12 @@ func runExec(cfg *config, prompt string) {
 			if strings.Contains(c, "具体") || strings.Contains(c, "指什么") ||
 				strings.Contains(c, "哪些") || strings.Contains(c, "希望") ||
 				strings.Contains(c, "还是") || strings.Contains(c, "请告诉我") {
-				fmt.Println("\n[需要用户回答] 模型提出了问题，回答后可用 --resume 续跑")
+				out("----------------------------------------\n")
+				out("需要你回答后才能继续：\n%s\n", c)
+				if sess != nil && sess.n > 0 {
+					out("\n回答后续跑：\n  pulse7.exe --resume %q \"你的回答\"\n", sess.id())
+				}
+				out("----------------------------------------\n")
 				endOfTaskSummary(reg, false)
 				exitWith(2, "AWAIT-USER-ANSWER", "")
 			}
@@ -556,13 +561,15 @@ func streamTurn(client *openai.Client, reg *Registry, cfg *config, msgs *[]opena
 			return "", err
 		}
 		if len(calls) == 0 {
-			outln()
 			// M4-T0: persist the final assistant answer so the session file
 			// distinguishes convergence from cap-stop and --resume sees it.
 			pushMsg(msgs, openai.ChatCompletionMessage{
 				Role: openai.ChatMessageRoleAssistant, Content: content,
 			})
 			out("[第 %d 轮完成，耗时 %v]\n", round+1, time.Since(roundStart).Round(time.Second))
+			// T2 (output-layering): the answer already streamed with the
+			// narrative prefix; frame the clean text so it is unmissable.
+			frameAnswer(content)
 			return content, nil
 		}
 		pushMsg(msgs, openai.ChatCompletionMessage{Role: openai.ChatMessageRoleAssistant, ToolCalls: calls})
