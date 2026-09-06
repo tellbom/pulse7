@@ -475,6 +475,7 @@ func streamTurn(client *openai.Client, reg *Registry, cfg *config, msgs *[]opena
 		if interrupted() {
 			return "", errInterrupted
 		}
+		roundStart := time.Now()
 		maybeCompressContext(ctx, client, cfg, msgs)
 		maybeCompressContext(ctx, client, cfg, msgs)
 		req := openai.ChatCompletionRequest{
@@ -497,6 +498,7 @@ func streamTurn(client *openai.Client, reg *Registry, cfg *config, msgs *[]opena
 			pushMsg(msgs, openai.ChatCompletionMessage{
 				Role: openai.ChatMessageRoleAssistant, Content: content,
 			})
+			out("[第 %d 轮完成，耗时 %v]\n", round+1, time.Since(roundStart).Round(time.Second))
 			return content, nil
 		}
 		pushMsg(msgs, openai.ChatCompletionMessage{Role: openai.ChatMessageRoleAssistant, ToolCalls: calls})
@@ -515,6 +517,7 @@ func streamTurn(client *openai.Client, reg *Registry, cfg *config, msgs *[]opena
 				Role: openai.ChatMessageRoleTool, ToolCallID: c.ID, Content: res,
 			})
 		}
+		out("[第 %d 轮完成，耗时 %v]\n", round+1, time.Since(roundStart).Round(time.Second))
 	}
 	return "", errMaxRounds
 }

@@ -88,51 +88,81 @@ func resetDeadline(t *time.Timer, d time.Duration) {
 }
 
 // llmStreamOnce performs one streaming chat request under the two watchdogs:
-//   - first-chunk timeout: from request start until the first block arrives
-//     (queueing / long prompt processing);
-//   - idle timeout: maximum gap between consecutive blocks, reset by EVERY
+//   - first-chunk timeout: from request start until the first DATA chunk
+//     arrives - this covers header-wait (queueing at the server or gateway)
+//     and prompt processing, not just the body stream;
+//   - idle timeout: maximum gap between consecutive chunks, reset by EVERY
 //     received chunk (SSE keepalives with empty deltas count as data).
 //
 // A stream that keeps producing is never killed for being slow. ctx carries
 // only the interrupt cancellation — there is deliberately no total budget.
+// While waiting for the first chunk a heartbeat line is appended every 15s
+// (T4): Win7 conhost parses no ANSI/VT, so output is line-append only.
 func llmStreamOnce(ctx context.Context, client *openai.Client, cfg *config,
 	req openai.ChatCompletionRequest, sink *streamSink) error {
-	stream, err := client.CreateChatCompletionStream(ctx, req)
-	if err != nil {
-		return err
+	type openRes struct {
+		stream *openai.ChatCompletionStream
+		err    error
 	}
-	defer stream.Close()
-
 	type recvRes struct {
 		resp openai.ChatCompletionStreamResponse
 		err  error
 	}
-	ch := make(chan recvRes, 1)
+	openCh := make(chan openRes, 1)
 	go func() {
-		for {
-			r, err := stream.Recv()
-			ch <- recvRes{r, err}
-			if err != nil {
-				return
-			}
+		s, err := client.CreateChatCompletionStream(ctx, req)
+		openCh <- openRes{s, err}
+	}()
+
+	var stream *openai.ChatCompletionStream
+	defer func() {
+		if stream != nil {
+			stream.Close()
 		}
 	}()
 
 	gotFirst := false
+	started := time.Now()
+	heartbeat := time.NewTicker(15 * time.Second)
+	defer heartbeat.Stop()
 	deadline := time.NewTimer(cfg.llmFirstChunkTimeout)
 	defer deadline.Stop()
+	var recvCh <-chan recvRes
 	for {
 		select {
-		case r := <-ch:
+		case o := <-openCh:
+			openCh = nil // phase done; never select on a closed phase again
+			if o.err != nil {
+				return o.err
+			}
+			stream = o.stream
+			c := make(chan recvRes, 1)
+			go func() {
+				for {
+					r, err := stream.Recv()
+					c <- recvRes{r, err}
+					if err != nil {
+						return
+					}
+				}
+			}()
+			recvCh = c
+		case r := <-recvCh:
 			if errors.Is(r.err, io.EOF) {
 				return nil
 			}
 			if r.err != nil {
 				return r.err
 			}
-			gotFirst = true
+			if !gotFirst {
+				// T4: once content flows the screen itself shows life.
+				gotFirst = true
+				heartbeat.Stop()
+			}
 			resetDeadline(deadline, cfg.llmIdleTimeout)
 			sink.onChunk(r.resp)
+		case <-heartbeat.C:
+			out("[等待模型响应... %ds]\n", int(time.Since(started).Round(time.Second).Seconds()))
 		case <-deadline.C:
 			if !gotFirst {
 				return fmt.Errorf("模型 %v 内没有返回任何数据（首字节超时，可配置 llm_first_chunk_timeout_sec）: %w",
