@@ -1,0 +1,44 @@
+M3-GATE-START 
+===== M3-A: desktop session ===== 
+sandbox: Sandboxie (box=Win7Agent)
+=== win7-agent exec (headless) ===
+
+[tool] read({"path": "note.txt"})
+[tool-result] M3-NOTE  | 
+
+[tool] write({"path": "m3/probe.txt", "content": "M3-PROBE-LINE"})
+[tool-result] created C:\Users\user\ws4\m3\probe.txt (13 bytes)
+
+[tool] checkpoint({})
+[tool-result] checkpoint t0905-011742-276/1 (bd54094, mode=private-checkpoint-repo, tree=e481f25, dirty-files=0)
+
+[tool] shell({"command": "echo M3-SHELL-OK > m3shell.txt"})
+[confirm] AUTO-ALLOWED (--yolo): echo M3-SHELL-OK > m3shell.txt
+[tool-result] exitcode=0 | [sandbox=Sandboxie] | 
+
+[tool] rollback({})
+[tool-result] rolled back to t0905-011742-276/1; worktree restored; manifest cleanup removed 1 agent-created files
+MOCK-FINAL: M3 suite complete.
+=== EXEC-DONE ===
+A-EXIT=0 
+=== win7-agent doctor ===
+exe-dir: C:\Users\user\win7-agent
+config/data writable: OK (C:\Users\user\win7-agent\data)
+config file: C:\Users\user\win7-agent\config\agent.json (exists=false)
+workspace: C:\Users\user\win7-agent
+session: id=1 SESSIONNAME="" interactive=true
+os: Microsoft Windows [°æ±¾ 6.1.7601] arch=AMD64
+mingit: git version 2.46.2.windows.1 (<nil>)
+start.exe: C:\Program Files\Sandboxie\Start.exe present=true
+sbiesvc/sbiedrv: SbieSvc=4  RUNNING SbieDrv=4  RUNNING
+sandboxie config: box=Win7Agent OpenFilePath=C:\Users\user\win7-agent (reloaded)
+probe result: OK -> Sandboxie
+MODE: Sandboxie (box=Win7Agent)
+=== doctor done ===
+[ws4 dir]: 
+m3
+m3shell.txt
+note.txt
+[m3shell.txt content]: 
+M3-SHELL-OK 
+M3-GATE-DONE 

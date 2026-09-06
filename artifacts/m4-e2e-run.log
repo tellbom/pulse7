@@ -1,0 +1,15 @@
+M4-E2E-START 2026/09/05 ÷‹¡˘ 15:06:19.84 
+===== S1 regression ===== 
+each pays: 30.0
+each pays: 30.0
+===== S2 regression ===== 
+add: 5
+trim: hello
+add: 5
+trim: hello
+===== S4 AGENT.md convention ===== 
+hello, Win7
+name = "Win7"
+print("hello, {}".format(name))hello, Win7
+===== S5 big-file compression (max-ctx 6000) ===== 
+M4-E2E-DONE 2026/09/05 ÷‹¡˘ 15:08:30.20 

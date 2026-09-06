@@ -1,0 +1,20 @@
+sandbox: JobObject (auto-degraded: no interactive desktop session (Sandboxie requires a desktop session; JobObject is the headless default)) - no system patch required
+=== win7-agent exec (headless) ===
+
+[tool] read({"path": "note.txt"})
+[tool-result] LIFE-NOTE   | 
+
+[tool] write({"path": "m3/probe.txt", "content": "M3-PROBE-LINE"})
+[tool-result] created C:\Users\user\ws-life\m3\probe.txt (13 bytes)
+
+[tool] checkpoint({})
+[tool-result] checkpoint t0905-004806-955/1 (62ddd92, mode=private-checkpoint-repo, tree=562fc8d, dirty-files=2)
+
+[tool] shell({"command": "echo M3-SHELL-OK > m3shell.txt"})
+[confirm] AUTO-ALLOWED (--yolo): echo M3-SHELL-OK > m3shell.txt
+[tool-result] exitcode=0 | [sandbox=JobObject] |  | [warn] job assignment denied (nested job); reduced containment
+
+[tool] rollback({})
+[tool-result] rolled back to t0905-004806-955/1; worktree restored; manifest cleanup removed 1 agent-created files
+MOCK-FINAL: M3 suite complete.
+=== EXEC-DONE ===

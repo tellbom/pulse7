@@ -1,0 +1,74 @@
+M3B-START 
+===== M3-B: main product in zero-Sandboxie boot ===== 
+sandbox: JobObject (auto-degraded: Sandboxie service/driver unavailable (real-run probe failed; no system patch required or requested)) - no system patch required
+=== win7-agent exec (headless) ===
+
+[tool] read({"path": "note.txt"})
+[tool-result] M3-NOTE-B  | 
+
+[tool] write({"path": "m3/probe.txt", "content": "M3-PROBE-LINE"})
+[tool-result] created C:\Users\user\ws4\m3\probe.txt (13 bytes)
+
+[tool] checkpoint({})
+[tool-result] checkpoint t0905-011059-066/1 (d482b25, mode=private-checkpoint-repo, tree=5ecbd3b, dirty-files=0)
+
+[tool] shell({"command": "echo M3-SHELL-OK > m3shell.txt"})
+[confirm] AUTO-ALLOWED (--yolo): echo M3-SHELL-OK > m3shell.txt
+[tool-result] exitcode=0 | [sandbox=JobObject] | 
+
+[tool] rollback({})
+[tool-result] rolled back to t0905-011059-066/1; worktree restored; manifest cleanup removed 1 agent-created files
+MOCK-FINAL: M3 suite complete.
+=== EXEC-DONE ===
+B-EXIT=0 
+=== win7-agent doctor ===
+exe-dir: C:\Users\user\win7-agent
+config/data writable: OK (C:\Users\user\win7-agent\data)
+config file: C:\Users\user\win7-agent\config\agent.json (exists=false)
+workspace: C:\Users\user\win7-agent
+session: id=1 SESSIONNAME="" interactive=true
+os: Microsoft Windows [版本 6.1.7601] arch=AMD64
+mingit: git version 2.46.2.windows.1 (<nil>)
+start.exe: C:\Program Files\Sandboxie\Start.exe present=true
+sbiesvc/sbiedrv: SbieSvc=1  STOPPED SbieDrv=1  STOPPED
+probe result: Sandboxie service/driver unavailable (real-run probe failed; no system patch required or requested) -> JobObject (auto-degraded)
+MODE: JobObject (auto-degraded: Sandboxie service/driver unavailable (real-run probe failed; no system patch required or requested)) - no system patch required
+=== doctor done ===
+===== lifecycle run2: wa-test after reboot ===== 
+sandbox: JobObject (auto-degraded: Sandboxie service/driver unavailable (real-run probe failed; no system patch required or requested)) - no system patch required
+=== win7-agent exec (headless) ===
+
+[tool] read({"path": "note.txt"})
+[tool-result] LIFE-NOTE   | 
+
+[tool] write({"path": "m3/probe.txt", "content": "M3-PROBE-LINE"})
+[tool-result] modified C:\Users\user\ws-life\m3\probe.txt (13 bytes)
+
+[tool] checkpoint({})
+[tool-result] checkpoint t0905-011115-459/1 (7b2fe1d, mode=private-checkpoint-repo, tree=f6fe02a, dirty-files=1)
+
+[tool] shell({"command": "echo M3-SHELL-OK > m3shell.txt"})
+[confirm] AUTO-ALLOWED (--yolo): echo M3-SHELL-OK > m3shell.txt
+[tool-result] exitcode=0 | [sandbox=JobObject] | 
+
+[tool] rollback({})
+[tool-result] rolled back to t0905-011115-459/1; worktree restored; manifest cleanup removed 0 agent-created files
+MOCK-FINAL: M3 suite complete.
+=== EXEC-DONE ===
+LIFE2-EXIT=0 
+===== uninstall wa-test ===== 
+===== win7-agent uninstall =====
+Sandboxie service not running - skipping box cleanup
+UNINSTALL-OK - user workspace untouched
+C:\Users\user\wa-test\runtime\git\usr\share\licenses - 目录不是空的。
+UNINSTALL-FAIL-dir-remains 
+[ws4 kept]: 
+m3
+m3shell.txt
+note.txt
+[ws-life kept]: 
+m3
+m3shell.txt
+note.txt
+SANDBOXIE-KEPT-OK 
+M3B-DONE 

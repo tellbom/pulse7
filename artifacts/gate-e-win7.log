@@ -1,0 +1,192 @@
+===== GATE E : Sandboxie Plus Start.exe CLI =====
+----- E0: services -----
+        STATE              : 4  RUNNING 
+        STATE              : 4  RUNNING 
+----- E1: stdout/stderr/exitcode -----
+E1-DIRECT-EXITCODE=3
+MARK e1-exitcode-NOT-propagated
+----- E2: listpids with long job running -----
+系统找不到指定的路径。
+===D1-no-quotes=== 
+D1-EC=1 
+===D2-payload-file=== 
+D2-EC=1
+--- T1: simple echo in box ---
+--- P0: stray processes ---
+SbieSvc.exe                    936 Services                   0      6,632 K
+cmd.exe                       4000 Services                   0      3,148 K
+cmd.exe                       4024 Services                   0     10,184 K
+SbieSvc.exe                   3920 Services                   0      4,528 K
+cmd.exe                        944 Services                   0      3,276 K
+cmd.exe                        780 Services                   0      3,572 K
+Start.exe                     2964 Services                   0      4,184 K
+Start.exe                     3300 Services                   0      7,280 K
+cmd.exe                       3464 Services                   0      2,516 K
+cmd.exe                       3076 Services                   0      3,276 K
+cmd.exe                       2648 Services                   0      3,584 K
+--- P1: append DefaultBox to ini ---
+[GlobalSettings] 
+[Win7Agent] 
+Enabled=y 
+BoxNameTitle=Win7Agent 
+[DefaultBox]
+Enabled=y
+--- P2: /silent Win7Agent echo ---
+--- C0: kill stray Start.exe / SbieSvc ---
+成功: 已终止进程 "Start.exe"，其 PID 为 3724。
+成功: 已终止进程 "Start.exe"，其 PID 为 2764。
+成功: 已终止进程 "SbieSvc.exe"，其 PID 为 936。
+成功: 已终止进程 "SbieSvc.exe"，其 PID 为 3920。
+--- C1: restart SbieSvc cleanly ---
+Sandboxie Service 服务正在启动 .
+Sandboxie Service 服务已经启动成功。
+
+        STATE              : 4  RUNNING 
+SbieSvc.exe                   2236 Services                   0      6,124 K
+--- C2: container root ---
+ 驱动器 C 中的卷没有标签。
+ 卷的序列号是 4892-D76C
+
+ C:\Sandbox 的目录
+
+2026/09/04  17:22    <DIR>          .
+2026/09/04  17:22    <DIR>          ..
+2026/09/04  17:22                62 DONT-USE.TXT
+2026/09/04  17:22    <DIR>          user
+               1 个文件             62 字节
+               3 个目录 71,710,539,776 可用字节
+--- C3: retry silent echo in box ---
+--- D0: container state before ---
+C:\Sandbox\user\Win7Agent\DONT-USE.TXT
+C:\Sandbox\user\Win7Agent\RegHive
+--- D1: pure exit, no console IO, /wait /silent ---
+--- F0: application error events (first, so we never lose them) ---
+Event[0]:
+  Log Name: Application
+  Source: Microsoft-Windows-WMI
+  Date: 2026-09-04T17:14:07.000
+  Event ID: 10
+  Task: N/A
+  Level: 错误
+  Opcode: N/A
+  Keyword: 经典
+  User: N/A
+  User Name: N/A
+  Computer: WIN-65VKOKP8G13
+  Description: 
+Event filter with query "SELECT * FROM __InstanceModificationEvent WITHIN 60 WHERE TargetInstance ISA "Win32_Processor" AND TargetInstance.LoadPercentage > 99" could not be reactivated in namespace "//./root/CIMV2" because of error 0x80041003. Events cannot be delivered through this filter until the problem is corrected.
+
+Event[1]:
+  Log Name: Application
+  Source: Microsoft-Windows-CAPI2
+  Date: 2026-09-04T17:11:36.863
+  Event ID: 4107
+  Task: N/A
+  Level: 错误
+  Opcode: 信息
+  Keyword: 经典
+  User: N/A
+  User Name: N/A
+  Computer: WIN-65VKOKP8G13
+  Description: 
+在 <http://www.download.windowsupdate.com/msdownload/update/v3/static/trustedr/en/authrootstl.cab> 从自动更新 cab 中提取第三方的根目录列表失败，错误为: 已处理证书链，但是在不受信任提供程序信任的根证书中终止。
+。
+
+Event[2]:
+  Log Name: Application
+  Source: Microsoft-Windows-CAPI2
+  Date: 2026-09-04T17:03:54.660
+  Event ID: 4107
+  Task: N/A
+  Level: 错误
+  Opcode: 信息
+  Keyword: 经典
+  User: N/A
+  User Name: N/A
+  Computer: WIN-65VKOKP8G13
+  Description: 
+在 <http://www.download.windowsupdate.com/msdownload/update/v3/static/trustedr/en/authrootstl.cab> 从自动更新 cab 中提取第三方的根目录列表失败，错误为: 已处理证书链，但是在不受信任提供程序信任的根证书中终止。
+。
+
+Event[3]:
+  Log Name: Application
+  Source: Microsoft-Windows-CAPI2
+  Date: 2026-09-04T17:03:54.657
+  Event ID: 4107
+  Task: N/A
+  Level: 错误
+  Opcode: 信息
+  Keyword: 经典
+  User: N/A
+  User Name: N/A
+  Computer: WIN-65VKOKP8G13
+  Description: 
+在 <http://www.download.windowsupdate.com/msdownload/update/v3/static/trustedr/en/authrootstl.cab> 从自动更新 cab 中提取第三方的根目录列表失败，错误为: 已处理证书链，但是在不受信任提供程序信任的根证书中终止。
+。
+
+Event[4]:
+  Log Name: Application
+  Source: Microsoft-Windows-CAPI2
+  Date: 2026-09-04T17:03:54.653
+  Event ID: 4107
+  Task: N/A
+  Level: 错误
+  Opcode: 信息
+  Keyword: 经典
+  User: N/A
+  User Name: N/A
+  Computer: WIN-65VKOKP8G13
+  Description: 
+在 <http://www.download.windowsupdate.com/msdownload/update/v3/static/trustedr/en/authrootstl.cab> 从自动更新 cab 中提取第三方的根目录列表失败，错误为: 已处理证书链，但是在不受信任提供程序信任的根证书中终止。
+。
+
+--- F0b: system error events ---
+Event[0]:
+  Log Name: System
+  Source: Schannel
+  Date: 2026-09-04T18:29:52.843
+  Event ID: 36887
+  Task: N/A
+  Level: 错误
+  Opcode: 信息
+  Keyword: N/A
+  User: S-1-5-18
+  User Name: NT AUTHORITY\SYSTEM
+  Computer: WIN-65VKOKP8G13
+  Description: 
+接收到以下严重警告: 40。
+
+Event[1]:
+  Log Name: System
+  Source: Schannel
+  Date: 2026-09-04T18:29:52.703
+  Event ID: 36887
+  Task: N/A
+  Level: 错误
+  Opcode: 信息
+  Keyword: N/A
+  User: S-1-5-18
+  User Name: NT AUTHORITY\SYSTEM
+  Computer: WIN-65VKOKP8G13
+  Description: 
+接收到以下严重警告: 70。
+
+Event[2]:
+  Log Name: System
+  Source: Schannel
+  Date: 2026-09-04T18:29:52.547
+  Event ID: 36887
+  Task: N/A
+  Level: 错误
+  Opcode: 信息
+  Keyword: N/A
+  User: S-1-5-18
+  User Name: NT AUTHORITY\SYSTEM
+  Computer: WIN-65VKOKP8G13
+  Description: 
+接收到以下严重警告: 70。
+
+--- F1: kill stray Start.exe ---
+成功: 已终止进程 "Start.exe"，其 PID 为 1008。
+成功: 已终止进程 "Start.exe"，其 PID 为 3792。
+--- F2: async launch (no /wait), payload writes into box ---

@@ -1,0 +1,25 @@
+成功: 计划的任务 "s2e" 被成功删除。
+S2-RUN-START 2026/09/05 周六 14:25:11.98 
+S2-EXIT=%errorlevel% 
+[utils.py after]: 
+def add(a, b):
+    return a + b
+
+def sub(a, b):
+    return a - b
+
+def trim(s):
+    return s.strip()
+[main.py after]: 
+from utils import add, trim
+
+def main():
+    print("add:", add(2, 3))
+    print("trim:", trim("  hello  "))
+
+if __name__ == "__main__":
+    main()
+[python main.py now]: 
+add: 5
+trim: hello
+S2-RUN-DONE 2026/09/05 周六 14:25:37.06 

@@ -1,0 +1,15 @@
+{
+  "base_url": "https://your-endpoint/v1",
+  "api_key": "REPLACE_ME",
+  "model": "REPLACE_ME",
+  "workspace": ".",
+  "box": "Win7Agent",
+  "start_exe": "C:\Program Files\Sandboxie\Start.exe",
+  "sandbox_root": "C:\Sandbox",
+  "sandbox_preference": "auto",
+  "yolo": false,
+  "shell_timeout_sec": 120,
+  "memory_limit_mb": 2048,
+  "max_ctx": 48000,
+  "cleanup_on_exit": true
+}

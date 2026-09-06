@@ -1,0 +1,54 @@
+RETR-R2-START 2026/09/05 ÖÜÁù 18:14:14.24 
+RETR-R2-EXIT=%ERRORLEVEL% 
+fatal: detected dubious ownership in repository at 'C:/Users/user/T7/process-copy'
+'C:/Users/user/T7/process-copy' is owned by:
+	BUILTIN/Administrators (S-1-5-32-544)
+but the current user is:
+	WIN-65VKOKP8G13/user (S-1-5-21-917271793-1091559825-690284621-1000)
+To add an exception for this directory, call:
+
+	git config --global --add safe.directory C:/Users/user/T7/process-copy
+===== compress records ===== 
+{"context_chars_after":20388,"est_tokens_after":5097,"messages_compressed":3,"tool":"_compress","ts":"2026-09-05T17:07:12+08:00"}
+{"context_chars_after":16381,"est_tokens_after":4095,"messages_compressed":3,"tool":"_compress","ts":"2026-09-05T17:07:22+08:00"}
+{"context_chars_after":16636,"est_tokens_after":4159,"messages_compressed":4,"tool":"_compress","ts":"2026-09-05T17:07:42+08:00"}
+{"context_chars_after":1529,"est_tokens_after":382,"messages_compressed":3,"tool":"_compress","ts":"2026-09-05T17:07:53+08:00"}
+{"context_chars_after":5520,"est_tokens_after":1380,"messages_compressed":3,"tool":"_compress","ts":"2026-09-05T17:07:59+08:00"}
+{"context_chars_after":16537,"est_tokens_after":4134,"messages_compressed":3,"tool":"_compress","ts":"2026-09-05T17:29:03+08:00"}
+{"context_chars_after":17729,"est_tokens_after":4432,"messages_compressed":7,"tool":"_compress","ts":"2026-09-05T17:29:14+08:00"}
+{"context_chars_after":8682,"est_tokens_after":2170,"messages_compressed":5,"tool":"_compress","ts":"2026-09-05T17:29:21+08:00"}
+{"context_chars_after":12038,"est_tokens_after":3009,"messages_compressed":9,"tool":"_compress","ts":"2026-09-05T17:29:27+08:00"}
+{"context_chars_after":10181,"est_tokens_after":2545,"messages_compressed":22,"tool":"_compress","ts":"2026-09-05T17:29:34+08:00"}
+{"context_chars_after":26066,"est_tokens_after":6516,"messages_compressed":4,"tool":"_compress","ts":"2026-09-05T17:29:41+08:00"}
+{"context_chars_after":19832,"est_tokens_after":4958,"messages_compressed":4,"tool":"_compress","ts":"2026-09-05T17:29:52+08:00"}
+{"context_chars_after":19289,"est_tokens_after":4822,"messages_compressed":9,"tool":"_compress","ts":"2026-09-05T17:29:59+08:00"}
+{"context_chars_after":3279,"est_tokens_after":819,"messages_compressed":8,"tool":"_compress","ts":"2026-09-05T17:30:09+08:00"}
+{"context_chars_after":7461,"est_tokens_after":1865,"messages_compressed":31,"tool":"_compress","ts":"2026-09-05T17:30:26+08:00"}
+{"context_chars_after":9867,"est_tokens_after":2466,"messages_compressed":4,"tool":"_compress","ts":"2026-09-05T17:30:34+08:00"}
+{"context_chars_after":13086,"est_tokens_after":3271,"messages_compressed":5,"tool":"_compress","ts":"2026-09-05T17:30:40+08:00"}
+{"context_chars_after":13080,"est_tokens_after":3270,"messages_compressed":3,"tool":"_compress","ts":"2026-09-05T17:30:46+08:00"}
+{"context_chars_after":13080,"est_tokens_after":3270,"messages_compressed":3,"tool":"_compress","ts":"2026-09-05T17:30:55+08:00"}
+{"context_chars_after":9449,"est_tokens_after":2362,"messages_compressed":3,"tool":"_compress","ts":"2026-09-05T17:31:02+08:00"}
+{"context_chars_after":5774,"est_tokens_after":1443,"messages_compressed":3,"tool":"_compress","ts":"2026-09-05T17:31:10+08:00"}
+{"context_chars_after":6734,"est_tokens_after":1683,"messages_compressed":3,"tool":"_compress","ts":"2026-09-05T17:31:20+08:00"}
+{"context_chars_after":8604,"est_tokens_after":2151,"messages_compressed":4,"tool":"_compress","ts":"2026-09-05T17:31:32+08:00"}
+{"context_chars_after":16210,"est_tokens_after":4052,"messages_compressed":3,"tool":"_compress","ts":"2026-09-05T17:31:39+08:00"}
+{"context_chars_after":15250,"est_tokens_after":3812,"messages_compressed":9,"tool":"_compress","ts":"2026-09-05T17:31:46+08:00"}
+{"context_chars_after":12951,"est_tokens_after":3237,"messages_compressed":18,"tool":"_compress","ts":"2026-09-05T17:31:51+08:00"}
+{"context_chars_after":5798,"est_tokens_after":1449,"messages_compressed":5,"tool":"_compress","ts":"2026-09-05T17:32:01+08:00"}
+{"context_chars_after":5982,"est_tokens_after":1495,"messages_compressed":3,"tool":"_compress","ts":"2026-09-05T17:32:09+08:00"}
+{"context_chars_after":18140,"est_tokens_after":4535,"messages_compressed":4,"tool":"_compress","ts":"2026-09-05T18:14:33+08:00"}
+{"context_chars_after":9200,"est_tokens_after":2300,"messages_compressed":5,"tool":"_compress","ts":"2026-09-05T18:14:43+08:00"}
+{"context_chars_after":5120,"est_tokens_after":1280,"messages_compressed":3,"tool":"_compress","ts":"2026-09-05T18:14:48+08:00"}
+{"context_chars_after":15698,"est_tokens_after":3924,"messages_compressed":3,"tool":"_compress","ts":"2026-09-05T18:14:54+08:00"}
+{"context_chars_after":15785,"est_tokens_after":3946,"messages_compressed":3,"tool":"_compress","ts":"2026-09-05T18:15:02+08:00"}
+{"context_chars_after":15877,"est_tokens_after":3969,"messages_compressed":3,"tool":"_compress","ts":"2026-09-05T18:15:12+08:00"}
+{"context_chars_after":1239,"est_tokens_after":309,"messages_compressed":3,"tool":"_compress","ts":"2026-09-05T18:15:22+08:00"}
+{"context_chars_after":25977,"est_tokens_after":6494,"messages_compressed":10,"tool":"_compress","ts":"2026-09-05T18:15:33+08:00"}
+{"context_chars_after":35383,"est_tokens_after":8845,"messages_compressed":3,"tool":"_compress","ts":"2026-09-05T18:15:40+08:00"}
+{"context_chars_after":43388,"est_tokens_after":10847,"messages_compressed":6,"tool":"_compress","ts":"2026-09-05T18:15:50+08:00"}
+{"context_chars_after":26980,"est_tokens_after":6745,"messages_compressed":4,"tool":"_compress","ts":"2026-09-05T18:15:57+08:00"}
+{"context_chars_after":41843,"est_tokens_after":10460,"messages_compressed":6,"tool":"_compress","ts":"2026-09-05T18:16:07+08:00"}
+{"context_chars_after":43388,"est_tokens_after":10847,"messages_compressed":4,"tool":"_compress","ts":"2026-09-05T18:16:15+08:00"}
+{"context_chars_after":47416,"est_tokens_after":11854,"messages_compressed":4,"tool":"_compress","ts":"2026-09-05T18:16:26+08:00"}
+RETR-R2-DONE 2026/09/05 ÖÜÁù 18:16:44.36 

@@ -1,0 +1,20 @@
+成功: 计划的任务 "s1e" 被成功删除。
+S1-RUN-START 2026/09/05 周六 14:24:32.91 
+S1-EXIT=%errorlevel% 
+[calc.py after]: 
+# bill splitter: divide a total amount evenly among people
+def split(total, people):
+    if people < 1:
+        raise ValueError("people must be >= 1")
+    return total / people
+
+def main():
+    total = 120
+    people = 4
+    print("each pays:", split(total, people))
+
+if __name__ == "__main__":
+    main()
+[python calc.py now]: 
+each pays: 30.0
+S1-RUN-DONE 2026/09/05 周六 14:24:54.70 

@@ -1,0 +1,86 @@
+M2-SMOKE-START 
+====== RUN1 M1-SMOKE sandboxie + redirect-fix ====== 
+sandbox: Sandboxie (box=Win7Agent)
+=== win7-agent exec (headless) ===
+
+[tool] read({"path": "C:\\Users\\user\\ws\\note.txt"})
+[tool-result] HELLO-FROM-WIN7-NOTE  | 
+
+[tool] get_time({})
+[tool-result] 2026-09-04T20:16:20+08:00
+
+[tool] shell({"command": "echo REDIRECT-FIX > C:\\Users\\user\\ws\\redirect-test.txt"})
+[confirm] AUTO-ALLOWED (--yolo): echo REDIRECT-FIX > C:\Users\user\ws\redirect-test.txt
+[tool-result] exitcode=0 | [sandbox=Sandboxie] | 
+MOCK-FINAL: received 3 tool results: <HELLO-FROM-WIN7-NOTE  > <2026-09-04T20:16:20+08:00> <exitcode=0 [sandbox=Sandboxie] >
+=== EXEC-DONE ===
+RUN1-EXIT=0 
+[redirect-test.txt expected]: 
+REDIRECT-FIX 
+====== RUN2 M2-FILES ====== 
+sandbox: Sandboxie (box=Win7Agent)
+=== win7-agent exec (headless) ===
+
+[tool] write({"path": "C:\\Users\\user\\ws\\m2\\note2.txt", "content": "M2-LINE-1"})
+[tool-result] created C:\Users\user\ws\m2\note2.txt (9 bytes)
+
+[tool] edit({"path": "C:\\Users\\user\\ws\\m2\\note2.txt", "old_string": "M2-LINE-1", "new_string": "M2-LINE-1-EDITED"})
+[tool-result] error: old_string is ambiguous (multiple occurrences)
+
+[tool] grep({"pattern": "EDITED"})
+[tool-result] no matches
+
+[tool] glob({"pattern": "m2/*.txt"})
+[tool-result] C:\Users\user\ws\m2\note2.txt
+
+[tool] ls({"path": "m2"})
+[tool-result] error: path m2 is outside workspace C:\Users\user\ws
+MOCK-FINAL: received 5 tool results: <created C:\Users\user\ws\m2\note2.txt (9 bytes)> <error: old_string is ambiguous (multiple occurrences)> <no matches> <C:\Users\user\ws\m2\note2.txt> <error: path m2 is outside workspace C:\Users\user\ws>
+=== EXEC-DONE ===
+RUN2-EXIT=0 
+[note2.txt expected M2-LINE-1-EDITED]: 
+M2-LINE-1====== RUN3 M2-GIT ====== 
+sandbox: Sandboxie (box=Win7Agent)
+=== win7-agent exec (headless) ===
+
+[tool] checkpoint({})
+[tool-result] checkpoint t0904-201620/1 (96bf577, mode=private-checkpoint-repo, tree=d0e24d6, dirty-files=4)
+
+[tool] write({"path": "C:\\Users\\user\\ws\\m2extra.txt", "content": "EXTRA-CONTENT"})
+[tool-result] created C:\Users\user\ws\m2extra.txt (13 bytes)
+
+[tool] rollback({})
+[tool-result] rolled back to t0904-201620/1; worktree restored; manifest cleanup removed 2 agent-created files
+MOCK-FINAL: git sequence complete.
+=== EXEC-DONE ===
+RUN3-EXIT=0 
+M2GIT-OK-extra-removed 
+[note.txt intact]: 
+HELLO-FROM-WIN7-NOTE 
+====== RUN4 resume ====== 
+sandbox: Sandboxie (box=Win7Agent)
+resumed 7 messages from C:\Users\user\win7-agent\data\sessions\s2m3.jsonl
+=== win7-agent exec (headless) ===
+MOCK-FINAL: git sequence complete.
+=== EXEC-DONE ===
+RUN4-EXIT=0 
+====== EVIDENCE ====== 
+m2
+note.txt
+real3.txt
+redirect-test.txt
+{"args":"{\"path\": \"C:\\\\Users\\\\user\\\\ws\\\\note.txt\"}","ok":true,"result_bytes":23,"tool":"read","ts":"2026-09-04T18:43:41+08:00"}
+{"args":"{}","ok":true,"result_bytes":25,"tool":"get_time","ts":"2026-09-04T18:43:41+08:00"}
+{"args":"{\"command\": \"echo SHELL-OK \u003e C:\\\\Users\\\\user\\\\ws\\\\shell-out.txt\"}","ok":true,"result_bytes":22,"tool":"shell","ts":"2026-09-04T18:43:41+08:00"}
+{"args":"{\"path\": \"C:\\\\Users\\\\user\\\\ws\\\\note.txt\"}","ok":true,"result_bytes":23,"task":"t0904-201620","tool":"read","ts":"2026-09-04T20:16:20+08:00"}
+{"args":"{}","ok":true,"result_bytes":25,"task":"t0904-201620","tool":"get_time","ts":"2026-09-04T20:16:20+08:00"}
+{"args":"{\"command\": \"echo REDIRECT-FIX \u003e C:\\\\Users\\\\user\\\\ws\\\\redirect-test.txt\"}","ok":true,"result_bytes":31,"task":"t0904-201620","tool":"shell","ts":"2026-09-04T20:16:20+08:00"}
+{"args":"{\"path\": \"C:\\\\Users\\\\user\\\\ws\\\\m2\\\\note2.txt\", \"content\": \"M2-LINE-1\"}","ok":true,"result_bytes":47,"task":"t0904-201620","tool":"write","ts":"2026-09-04T20:16:20+08:00"}
+{"args":"{\"path\": \"C:\\\\Users\\\\user\\\\ws\\\\m2\\\\note2.txt\", \"old_string\": \"M2-LINE-1\", \"new_string\": \"M2-LINE-1-EDITED\"}","ok":false,"result_bytes":53,"task":"t0904-201620","tool":"edit","ts":"2026-09-04T20:16:20+08:00"}
+{"args":"{\"pattern\": \"EDITED\"}","ok":true,"result_bytes":10,"task":"t0904-201620","tool":"grep","ts":"2026-09-04T20:16:20+08:00"}
+{"args":"{\"pattern\": \"m2/*.txt\"}","ok":true,"result_bytes":29,"task":"t0904-201620","tool":"glob","ts":"2026-09-04T20:16:20+08:00"}
+{"args":"{\"path\": \"m2\"}","ok":false,"result_bytes":52,"task":"t0904-201620","tool":"ls","ts":"2026-09-04T20:16:20+08:00"}
+{"args":"{}","ok":true,"result_bytes":94,"task":"t0904-201620","tool":"checkpoint","ts":"2026-09-04T20:16:22+08:00"}
+{"args":"{\"path\": \"C:\\\\Users\\\\user\\\\ws\\\\m2extra.txt\", \"content\": \"EXTRA-CONTENT\"}","ok":true,"result_bytes":47,"task":"t0904-201620","tool":"write","ts":"2026-09-04T20:16:22+08:00"}
+{"args":"{}","ok":true,"result_bytes":96,"task":"t0904-201620","tool":"rollback","ts":"2026-09-04T20:16:22+08:00"}
+M2-SMOKE-DONE 

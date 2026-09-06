@@ -1,0 +1,9 @@
+{
+  "base_url": "https://aigc789.top/v1",
+  "api_key": "PUT_REAL_KEY_HERE",
+  "model": "deepseek-v4-flash",
+  "workspace": "PUT_WORKSPACE_PATH_HERE",
+  "sandbox_preference": "auto",
+  "yolo": true,
+  "shell_timeout_sec": 180
+}

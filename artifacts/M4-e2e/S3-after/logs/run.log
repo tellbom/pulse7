@@ -1,0 +1,14 @@
+# 项目整理日志
+
+## 2026-09-05 15:11
+
+- 创建 `README.md` — 项目说明
+- 创建 `notes/` — 笔记目录
+  - `notes/expenses.md` — 整理后的费用记录
+  - `notes/README.md` — 笔记说明
+- 创建 `src/` — 源代码目录
+  - `src/expenses.py` — 费用计算脚本
+- 创建 `logs/` — 日志目录
+  - `logs/run.log` — 本文件
+- 创建 `Makefile` — 常用命令
+- 移除 `old_tmp.py` 临时文件（内容已迁移至 `src/expenses.py`）

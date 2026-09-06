@@ -1,0 +1,19 @@
+M2-DEGRADE-START 
+sandbox: JobObject (auto-degraded: Sandboxie service/driver unavailable (auto-degraded, no system patch required)) - no system patch required
+=== win7-agent exec (headless) ===
+
+[tool] read({"path": "C:\\Users\\user\\ws\\note.txt"})
+[tool-result] HELLO-FROM-WIN7-NOTE  | 
+
+[tool] get_time({})
+[tool-result] 2026-09-05T00:02:17+08:00
+
+[tool] shell({"command": "echo REDIRECT-FIX > C:\\Users\\user\\ws\\redirect-test.txt"})
+[confirm] AUTO-ALLOWED (--yolo): echo REDIRECT-FIX > C:\Users\user\ws\redirect-test.txt
+[tool-result] exitcode=0 | [sandbox=JobObject] | 
+MOCK-FINAL: received 3 tool results: <HELLO-FROM-WIN7-NOTE  > <2026-09-05T00:02:17+08:00> <exitcode=0 [sandbox=JobObject] >
+=== EXEC-DONE ===
+EXIT=0 
+[redirect-test.txt]: 
+REDIRECT-FIX 
+M2-DEGRADE-DONE 

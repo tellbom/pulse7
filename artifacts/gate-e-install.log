@@ -1,0 +1,131 @@
+SHA256 哈希(文件 C:\Users\user\win7-agent\Sandboxie-Plus-x64-v1.18.2.exe):
+1c 19 83 2c 8b b8 4f 5d cd e1 bf 59 b7 f3 8b 7c fe 94 98 9c 09 dd 0a cd 0b 7c e7 48 5d de 89 87
+CertUtil: -hashfile 命令成功完成。
+成功: 成功创建计划任务 "sbxinst"。
+成功: 尝试运行 "sbxinst"。
+TASK-STARTED
+错误: 无法加载列资源。
+----- 
+----- 
+INI-MISSING
+找不到文件
+----- 
+NOT-INSTALLED
+===PROCESSES=== 
+Sandboxie-Plus-x64-v1.18.     6804 Services                   0      5,640 K
+Sandboxie-Plus-x64-v1.18.     7120 Services                   0      8,388 K
+Sandboxie-Plus-x64-v1.18.     7440 Services                   0      5,660 K
+Sandboxie-Plus-x64-v1.18.     4744 Services                   0      8,412 K
+Sandboxie-Plus-x64-v1.18.     5456 Services                   0      5,640 K
+Sandboxie-Plus-x64-v1.18.     7072 Services                   0      8,528 K
+===SERVICES=== 
+===DIR=== 
+===IFW-LOG=== 
+===EXIST=== 
+NOT-INSTALLED
+===PROC=== 
+Sandboxie-Plus-x64-v1.18.     7120 Services                   0      8,388 K
+Sandboxie-Plus-x64-v1.18.     4744 Services                   0      8,412 K
+Sandboxie-Plus-x64-v1.18.     1828 Services                   0      5,748 K
+Sandboxie-Plus-x64-v1.18.     5196 Services                   0      8,632 K
+Sandboxie-Plus-x64-v1.18.     7488 Services                   0      5,708 K
+Sandboxie-Plus-x64-v1.18.     7796 Services                   0      8,620 K
+===TRY-KILL-LEFTOVERS=== 
+成功: 已终止进程 "Sandboxie-Plus-x64-v1.18.2.exe"，其 PID 为 1828。
+成功: 已终止进程 "Sandboxie-Plus-x64-v1.18.2.exe"，其 PID 为 7488。
+KILL-DONE
+'head' 不是内部或外部命令，也不是可运行的程序
+或批处理文件。
+SHA256 哈希(文件 C:\Users\user\win7-agent\Sandboxie-Classic-x64-v5.73.2.exe):
+18 23 93 10 d6 ad 24 7e 1a 0d 56 af e0 d5 8a f9 61 e6 73 75 dd 3b c0 c1 60 e0 28 d2 3c c2 82 b6
+CertUtil: -hashfile 命令成功完成。
+        STATE              : 1  STOPPED 
+        STATE              : 1  STOPPED 
+32
+KmdUtil.exe
+LICENSE.TXT
+Manifest0.txt
+Manifest1.txt
+Manifest2.txt
+QuickLaunch.lnk
+SandboxieBITS.exe
+SandboxieCrypto.exe
+SandboxieDcomLaunch.exe
+SandboxieRpcSs.exe
+SandboxieWUAU.exe
+SbieCtrl.exe
+SbieCtrl.exe.sig
+SbieDll.dll
+SbieDrv.sys
+SbieIni.exe
+SbieMsg.dll
+SbieSvc.exe
+SbieSvc.exe.sig
+SboxHostDll.dll
+Start.exe
+Start.exe.sig
+Templates.ini
+UpdUtil.exe
+whatsnew.html
+INI-MISSING
+INI-WRITTEN 
+[GlobalSettings] 
+[Win7Agent] 
+Enabled=y 
+BoxNameTitle=Win7Agent 
+Sandboxie Service 服务正在启动 .
+        STATE              : 1  STOPPED 
+        STATE              : 1  STOPPED 
+Sandboxie Service 服务无法启动。
+
+服务没有报告任何错误。
+
+请键入 NET HELPMSG 3534 以获得更多的帮助。
+
+WUSA-EC=5
+===TRY-DRIVER=== 
+[SC] StartService 失败 577:
+
+Windows 无法验证此文件的数字签名。某软件或硬件最近有所更改，可能安装了签名错误或损毁的文件，或者安装的文件可能是来路不明的恶意软件。
+
+SC-EC=577 
+        STATE              : 1  STOPPED 
+
+错误: 50
+
+不支持该请求。
+DISM-EC=50
+Microsoft (R) 文件扩展实用程序版本 6.1.7600.16385
+版权所有 (c) Microsoft Corporation。保留所有权利。
+
+正在将 C:\Users\user\win7-agent\msu\WSUSSCAN.cab 添加到提取队列
+正在将 C:\Users\user\win7-agent\msu\Windows6.1-KB4474419-v3-x64.cab 添加到提取队列
+正在将 C:\Users\user\win7-agent\msu\Windows6.1-KB4474419-v3-x64-pkgProperties.txt 添加到提取队列
+正在将 C:\Users\user\win7-agent\msu\Windows6.1-KB4474419-v3-x64.xml 添加到提取队列
+
+正在展开文件 ....
+
+完成展开文件 ...
+总共 4 个文件。
+Windows6.1-KB4474419-v3-x64-pkgProperties.txt
+Windows6.1-KB4474419-v3-x64.cab
+Windows6.1-KB4474419-v3-x64.xml
+WSUSSCAN.cab
+DISM-EC=3010
+KB4474419  9/4/2026     
+统计数据开始于 2026/9/4 17:12:21
+        STATE              : 4  RUNNING 
+        STATE              : 4  RUNNING 
+===START=== 
+[SC] StartService 失败 1056:
+
+服务的实例已在运行中。
+
+DRV-EC=1056 
+SVC-EC=2 
+请求的服务已经启动。
+
+请键入 NET HELPMSG 2182 以获得更多的帮助。
+
+        STATE              : 4  RUNNING 
+        STATE              : 4  RUNNING 
