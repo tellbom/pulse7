@@ -222,6 +222,7 @@ func main() {
 		if lf, err := os.OpenFile(filepath.Join(logDir, "agent.log"),
 			os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644); err == nil {
 			teeOut = io.MultiWriter(newConsoleWriter(), lf)
+			logOnly = lf
 			fmt.Fprintf(lf, "\n=== session start %s ===\n", time.Now().Format(time.RFC3339))
 		}
 	}
@@ -569,13 +570,9 @@ func streamTurn(client *openai.Client, reg *Registry, cfg *config, msgs *[]opena
 			if interrupted() {
 				return "", errInterrupted
 			}
-			fmt.Printf("\n[tool] %s(%s)\n", c.Function.Name, c.Function.Arguments)
+			printToolCall(c.Function.Name, c.Function.Arguments)
 			res := reg.Execute(c.Function.Name, c.Function.Arguments)
-			preview := strings.ReplaceAll(res, "\n", " | ")
-			if len(preview) > 300 {
-				preview = preview[:300] + " ..."
-			}
-			fmt.Printf("[tool-result] %s\n", preview)
+			printToolResult(c.Function.Name, c.Function.Arguments, res)
 			pushMsg(msgs, openai.ChatCompletionMessage{
 				Role: openai.ChatMessageRoleTool, ToolCallID: c.ID, Content: res,
 			})
