@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -76,8 +77,7 @@ func watchInterrupt() {
 	go func() {
 		for range sig {
 			if atomic.AddInt32(&interruptFlag, 1) >= 2 {
-				fmt.Println("\n[强制退出]")
-				os.Exit(130)
+				exitWith(130, "INTERRUPTED-FORCE", "second Ctrl-C: immediate exit")
 			}
 			fmt.Println("\n[收到中断，正在停止（再按一次立即退出）…]")
 			if curRunner != nil {
@@ -127,7 +127,35 @@ func finalizeInterrupted(msgs *[]openai.ChatCompletionMessage, reg *Registry) {
 	}
 }
 
+// exitWith (T2 file-encoding): every process exit writes a terminal record
+// to stdout AND data\logs\agent.log before os.Exit. A batch harness checks
+// for this record (or a nonzero EXITCODE echo) — "process vanished with no
+// output" can never again masquerade as a pass.
+func exitWith(code int, kind, detail string) {
+	line := fmt.Sprintf("=== EXIT %s code=%d %s ===", kind, code, time.Now().Format(time.RFC3339))
+	if detail != "" {
+		line += "\n" + detail
+	}
+	fmt.Println(line)
+	if exe, err := os.Executable(); err == nil {
+		if f, err := os.OpenFile(filepath.Join(filepath.Dir(exe), "data", "logs", "agent.log"),
+			os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644); err == nil {
+			f.WriteString(line + "\n")
+			f.Close()
+		}
+	}
+	os.Exit(code)
+}
+
 func main() {
+	// T2 (file-encoding): no exit may be silent. Panics on the main
+	// goroutine land here with the stack in agent.log; os.Exit paths all go
+	// through exitWith which writes the same terminal record first.
+	defer func() {
+		if p := recover(); p != nil {
+			exitWith(2, "PANIC", fmt.Sprintf("%v\n%s", p, debug.Stack()))
+		}
+	}()
 	cfg := &config{}
 	flag.StringVar(&cfg.baseURL, "base-url", "http://127.0.0.1:8080/v1", "OpenAI-compatible base URL")
 	flag.StringVar(&cfg.apiKey, "api-key", "dummy", "API key")
@@ -207,25 +235,21 @@ func main() {
 		prompt := strings.Join(args[1:], " ")
 		if pf := cfg.promptFile; pf != "" {
 			if prompt != "" {
-				fmt.Println("EXEC-ERROR: --prompt-file and a positional prompt are mutually exclusive")
-				os.Exit(2)
+				exitWith(2, "USAGE", "EXEC-ERROR: --prompt-file and a positional prompt are mutually exclusive")
 			}
 			b, err := os.ReadFile(pf)
 			if err != nil {
-				fmt.Println("EXEC-ERROR: cannot read --prompt-file:", err)
-				os.Exit(2)
+				exitWith(2, "USAGE", fmt.Sprintf("EXEC-ERROR: cannot read --prompt-file: %v", err))
 			}
 			// UTF-8 BOM (optional) is tolerated, then surrounding whitespace.
 			prompt = strings.TrimPrefix(string(b), string(rune(0xFEFF)))
 			prompt = strings.TrimSpace(prompt)
 			if prompt == "" {
-				fmt.Println("EXEC-ERROR: --prompt-file is empty:", pf)
-				os.Exit(2)
+				exitWith(2, "USAGE", "EXEC-ERROR: --prompt-file is empty: "+pf)
 			}
 		}
 		if prompt == "" {
-			fmt.Println("usage: pulse7 exec \"task ...\"  |  pulse7 exec --prompt-file <path>")
-			os.Exit(2)
+			exitWith(2, "USAGE", `usage: pulse7 exec "task ..."  |  pulse7 exec --prompt-file <path>`)
 		}
 		cfg.execMode = true
 		runExec(cfg, prompt)
@@ -236,13 +260,11 @@ func main() {
 	case "init":
 		// M3-E/F: ensure config template exists (never overwrites).
 		if err := writeAgentConfigTemplate(configPath(cfg.exeDirStore())); err != nil {
-			fmt.Println("INIT-ERROR:", err)
-			os.Exit(1)
+			exitWith(1, "INIT-ERROR", fmt.Sprintf("%v", err))
 		}
 		fmt.Println("config ensured:", configPath(cfg.exeDirStore()))
 	default:
-		fmt.Println("usage: pulse7 [repl | exec \"task\" | mock <sec>] [flags]")
-		os.Exit(2)
+		exitWith(2, "USAGE", "usage: pulse7 [repl | exec \"task\" | mock <sec>] [flags]")
 	}
 }
 
@@ -363,12 +385,16 @@ func loadAgentMd(ws string) string {
 }
 
 func runExec(cfg *config, prompt string) {
+	// TEST-ONLY (T2 verification): inject a panic to prove the recover
+	// wrapper writes the stack to agent.log instead of dying silently.
+	if os.Getenv("PULSE7_PANIC_TEST") != "" {
+		panic("PULSE7_PANIC_TEST injected")
+	}
 	taskID := newTaskID()
 	client := newClient(cfg)
 	reg, err := setupEnv(cfg, taskID)
 	if err != nil {
-		fmt.Println("SETUP-ERROR:", err)
-		os.Exit(1)
+		exitWith(1, "SETUP-ERROR", fmt.Sprintf("%v", err))
 	}
 	resumeTarget := resolveResume(cfg, cfg.resumePath) // resolve BEFORE the new session file makes itself "latest"
 	if resumeTarget != "" {
@@ -382,8 +408,7 @@ func runExec(cfg *config, prompt string) {
 	if resumeTarget != "" {
 		msgs, err = loadSession(resumeTarget)
 		if err != nil {
-			fmt.Println("RESUME-ERROR:", err)
-			os.Exit(1)
+			exitWith(1, "RESUME-ERROR", fmt.Sprintf("%v", err))
 		}
 		fmt.Printf("resumed %d messages from %s\n", len(msgs), resumeTarget)
 	}
@@ -400,7 +425,7 @@ func runExec(cfg *config, prompt string) {
 	_, err = streamTurn(client, reg, cfg, &msgs)
 	if interrupted() {
 		finalizeInterrupted(&msgs, reg)
-		os.Exit(130)
+		exitWith(130, "INTERRUPTED", "")
 	}
 	// T5: distinguish "ends with a question for the user" from clean completion
 	if msgsLen := len(msgs); msgsLen > 0 && msgs[msgsLen-1].Role == openai.ChatMessageRoleAssistant {
@@ -411,23 +436,25 @@ func runExec(cfg *config, prompt string) {
 				strings.Contains(c, "还是") || strings.Contains(c, "请告诉我") {
 				fmt.Println("\n[需要用户回答] 模型提出了问题，回答后可用 --resume 续跑")
 				endOfTaskSummary(reg, false)
-				os.Exit(2)
+				exitWith(2, "AWAIT-USER-ANSWER", "")
 			}
 		}
 	}
 	endOfTaskSummary(reg, errors.Is(err, errMaxRounds))
 	if err != nil {
-		fmt.Println("EXEC-ERROR:", err)
+		detail := fmt.Sprintf("EXEC-ERROR: %v", err)
 		// T5: hand the user a copy-paste resume command with the concrete
 		// session id, or say explicitly that nothing was saved.
 		if sess != nil && sess.n > 0 {
-			fmt.Printf("已完成的进度已保存。续跑命令：\n  pulse7.exe --resume %q %q\n", sess.id(), prompt)
+			detail += fmt.Sprintf("\n已完成的进度已保存。续跑命令：\n  pulse7.exe --resume %q %q", sess.id(), prompt)
 		} else {
-			fmt.Println("本次运行没有保存任何对话进度（未生成 session 文件）。")
+			detail += "\n本次运行没有保存任何对话进度（未生成 session 文件）。"
 		}
-		os.Exit(1)
+		exitWith(1, "EXEC-ERROR", detail)
 	}
 	outln("=== EXEC-DONE ===")
+	// T2 (file-encoding): uniform terminal record for harness verification.
+	exitWith(0, "DONE", "")
 }
 
 func runRepl(cfg *config) {
@@ -435,8 +462,7 @@ func runRepl(cfg *config) {
 	client := newClient(cfg)
 	reg, err := setupEnv(cfg, taskID)
 	if err != nil {
-		fmt.Println("SETUP-ERROR:", err)
-		os.Exit(1)
+		exitWith(1, "SETUP-ERROR", fmt.Sprintf("%v", err))
 	}
 	resumeTarget := resolveResume(cfg, cfg.resumePath) // resolve BEFORE the new session file makes itself "latest"
 	if resumeTarget != "" {
@@ -450,8 +476,7 @@ func runRepl(cfg *config) {
 	if resumeTarget != "" {
 		msgs, err = loadSession(resumeTarget)
 		if err != nil {
-			fmt.Println("RESUME-ERROR:", err)
-			os.Exit(1)
+			exitWith(1, "RESUME-ERROR", fmt.Sprintf("%v", err))
 		}
 		fmt.Printf("resumed %d messages from %s\n", len(msgs), resumeTarget)
 	}
