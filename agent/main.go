@@ -25,6 +25,8 @@ type config struct {
 	yolo                             bool
 	shellTimeout                     time.Duration
 	maxCtx                           int
+	llmFirstChunkTimeout             time.Duration
+	llmIdleTimeout                   time.Duration
 	execMode                         bool
 	sessionPath, resumePath          string
 	sandboxPreference                string
@@ -130,6 +132,10 @@ func main() {
 	flag.BoolVar(&cfg.yolo, "yolo", false, "skip interactive confirmation")
 	flag.DurationVar(&cfg.shellTimeout, "shell-timeout", 120*time.Second, "shell tool timeout")
 	flag.IntVar(&cfg.maxCtx, "max-ctx", 48000, "max context chars before truncation")
+	flag.DurationVar(&cfg.llmFirstChunkTimeout, "llm-first-chunk-timeout", 300*time.Second,
+		"LLM watchdog: max wait from request start to the first streamed chunk (queueing)")
+	flag.DurationVar(&cfg.llmIdleTimeout, "llm-idle-timeout", 120*time.Second,
+		"LLM watchdog: max gap between streamed chunks, reset on every chunk")
 	flag.StringVar(&cfg.sessionPath, "session", "", "session .jsonl path (default auto)")
 	flag.StringVar(&cfg.resumePath, "resume", "", "resume from a session .jsonl")
 	flag.BoolVar(&cfg.listSessions, "list", false, "list recent sessions (time/workspace/first message/count)")
@@ -452,7 +458,11 @@ func runRepl(cfg *config) {
 
 // streamTurn runs one agent turn: stream reply; execute tool calls; feed results; loop until final answer.
 func streamTurn(client *openai.Client, reg *Registry, cfg *config, msgs *[]openai.ChatCompletionMessage) (string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	// T1 (slow-network): no whole-turn time budget. The turn context carries
+	// only the interrupt cancellation; every LLM request is guarded by the
+	// first-chunk / idle watchdogs in llmStreamOnce instead. A stream that
+	// keeps producing chunks is never killed for being slow.
+	ctx, cancel := context.WithCancel(context.Background())
 	turnCancel = cancel
 	defer func() { turnCancel = nil; cancel() }()
 	for round := 0; round < 30; round++ {
@@ -467,69 +477,24 @@ func streamTurn(client *openai.Client, reg *Registry, cfg *config, msgs *[]opena
 			Tools:    reg.Definitions(),
 			Stream:   true,
 		}
-		stream, err := client.CreateChatCompletionStream(ctx, req)
+		sink := newStreamSink()
+		err := llmStreamOnce(ctx, client, cfg, req, sink)
 		if err != nil {
+			if interrupted() {
+				return "", errInterrupted
+			}
 			return "", err
 		}
-		var content strings.Builder
-		toolAcc := map[int]*openai.ToolCall{}
-		var order []int
-		for {
-			chunk, err := stream.Recv()
-			if errors.Is(err, io.EOF) {
-				break
-			}
-			if err != nil {
-				stream.Close()
-				if interrupted() {
-					return "", errInterrupted
-				}
-				return "", err
-			}
-			if len(chunk.Choices) == 0 {
-				continue
-			}
-			d := chunk.Choices[0].Delta
-			if d.Content != "" {
-				outPrint(d.Content)
-				content.WriteString(d.Content)
-			}
-			for _, tc := range d.ToolCalls {
-				idx := 0
-				if tc.Index != nil {
-					idx = *tc.Index
-				}
-				e, ok := toolAcc[idx]
-				if !ok {
-					e = &openai.ToolCall{ID: tc.ID, Type: openai.ToolTypeFunction, Function: openai.FunctionCall{}}
-					toolAcc[idx] = e
-					order = append(order, idx)
-				}
-				if tc.ID != "" {
-					e.ID = tc.ID
-				}
-				if tc.Function.Name != "" {
-					e.Function.Name = tc.Function.Name
-				}
-				e.Function.Arguments += tc.Function.Arguments
-			}
-		}
-		stream.Close()
-		if len(toolAcc) == 0 {
+		if len(sink.toolAcc) == 0 {
 			outln()
 			// M4-T0: persist the final assistant answer so the session file
 			// distinguishes convergence from cap-stop and --resume sees it.
 			pushMsg(msgs, openai.ChatCompletionMessage{
-				Role: openai.ChatMessageRoleAssistant, Content: content.String(),
+				Role: openai.ChatMessageRoleAssistant, Content: sink.content.String(),
 			})
-			return content.String(), nil
+			return sink.content.String(), nil
 		}
-		calls := make([]openai.ToolCall, 0, len(order))
-		for _, i := range order {
-			c := *toolAcc[i]
-			c.Index = nil
-			calls = append(calls, c)
-		}
+		calls := sink.calls()
 		pushMsg(msgs, openai.ChatCompletionMessage{Role: openai.ChatMessageRoleAssistant, ToolCalls: calls})
 		for _, c := range calls {
 			if interrupted() {

@@ -24,6 +24,11 @@ type agentConfig struct {
 	MemoryLimitMB      int    `json:"memory_limit_mb"`
 	MaxCtx             int    `json:"max_ctx"`
 	CleanupOnExit      bool   `json:"cleanup_on_exit"`
+	// T1 (slow-network): watchdog timeouts in seconds. First-chunk covers
+	// queueing before the first data block; idle covers the gap between
+	// chunks and is reset by every chunk (slow streams are never killed).
+	LLMFirstChunkTimeoutSec int `json:"llm_first_chunk_timeout_sec"`
+	LLMIdleTimeoutSec       int `json:"llm_idle_timeout_sec"`
 }
 
 func defaultAgentConfig() agentConfig {
@@ -41,6 +46,10 @@ func defaultAgentConfig() agentConfig {
 		MemoryLimitMB:     2048,
 		MaxCtx:            48000,
 		CleanupOnExit:     true,
+		// T1 defaults: generous first-chunk (queueing on a slow intranet can
+		// take minutes) and a 2-minute idle gap before a stream is judged dead.
+		LLMFirstChunkTimeoutSec: 300,
+		LLMIdleTimeoutSec:       120,
 	}
 }
 
@@ -103,6 +112,16 @@ func applyConfigToFlags(cfg *config, ac agentConfig, fs *flag.FlagSet) {
 	use("memory-limit-mb", func() { cfg.memLimitMB = ac.MemoryLimitMB })
 	use("max-ctx", func() { if ac.MaxCtx > 0 { cfg.maxCtx = ac.MaxCtx } })
 	use("cleanup-on-exit", func() { cfg.cleanupOnExit = ac.CleanupOnExit })
+	use("llm-first-chunk-timeout", func() {
+		if ac.LLMFirstChunkTimeoutSec > 0 {
+			cfg.llmFirstChunkTimeout = time.Duration(ac.LLMFirstChunkTimeoutSec) * time.Second
+		}
+	})
+	use("llm-idle-timeout", func() {
+		if ac.LLMIdleTimeoutSec > 0 {
+			cfg.llmIdleTimeout = time.Duration(ac.LLMIdleTimeoutSec) * time.Second
+		}
+	})
 }
 
 var _ = os.Getenv
