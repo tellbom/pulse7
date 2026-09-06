@@ -53,7 +53,9 @@ var curRunner sandboxRunner
 var curCfg *config
 
 // teeOut: all user-visible output goes here (stdout + agent.log when active).
-var teeOut io.Writer = os.Stdout
+// stdout goes through consoleWriter: WriteConsoleW on a real console (correct
+// under any codepage, file-encoding T-repl), raw UTF-8 when redirected.
+var teeOut io.Writer = newConsoleWriter()
 
 func out(format string, a ...interface{}) { fmt.Fprintf(teeOut, format, a...) }
 func outln(a ...interface{})             { fmt.Fprintln(teeOut, a...) }
@@ -219,7 +221,7 @@ func main() {
 		os.MkdirAll(logDir, 0o755)
 		if lf, err := os.OpenFile(filepath.Join(logDir, "agent.log"),
 			os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644); err == nil {
-			teeOut = io.MultiWriter(os.Stdout, lf)
+			teeOut = io.MultiWriter(newConsoleWriter(), lf)
 			fmt.Fprintf(lf, "\n=== session start %s ===\n", time.Now().Format(time.RFC3339))
 		}
 	}
@@ -497,7 +499,9 @@ func runRepl(cfg *config) {
 		if !sc.Scan() {
 			break
 		}
-		line := strings.TrimSpace(sc.Text())
+		// typed input follows the console codepage (GBK on a Chinese cmd);
+		// decode for the model — valid UTF-8 (pipe, or chcp 65001) passes through.
+		line := strings.TrimSpace(decodeShellOutput(sc.Bytes()))
 		switch line {
 		case "":
 			continue
