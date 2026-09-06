@@ -74,23 +74,41 @@ var (
 var errInterrupted = errors.New("interrupted by user")
 
 func watchInterrupt() {
-	sig := make(chan os.Signal, 2)
+	sig := make(chan os.Signal, 4)
 	signal.Notify(sig, os.Interrupt)
 	go func() {
+		var lastCtrl time.Time
 		for range sig {
-			if atomic.AddInt32(&interruptFlag, 1) >= 2 {
-				exitWith(130, "INTERRUPTED-FORCE", "second Ctrl-C: immediate exit")
+			// T4 (output-layering): in REPL a second Ctrl-C within 3s exits;
+			// a single press only aborts the running turn. exec keeps its
+			// rc-0.4 semantics exactly: first press = graceful stop + exit
+			// 130, ANY second press = immediate exit.
+			if curCfg != nil && curCfg.execMode {
+				if atomic.AddInt32(&interruptFlag, 1) >= 2 {
+					exitWith(130, "INTERRUPTED-FORCE", "second Ctrl-C: immediate exit (exec mode)")
+				}
+			} else if time.Since(lastCtrl) < 3*time.Second {
+				exitWith(130, "INTERRUPTED-FORCE", "second Ctrl-C within 3s: immediate exit")
 			}
-			fmt.Println("\n[收到中断，正在停止（再按一次立即退出）…]")
+			lastCtrl = time.Now()
+			atomic.AddInt32(&interruptFlag, 1)
+			if turnCancel == nil {
+				fmt.Println("\n[当前没有正在执行的任务（再按一次退出，或 /exit）]")
+				continue
+			}
+			fmt.Println("\n[收到中断，正在停止当前轮（3 秒内再按一次立即退出；REPL 下会话保留）…]")
 			if curRunner != nil {
 				curRunner.Interrupt()
 			}
-			if turnCancel != nil {
-				turnCancel()
-			}
+			turnCancel()
 		}
 	}()
 }
+
+// resetInterrupt clears the Ctrl-C latch after a turn ends (REPL continues
+// with a fresh latch; a stale count must not turn the NEXT single press into
+// a force-exit).
+func resetInterrupt() { atomic.StoreInt32(&interruptFlag, 0) }
 
 func interrupted() bool { return atomic.LoadInt32(&interruptFlag) > 0 }
 
@@ -504,7 +522,7 @@ func runRepl(cfg *config) {
 		}
 		pushMsg(&msgs, openai.ChatCompletionMessage{Role: openai.ChatMessageRoleSystem, Content: sys})
 	}
-	fmt.Println("commands: /exit /clear")
+	outln("commands: /exit /clear")
 	sc := bufio.NewScanner(os.Stdin)
 	sc.Buffer(make([]byte, 64*1024), 256*1024)
 	for {
@@ -532,6 +550,7 @@ func runRepl(cfg *config) {
 		endSt := taskEndState{rounds: stats.rounds, elapsed: time.Since(turnStart)}
 		if interrupted() {
 			finalizeInterrupted(&msgs, reg, endSt)
+			outln("[已中止当前轮，会话保留。可以直接输入新的指示。]")
 			continue
 		}
 		if stErr != nil {
@@ -556,7 +575,7 @@ func streamTurn(client *openai.Client, reg *Registry, cfg *config, msgs *[]opena
 	// keeps producing chunks is never killed for being slow.
 	ctx, cancel := context.WithCancel(context.Background())
 	turnCancel = cancel
-	defer func() { turnCancel = nil; cancel() }()
+	defer func() { turnCancel = nil; cancel(); resetInterrupt() }()
 	for round := 0; round < 30; round++ {
 		if interrupted() {
 			return "", errInterrupted
