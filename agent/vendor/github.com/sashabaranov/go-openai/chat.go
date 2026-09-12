@@ -140,7 +140,7 @@ func (m ChatCompletionMessage) MarshalJSON() ([]byte, error) {
 		return json.Marshal(msg)
 	}
 
-	msg := struct {
+	type textMessage struct {
 		Role             string            `json:"role"`
 		Content          string            `json:"content,omitempty"`
 		Refusal          string            `json:"refusal,omitempty"`
@@ -150,7 +150,16 @@ func (m ChatCompletionMessage) MarshalJSON() ([]byte, error) {
 		FunctionCall     *FunctionCall     `json:"function_call,omitempty"`
 		ToolCalls        []ToolCall        `json:"tool_calls,omitempty"`
 		ToolCallID       string            `json:"tool_call_id,omitempty"`
-	}(m)
+	}
+	msg := textMessage(m)
+	// Tool responses must carry content even when the actual output is empty.
+	// Keep assistant tool-call and multimodal serialization unchanged.
+	if m.Role == ChatMessageRoleTool {
+		return json.Marshal(struct {
+			textMessage
+			Content string `json:"content"`
+		}{msg, m.Content})
+	}
 	return json.Marshal(msg)
 }
 

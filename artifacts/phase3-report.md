@@ -169,3 +169,15 @@ S1/S2/S3 已分别发起真实 DeepSeek 官方请求，三次均 401 Authenticat
 环境变更仅限 `h-validation/phase3-python-regression` 独立副本：原python37._pth未改；副本移为.disabled以恢复脚本同目录导入，预检查输出42/exit0，见prepare-python-regression-win7.txt。首次S2模型自行诊断并操作TEMP/p3test的命令完整保留在其日志中，属于shell副作用，不能由checkpoint回滚。
 
 S1出现一次`observe descendant ... The parameter is incorrect`登记告警，直接shell仍exit0；仅实测确认该告警出现，原因未证，不宣称已修复，不更改H进程模型。R1/R2继续按用户裁决等待原测试环境；386/Sandboxie推迟至真实用户实测；rc-0.14尚未打，未push。
+
+## GUI实测反馈：Git runtime与空工具结果（2026-09-12）
+
+用户提供的E:/pulse7-e2e/FINDINGS.md与源码核实一致。A为部署缺失：首次write前AUTO checkpoint找不到exe旁的bundled Git，因此拒绝写入；没有取消checkpoint或增加PATH降级。完整Git runtime从只读历史树既有Win7运行时复制到本开发树runtime/git，共344文件逐一SHA256相同，cmd/git.exe哈希`02ed65496cb0b1ccfc85a8201fc224b1fa21ab15eb4eda80316bcc346b2b50a1`。runtime仍被gitignore排除。
+
+B为序列化缺陷：go-openai的文本MarshalJSON省略空content。最小修复仅在role=tool时显式序列化content字符串，包括真实空串；不填占位文本，不改变assistant tool_calls或MultiContent，不升级依赖。由于sessionMessageRecord复用该marshal，新会话记录同时保留空content；旧缺字段tool消息反序列化后重发也会补齐空串，未改历史会话文件。
+
+新增测试验证流式/非流式HTTP实际请求、旧记录重发、非空结果及assistant/多模态序列化保持不变。Win7全量**159项、0跳过、exit0**，记录empty-tool-win7.txt；测试二进制SHA256 `75d468243c771fd381b450777ee7cc83f7fbc38de8c487c35be821c03954553a`。386构建与静态vet成功，未执行386运行测试。
+
+官方DeepSeek `deepseek-v4-pro` 经Win7上的serve HTTP/SSE真实联调：空目录ls产生1条`content:""`工具消息，后续write创建probe.txt，建立AUTO checkpoint，再read验证内容EMPTY-TOOL-OK，最终success，约9.88秒。会话`t0912-233727-696`，证据empty-tool-live-win7.txt。该检查是Win7 HTTP/SSE与真实模型闭环，不冒充本轮另做过浏览器点击。
+
+构建源码为main 9eeb75b加本次最小修复和用户已有的未提交正式GUI资源，**不是干净提交构建**；未覆盖或提交其web/、agent/web改动。amd64产物SHA256 `a3e387bf6c059609693c2971f785eac993a48d20b6db6c544638437fa2cf055a`，副本为开发树根目录pulse7-empty-tool-fix.exe，旁边已具备runtime/git。现有服务进程没有被中断或替换；需从修复版exe重新启动serve才会加载B修复。未自动push或打tag。

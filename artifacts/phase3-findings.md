@@ -39,3 +39,7 @@ P3-F19：官方DeepSeek当前加载凭据返回401，S1/S2/S3未进入模型执�
 P3-F19更新：401原因已核对为Codex上轮录入凭据少一位，不能归因用户或官方服务。纠正后S1/S2/S3已进入真实模型执行。S2首次因embedded Python的._pth隔离无法按原命令导入utils，独立Python副本恢复正常导入后重跑成功；原安装不动，前次失败不覆盖。S2原TASK.md缺失的历史同一性限制仍保留。
 
 P3-F20：S1实际shell运行中出现一次后代登记失败`The parameter is incorrect`，shell本身exit0；可能涉及短命后代，但本次未证成因，不将推测写成定论。不改H实现。S3多个候选方向仍符合旧基线的判据问题记录，不改提示词。R1/R2仍延期。
+
+P3-F21（已修）：空tool.content被vendored SDK自定义MarshalJSON省略，官方DeepSeek拒绝下一轮。只对tool角色显式保留空字符串，159项Win7全量及真实官方HTTP续轮验证通过。后续升级go-openai时须保留/复核该兼容行为，不能只改结构体标签却遗漏自定义marshal。
+
+P3-F22（部署已补）：exe旁缺runtime/git时写入被AUTO checkpoint安全阻止，属运行包缺失。已补本机完整runtime，不绕开检查。源码仓库不打包runtime，部署时必须单独提供。当前启动中的旧exe不会自动获得序列化补丁，必须重新启动修复版。

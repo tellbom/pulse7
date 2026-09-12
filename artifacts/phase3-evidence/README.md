@@ -1,5 +1,7 @@
 # 阶段三证据
 
+GUI空工具结果修复：empty-tool-win7.py为端侧159项全量脚本；empty-tool-live.py/controller.py为官方deepseek-v4-pro经Win7 serve的空ls→write→read验证。原始empty-tool-win7.txt与empty-tool-live-win7.txt仅保留本地（遵守正式仓库不收原始日志的规则）。构建包含用户未提交正式GUI资源，非干净提交构建；结果、哈希与部署说明见phase3-report最后一节。用户GUI文件未改，runtime仅本地补齐。
+
 C2见c2-build.json、c2-results.json、c2-comparison.json；生产源码提交f8f2c2a，构建时为该提交前的修改状态，精确改动文件SHA见c2-build。
 
 C3：c3-api-first-win7.txt/c3-api-final-win7.txt为Win7五项API专项；c3-live-first-win7.txt保留首次历史ID查询失败，c3-live-second-win7.txt为修正后真实HTTP固定模型联调。c3-vm-preflight.txt为启动窗口。c3-live.py为当前联调脚本，首轮只差fixture目录及异常堆栈记录，失败未被覆盖。产品构建SHA嵌在各live日志中；当前构建来源唯一开发树的C3未提交状态，不是最终干净全量证据。
