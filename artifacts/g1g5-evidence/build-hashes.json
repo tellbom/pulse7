@@ -1,0 +1,102 @@
+[
+  {
+    "file": "baseline-3303809.exe.tmp",
+    "bytes": 9300480,
+    "sha256": "9e0d4b99e17f2f59bb802f91aafe75b668396ab3c82a60e81573a5f1e0eb90d7"
+  },
+  {
+    "file": "final-pulse7-rc012.exe.tmp",
+    "bytes": 9337344,
+    "sha256": "9acdb39f9ea5b102fcd48f168e4c20b9101bbdb9997c91e803831476c524690d"
+  },
+  {
+    "file": "final-rc012-386.test.exe.tmp",
+    "bytes": 10221056,
+    "sha256": "5210faf3e1cee779e6d578e8b19a5d67747785fe75e6c7852e271825247e7f45"
+  },
+  {
+    "file": "final-rc012-amd64.test.exe.tmp",
+    "bytes": 10277376,
+    "sha256": "46f9e0c469d2eb6c751bdfb07153c87ec5c89d37831cc8fd3b8c3a8954e0a3ae"
+  },
+  {
+    "file": "g1-green.test.exe.tmp",
+    "bytes": 10232832,
+    "sha256": "2ef676d8bc3cfa87c5f5f9f9b71419c469ba757461c864603858a22cfbf7b5dc"
+  },
+  {
+    "file": "g1-native.test.exe.tmp",
+    "bytes": 10277376,
+    "sha256": "46f9e0c469d2eb6c751bdfb07153c87ec5c89d37831cc8fd3b8c3a8954e0a3ae"
+  },
+  {
+    "file": "g1-recreation-red.test.exe.tmp",
+    "bytes": 10278400,
+    "sha256": "daccae21aab9fb0e1cd3b2f1b206bde5fb53191b3ba45e4e39241627a3b24010"
+  },
+  {
+    "file": "g1-red.test.exe.tmp",
+    "bytes": 10231296,
+    "sha256": "8294fc7b77d01b916fc1e235d473f4097aa4c0fc35eb810edeaaf22b1b12389f"
+  },
+  {
+    "file": "g2-green.test.exe.tmp",
+    "bytes": 10241536,
+    "sha256": "bd3e09721fda135fa961c4d8dbcccdf0da99fd51f1b398a17ca5130ad0e2a755"
+  },
+  {
+    "file": "g2-red.test.exe.tmp",
+    "bytes": 10238464,
+    "sha256": "df7fb6ef063d6c082174a707771db0c950c50b54ce624deee079dce88e9fbb29"
+  },
+  {
+    "file": "g3.test.exe.tmp",
+    "bytes": 10241536,
+    "sha256": "73c390e3c0eb8acbee02d2ef9ac76ec7a9e90e9c6a82a8830a731b366e31667c"
+  },
+  {
+    "file": "g4-diagnose.test.exe.tmp",
+    "bytes": 10267136,
+    "sha256": "e8c6817fbef2b15965e48b8b0328f5aa38867f0e8a13df0ff51a4ee8c3c3cdf2"
+  },
+  {
+    "file": "g4-final.test.exe.tmp",
+    "bytes": 10270720,
+    "sha256": "183d3ac2eec505a3d8949666ee3daafccc5748a6a967c64bd40e037d0c09345e"
+  },
+  {
+    "file": "g4-fixture.test.exe.tmp",
+    "bytes": 10267136,
+    "sha256": "46002e4228d9a61f648439809672ed52829f236b9c7c8dfcf307f2a276c0b3ff"
+  },
+  {
+    "file": "g4-green.test.exe.tmp",
+    "bytes": 10260992,
+    "sha256": "606842cc124247d6bd61175a57358958a6edd309cf3182145d790ce354032d3a"
+  },
+  {
+    "file": "g4-red.test.exe.tmp",
+    "bytes": 10254848,
+    "sha256": "3642879162ec830843415c596cfe605edc9a95c4d51cc49499d9523237551352"
+  },
+  {
+    "file": "g5.test.exe.tmp",
+    "bytes": 10270720,
+    "sha256": "0de8b8918496a475cac346ef12931f1bb56c8454071e16ae4293602770817968"
+  },
+  {
+    "file": "pulse7-rc012-amd64.exe.tmp",
+    "bytes": 9335296,
+    "sha256": "be51a92cd9009db851a83c77e44a4f378a2059a3fc74aa5397b82a37b6247d87"
+  },
+  {
+    "file": "rc012-386.test.exe.tmp",
+    "bytes": 10215936,
+    "sha256": "5d1027a26235a697080c2945f568db96a971ee5580d3b6d08c9c4547de939450"
+  },
+  {
+    "file": "rc012-amd64.test.exe.tmp",
+    "bytes": 10270720,
+    "sha256": "0de8b8918496a475cac346ef12931f1bb56c8454071e16ae4293602770817968"
+  }
+]

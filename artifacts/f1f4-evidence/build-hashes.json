@@ -1,0 +1,118 @@
+[
+  {
+    "file": "pulse7-amd64.exe",
+    "bytes": 9325568,
+    "sha256": "c87065a6b02c89ae1b421cc65eb5b7622b5fd7cd62c30526f407b0d3962296fd"
+  },
+  {
+    "file": "pulse7-386.exe",
+    "bytes": 9268224,
+    "sha256": "cd0f7de23ca390dfd5a8665a3a7db5d94be5e8a99a032fe6c3d00c6723cb4046"
+  },
+  {
+    "file": "final2-amd64.test.exe",
+    "bytes": 10225152,
+    "sha256": "1ed23e460de58ecd6c3650d3e29236709fc1b39055502ef1b2f20d31f9184f7c"
+  },
+  {
+    "file": "final2-386.test.exe",
+    "bytes": 10169344,
+    "sha256": "cbaefd97c205f0533cac72349d34b9e514dbf25427f449dbce89bbb5d7f233be"
+  },
+  {
+    "file": "rc011-amd64.test.exe",
+    "bytes": 10225152,
+    "sha256": "1ed23e460de58ecd6c3650d3e29236709fc1b39055502ef1b2f20d31f9184f7c",
+    "source_commit": "ed3731af2260faaba0783441a5a8952c009f6904",
+    "clean_status_before_build": true,
+    "runtime_equivalence": "Win7 final2 counterpart verified by certutil in b-remote-test-hashes.txt; no new full run"
+  },
+  {
+    "file": "rc011-386.test.exe",
+    "bytes": 10169344,
+    "sha256": "cbaefd97c205f0533cac72349d34b9e514dbf25427f449dbce89bbb5d7f233be",
+    "source_commit": "ed3731af2260faaba0783441a5a8952c009f6904",
+    "clean_status_before_build": true,
+    "runtime_equivalence": "Win7 final2 counterpart verified by certutil in b-remote-test-hashes.txt; no new full run"
+  },
+  {
+    "file": "r1b-baseline-3303809.exe",
+    "bytes": 9300480,
+    "sha256": "9e0d4b99e17f2f59bb802f91aafe75b668396ab3c82a60e81573a5f1e0eb90d7",
+    "source_commit": "330380975c6d91d984c37b65b7d00984945e22c7",
+    "build_tree": "E:/codex-worktrees/win7-agent/baseline-3303809 (detached, removed after use)",
+    "runtime": "Win7; b-r1-before-and-baseline-hash.txt confirms uploaded hash"
+  },
+  {
+    "file": "lifecycle-command-probe.py",
+    "bytes": 850,
+    "sha256": "10049abc5948bb4d07904ea69203df15f8071ecb536cee22ba5d84593a67e5d0",
+    "producing_tree": "E:/codex-worktrees/win7-agent/pre-phase3",
+    "source_commit": "11beef19a630d649d186d03f6f791b5c0f0bd37c",
+    "source_state": "product and tests unchanged; Win7 external diagnostic evidence"
+  },
+  {
+    "file": "lifecycle-command-probe.txt",
+    "bytes": 672,
+    "sha256": "c66ca8655f98e8d3d849f8570dfa9237dbdb9392cda8676797f3495d6711128f",
+    "producing_tree": "E:/codex-worktrees/win7-agent/pre-phase3",
+    "source_commit": "11beef19a630d649d186d03f6f791b5c0f0bd37c",
+    "source_state": "product and tests unchanged; Win7 external diagnostic evidence"
+  },
+  {
+    "file": "lifecycle-observer-resume.py",
+    "bytes": 4999,
+    "sha256": "3830d42797226d44a4c84ff928436827c730640d1350654cbbed69be7553afad",
+    "producing_tree": "E:/codex-worktrees/win7-agent/pre-phase3",
+    "source_commit": "11beef19a630d649d186d03f6f791b5c0f0bd37c",
+    "source_state": "product and tests unchanged; Win7 external diagnostic evidence"
+  },
+  {
+    "file": "lifecycle-observer.py",
+    "bytes": 4767,
+    "sha256": "648b93fe4c391214b9f4468ee77d087cc9fd9169f7d6202cde42656c87f496db",
+    "producing_tree": "E:/codex-worktrees/win7-agent/pre-phase3",
+    "source_commit": "11beef19a630d649d186d03f6f791b5c0f0bd37c",
+    "source_state": "product and tests unchanged; Win7 external diagnostic evidence"
+  },
+  {
+    "file": "lifecycle20-console.txt",
+    "bytes": 1659,
+    "sha256": "617ebbcadb69e52e0c82bbb68b70aab801e14f38ae8d65bb5ff7aff9dbbf4ad1",
+    "producing_tree": "E:/codex-worktrees/win7-agent/pre-phase3",
+    "source_commit": "11beef19a630d649d186d03f6f791b5c0f0bd37c",
+    "source_state": "product and tests unchanged; Win7 external diagnostic evidence"
+  },
+  {
+    "file": "lifecycle20-manifest.txt",
+    "bytes": 12341,
+    "sha256": "b20bb36b9261e3655f44e117db30b3bab95f354e6966e776d6ebf001c7d6f96f",
+    "producing_tree": "E:/codex-worktrees/win7-agent/pre-phase3",
+    "source_commit": "11beef19a630d649d186d03f6f791b5c0f0bd37c",
+    "source_state": "product and tests unchanged; Win7 external diagnostic evidence"
+  },
+  {
+    "file": "lifecycle20-resume-console.txt",
+    "bytes": 1357,
+    "sha256": "1a016e0520277d42a6f7440e7096de76932314a2d463e6b2f04970c9655a6815",
+    "producing_tree": "E:/codex-worktrees/win7-agent/pre-phase3",
+    "source_commit": "11beef19a630d649d186d03f6f791b5c0f0bd37c",
+    "source_state": "product and tests unchanged; Win7 external diagnostic evidence"
+  },
+  {
+    "file": "lifecycle20-transfer.txt",
+    "bytes": 236534,
+    "sha256": "372b3eab12ba41da6fd4ac42b3f452137c41cb5daa2510987f9278f8bf100fca",
+    "producing_tree": "E:/codex-worktrees/win7-agent/pre-phase3",
+    "source_commit": "11beef19a630d649d186d03f6f791b5c0f0bd37c",
+    "source_state": "product and tests unchanged; Win7 external diagnostic evidence"
+  },
+  {
+    "file": "lifecycle20.json",
+    "bytes": 177385,
+    "sha256": "1ad435737ab78c0334062e6ccc3e08a4ff348827565dc3b8f7229b836f532287",
+    "producing_tree": "E:/codex-worktrees/win7-agent/pre-phase3",
+    "source_commit": "11beef19a630d649d186d03f6f791b5c0f0bd37c",
+    "source_state": "product and tests unchanged; Win7 external diagnostic evidence"
+  }
+]

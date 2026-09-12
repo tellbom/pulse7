@@ -1,0 +1,591 @@
+{
+  "tree": "E:/codex-worktrees/win7-agent/pre-phase3",
+  "source_head": "48aa9e7",
+  "source_state": "Current continuation: product built with H5 follow-up; h-cycles includes uncommitted h13_cycles_test.go. Not clean-commit acceptance #16. Older evidence retains its original per-run metadata.",
+  "binaries": {
+    "h-cycles.exe": "12c739547239bc6f4e389b6ee6b470337b7983ae974a99fbb24c787a59850dbc",
+    "h-product.exe": "d7434b9d17850dbca73871954bff45230dceb64977d8aa54c9ae4b98c817b11d"
+  },
+  "artifacts": [
+    {
+      "file": "cdp-inprocessgpu-1-win7.json.txt",
+      "sha256": "19c2a54b5bf8dcb44569008322b6671739e932ade8f197fdf30aefa56a7f6888",
+      "bytes": 65279
+    },
+    {
+      "file": "cdp-interact.py",
+      "sha256": "0c16d2289319a4507af89c0fddc7abcb95d4765384c2068bcaedc2cc6356545d",
+      "bytes": 2053
+    },
+    {
+      "file": "cdp-nosandbox-diagnostic-1-win7.json.txt",
+      "sha256": "3617c890d3a809e0df23054048e87da127c0d23f51b9b09e3c39e1dc4c5c3a53",
+      "bytes": 74373
+    },
+    {
+      "file": "cdp-session-1-win7.json.txt",
+      "sha256": "3d796dd2af04a15708c9665331fe6b9a457f8afbb303b9daa037a93a8b8e165f",
+      "bytes": 41069
+    },
+    {
+      "file": "cdp-session-2-win7.json.txt",
+      "sha256": "3f145cabc60daa8f1c60f669c945d47edc3fc4e6cbe5e4a6bf8bd9edfbd400fc",
+      "bytes": 69733
+    },
+    {
+      "file": "cdp-session-3-win7.json.txt",
+      "sha256": "3b71173d21045743df070fff423cc2d56f6fc830cfffb23e12ca0adbd764d5fd",
+      "bytes": 73242
+    },
+    {
+      "file": "cdp-silent-1-win7.json.txt",
+      "sha256": "743ea79d4ab22c3e281053e60e48393e0d369d3a4b24572d16c2515273e72c37",
+      "bytes": 61123
+    },
+    {
+      "file": "cdp-workflow.py",
+      "sha256": "4deb4c5a3ad5ea1c9cb942d1f827ce8277f84aee3a4edabd30e52a3a912aba0d",
+      "bytes": 6150
+    },
+    {
+      "file": "chrome-baseline-1-win7.txt",
+      "sha256": "bb70243db8550d417000d0c6cd549f00adbe1f6a553036b1ff21bda22afbbfef",
+      "bytes": 1876
+    },
+    {
+      "file": "chrome-baseline.py",
+      "sha256": "c97dc703228c9d2c929ced6e59e60436243fc5edbe9cf19aa87043412d58ee61",
+      "bytes": 1495
+    },
+    {
+      "file": "chrome-version-win7.txt",
+      "sha256": "09f9ee310bff1510d2bc8fd1a332cec95b5db8a6a02335234fc91d734e744a99",
+      "bytes": 61
+    },
+    {
+      "file": "chrome109-broker_services.cc.txt",
+      "sha256": "7792b2cbd4056667a978b4eda081211ee182682faae8d3614d3212b8592ac5bf",
+      "bytes": 27845
+    },
+    {
+      "file": "chrome109-sandbox_types.h.txt",
+      "sha256": "43f231bbdd9c4fa8496cfb558cd7d11b1e757f680e247ceae324b02e006a43d5",
+      "bytes": 9423
+    },
+    {
+      "file": "chrome109-target_process.cc.txt",
+      "sha256": "214c9477c2822570c643dc8e74d87f2031a5babdbd0481e4e39657cf420bd36a",
+      "bytes": 14449
+    },
+    {
+      "file": "detached-silent-1-directory.txt",
+      "sha256": "3a573bd964b468709cd45fcfbbd89afe54c8b5df2f647f1b46fa82eb3919dbc0",
+      "bytes": 853
+    },
+    {
+      "file": "detached-silent-1-product.log",
+      "sha256": "765bb33333fb97ded33d888a61e31c1a0eacf695da24dc8f3df297c0a8799794",
+      "bytes": 18657
+    },
+    {
+      "file": "detached-silent-1-result.txt",
+      "sha256": "a054686e3bcb9d796a67a79789eab74f0218a7d21118d02134fa40b49ba50356",
+      "bytes": 723
+    },
+    {
+      "file": "detached-silent-1-win7.json.txt",
+      "sha256": "6ec8f64afc75ac9fffd1055ded82dcb9038dfd068cae153a5d5cd642f34ed4f6",
+      "bytes": 726
+    },
+    {
+      "file": "h-silent-jobobject-win7.txt",
+      "sha256": "88a3c0b8ae0e15ac9690ff441d2336f39d9edb60c11550cb6ae592ebe64d4993",
+      "bytes": 7783
+    },
+    {
+      "file": "h1-green-test-win7.txt",
+      "sha256": "886147830bfbc78a0907780c55702569c2776fb3b5d7b77983ef6ff7a1d5ada7",
+      "bytes": 487
+    },
+    {
+      "file": "h1-green-win7.txt",
+      "sha256": "9038b4a4d8d865c6d6c038af50fc9ab954d16592f870c9cdc855e77f00925e90",
+      "bytes": 148
+    },
+    {
+      "file": "h1-jobobject-regression-win7.txt",
+      "sha256": "61a881166f7b56b56866b8b847880c3ae12b5232f9595a60ef26a637675632dc",
+      "bytes": 1668
+    },
+    {
+      "file": "h1-red-win7.txt",
+      "sha256": "3ada46dec9e89570ced0c4f25d9eb8eaa6032e40dd8bc7a3303bf42ff631f513",
+      "bytes": 629
+    },
+    {
+      "file": "h13-cycles-win7.txt",
+      "sha256": "7906ecaa0baf327ae98ea8b099f74e0766f24ef7fb33712bea2aef17a3c58c2d",
+      "bytes": 31674
+    },
+    {
+      "file": "h15-exit-summary-20-win7.txt",
+      "sha256": "67adbcc9282d2f2079f289546689b702acfe5204abac75a89a175f6c2d826efb",
+      "bytes": 7992
+    },
+    {
+      "file": "h15-process-count-20-win7.txt",
+      "sha256": "ee6cefa7b8606fd887876bdcbd43b6007ebcf8909074ada0659af2d1020438ab",
+      "bytes": 21523
+    },
+    {
+      "file": "h2-green-win7.txt",
+      "sha256": "8bc60f0e01c0f1c1f8f84b4f42a10810dc7de8608719e560f840be6b5195401d",
+      "bytes": 481
+    },
+    {
+      "file": "h2-jobobject-win7.txt",
+      "sha256": "4a09c841e378c72eb5024658230f3b7cbe2c9cf352df148bfe547b0042a5e289",
+      "bytes": 1668
+    },
+    {
+      "file": "h2-process-table-win7.txt",
+      "sha256": "567600a6be3cc745157df83c8c9e6b7ea45ae4d3518096741eb91b89432a6dbf",
+      "bytes": 985
+    },
+    {
+      "file": "h2-red-win7.txt",
+      "sha256": "c9cebf14a1a17747d9847e66dd8996cfe50856b0104c21cf425ee8f3b158a170",
+      "bytes": 561
+    },
+    {
+      "file": "h3-green-win7.txt",
+      "sha256": "a6f16465a950f2b2058e2e601a968116fe314ae90f3db2ddca0087881f77aa1a",
+      "bytes": 485
+    },
+    {
+      "file": "h3-jobobject-win7.txt",
+      "sha256": "406166795d0552e039891ca1df30232ead5f76a8269f1cb924da8a0d45e0d1b9",
+      "bytes": 7885
+    },
+    {
+      "file": "h3-red-win7.txt",
+      "sha256": "aadeef3ab9e97cb187c22d680eea01d4f7756eb98347b8fcb8aab5a242327a43",
+      "bytes": 678
+    },
+    {
+      "file": "h4-final-win7.txt",
+      "sha256": "0fea5d2d9da3888e04debdaf520ba36d6622e88ac148b944cef9453b989125e8",
+      "bytes": 2167
+    },
+    {
+      "file": "h4-green-win7.txt",
+      "sha256": "84b2a7f37fd186e88e2f33f693ef8bc0e601cb8374dd37677f9024c8d80bf50c",
+      "bytes": 2167
+    },
+    {
+      "file": "h4-red-win7.txt",
+      "sha256": "f1efec7fa85b3fc5f2dce19a4e0c42f9afc3b436e20b960e26fc1c52199bbc31",
+      "bytes": 750
+    },
+    {
+      "file": "h5-four-exits-fixed-win7.txt",
+      "sha256": "be61c9fc0cbdbb72a180b91b0a4384543c850e1a0cb38fada28acd199b91d158",
+      "bytes": 17566
+    },
+    {
+      "file": "h5-four-exits-win7.txt",
+      "sha256": "3998ff841deda84ad613c70af9cb51d82c3c85e9ab774b19e248d5c96ed8e1fc",
+      "bytes": 17566
+    },
+    {
+      "file": "h5-green-win7.txt",
+      "sha256": "ea2d98ccb92efa728f2f11d61bd62eebb724e604ca2bf9f455e8357813595968",
+      "bytes": 497
+    },
+    {
+      "file": "h5-red-win7.txt",
+      "sha256": "8d1f6d7be50c9ef45812e54a52c447bff8e2f3001e59f34dd637d7f12b959fc8",
+      "bytes": 672
+    },
+    {
+      "file": "h6-green-win7.txt",
+      "sha256": "75faf04d740ac0758d347e2b78960f79b2fc84ba275b08dda28ba29396516169",
+      "bytes": 501
+    },
+    {
+      "file": "h6-red-win7.txt",
+      "sha256": "17ee4525643c6f390bbfb085d3ed3e656a9bdff29abc7192034efa0da2a7d635",
+      "bytes": 2069
+    },
+    {
+      "file": "inspect-vm.py",
+      "sha256": "f4eb3eb5af74fabdb2b23c387a795879b07f810c4fdde2ef14e7efe122c43521",
+      "bytes": 682
+    },
+    {
+      "file": "model-controller.py",
+      "sha256": "8b4f89960f158e81d1ced4bd70d6ffc5cf71fdbc15830412d351fb02f242c630",
+      "bytes": 1718
+    },
+    {
+      "file": "model-guest-run.py",
+      "sha256": "d291a6756e3c619ef35426ed9f71f8593340c33df8c7ea337a7b4ad19e2bf51f",
+      "bytes": 2282
+    },
+    {
+      "file": "model-probe.py",
+      "sha256": "a3f5211feb66b887ecb4f6af255c3072c7ac071021e91dd550f1683d064f9f70",
+      "bytes": 615
+    },
+    {
+      "file": "new-vm-cdp-silent-1.txt",
+      "sha256": "beda8a6e5e6630e1d23d4d7be9a2f889247c4b39ed0504a06f74d9bde258348f",
+      "bytes": 625
+    },
+    {
+      "file": "new-vm-cdp-silent-2.txt",
+      "sha256": "ddd135fdea3538d90358a72bcc1e10b43037029aefe50aefb0516b1e9815e684",
+      "bytes": 62942
+    },
+    {
+      "file": "new-vm-cdp.py",
+      "sha256": "e31517021e5cb1d5095b731fa0b7da48772cec3acd9112d9659c4317bf4de836",
+      "bytes": 6113
+    },
+    {
+      "file": "new-vm-controller.py",
+      "sha256": "7e708f774c4ce904a738ce99f9899b1c4bffb176b69b5c6f269d803f787c956e",
+      "bytes": 917
+    },
+    {
+      "file": "new-vm-go-tls-probe.txt",
+      "sha256": "1c07b0bc63578fc3c09a77c4b9959dacb4d3b30380402171981e91f8f41529b7",
+      "bytes": 39
+    },
+    {
+      "file": "new-vm-h-focused-386.txt",
+      "sha256": "8d7f35ede608148fbec1c1fa040f509232ef5294551cfead1b9bd3b412a26ced",
+      "bytes": 48794
+    },
+    {
+      "file": "new-vm-h-focused-amd64.txt",
+      "sha256": "ec66332905bd8124804c20f11cb4ddd371822a35ac81859ee8306b8b6234daf8",
+      "bytes": 48820
+    },
+    {
+      "file": "new-vm-inventory.txt",
+      "sha256": "8d7b1b771bfbc0ff8a4d26d0e2f63c36cc8fe4b8703e9081bc34f1fbbc9b1d4f",
+      "bytes": 1887
+    },
+    {
+      "file": "new-vm-jobobject-386-isolated.txt",
+      "sha256": "b5e6e63a78d83e673692c967ed5efcc81f8687c4ab0e3e78397a70e8c147a3b7",
+      "bytes": 2025
+    },
+    {
+      "file": "new-vm-jobobject-386.txt",
+      "sha256": "a01b825aa9dde60724e42e8ee3e8abb167c90145354572ff31e35a95ce164cb1",
+      "bytes": 7293
+    },
+    {
+      "file": "new-vm-jobobject-amd64.txt",
+      "sha256": "d295d47f216befb1c6c07990545d9c4901a16450dab774881146e33777e25864",
+      "bytes": 7761
+    },
+    {
+      "file": "new-vm-model-controller.py",
+      "sha256": "7769741f25d26ca943a57da63a95e3aa87620704885f4615fd097afac6160f43",
+      "bytes": 1765
+    },
+    {
+      "file": "new-vm-model-probe.py",
+      "sha256": "a0462256a466c58af493824066d33828ad5b2665791e2f5a785bcb9bd25d0bab",
+      "bytes": 608
+    },
+    {
+      "file": "new-vm-official-models.json",
+      "sha256": "1038cac67eea30034715c8ed2f02445ef9bca504c1b7f67a1f2d308e487bab86",
+      "bytes": 2267
+    },
+    {
+      "file": "new-vm-python37-probe.txt",
+      "sha256": "a98f8e678d3af620decb57799d6b95a01dbd085ecff5ca7ee8d17d8a73d65a50",
+      "bytes": 97
+    },
+    {
+      "file": "new-vm-real-shell-1-audit.jsonl",
+      "sha256": "48348349de4987e8eb4d8250cdc6075e15cdcdfcb4ba0a0636febad4d51d7035",
+      "bytes": 454
+    },
+    {
+      "file": "new-vm-real-shell-1-meta.json",
+      "sha256": "c057beb93a8610a8d1195c9f15e93a548eb50261781d0de78c8b1034525bcf22",
+      "bytes": 889
+    },
+    {
+      "file": "new-vm-real-shell-1-spec.json",
+      "sha256": "7892c907cf16d98fa3716c2d8fa6d11190591d2ccd702de02dccbdf4d60c24f1",
+      "bytes": 315
+    },
+    {
+      "file": "new-vm-real-shell-1.jsonl",
+      "sha256": "ad6758d9f68f003d9ca20318a91857e542cb416ecb7d034decff9abdf4a4d674",
+      "bytes": 2768
+    },
+    {
+      "file": "new-vm-real-shell-1.log",
+      "sha256": "b74c3cc3c15be45c4fe5d998d1bad6e1807644956a821e76a64a8d76e28fbca1",
+      "bytes": 6102
+    },
+    {
+      "file": "new-vm-run.py",
+      "sha256": "7c157df7d7f6ff114382b10afff598e74507655a683674024a35e8002e2c044b",
+      "bytes": 1293
+    },
+    {
+      "file": "new-vm-runtime-install.txt",
+      "sha256": "d1c375215181dbb7cbb59844b52cabeddd820fb279b771dc1ed41a62d3e77c8e",
+      "bytes": 187
+    },
+    {
+      "file": "new-vm-setup.txt",
+      "sha256": "db173a2d533fd2165d6f1a4a801bef3b973bd01fcb712027ce82b40693f9f0fd",
+      "bytes": 15
+    },
+    {
+      "file": "new-vm-tasks-386.txt",
+      "sha256": "bda57c4de5325987589bc2850de0cb7647ed8f55c1bfecbf655983ff6fdd53ef",
+      "bytes": 9729
+    },
+    {
+      "file": "new-vm-tasks-amd64.txt",
+      "sha256": "3a401d6153bce21058548fbbba6d80cdd45d9502480ea4772f1b6c68af78b70b",
+      "bytes": 9729
+    },
+    {
+      "file": "new-vm-worker-pipe-probe.txt",
+      "sha256": "2578eb72437fad540d11b3da3ab485c1ddbfe85b43b64d448ac1431adeaeb113",
+      "bytes": 909
+    },
+    {
+      "file": "new-vm-worker-pipe-probe2.txt",
+      "sha256": "53a8babbb5852e02b7aa93590644d6567c767de73901a72dc8e3151ee3209fd9",
+      "bytes": 979
+    },
+    {
+      "file": "official-models.json",
+      "sha256": "8c7842a810852ea6e5538125d7fc6c00c9727698b2fe647220c64ed340ec1eb9",
+      "bytes": 281
+    },
+    {
+      "file": "ssh-controller.py",
+      "sha256": "cc21c2059850719f557e8a907705991f2a139f610b7948d464ad4463a0bd6fb5",
+      "bytes": 716
+    },
+    {
+      "file": "tags-before.txt",
+      "sha256": "dca7a3941bc81254933978e10d3aa2876d4b1d18317bce54afdf6f39abaa4452",
+      "bytes": 1020
+    },
+    {
+      "file": "tls-probe.go",
+      "sha256": "9ce7d6382f568e017b9fb8ecc5e395edb96542a75b19be7522b11be2159c9254",
+      "bytes": 327
+    },
+    {
+      "file": "unzip-fixture.go",
+      "sha256": "656e74235df4c561ae427cdf856b169b7018001d2c2c426b449d938235c40f64",
+      "bytes": 930
+    },
+    {
+      "file": "vm-boot.txt",
+      "sha256": "99e7bab608cbb55623fcd0f7cb08d98635e19d69fe230414c7da6634efffd6ee",
+      "bytes": 141
+    },
+    {
+      "file": "vm-browser-curl-inventory.txt",
+      "sha256": "46fd15adc786ee37dfac6edb2463e0584137655a131ea17c0438e59ff4526024",
+      "bytes": 311
+    },
+    {
+      "file": "vm-browser-inventory.txt",
+      "sha256": "ac993fad17e5bede8761cb7da65209f83b2b3cc5932af213603660560b55da00",
+      "bytes": 240
+    },
+    {
+      "file": "vm-probe.txt",
+      "sha256": "bcf1c0ece7c69b6f0ba1d8b9bf132cb7a29eacdea72fdbecc290243150d59a6e",
+      "bytes": 29
+    },
+    {
+      "file": "vm-start-verified.txt",
+      "sha256": "46ff2a9cb8b38a1c1d73aadb38ceea681371e726df773f6b4741d66aa1ecc6d5",
+      "bytes": 1447
+    },
+    {
+      "file": "win7-run.py",
+      "sha256": "01eb921cb071cf3f5af7692007dbcb4474fc7136b91665b78a7bca8348a8209a",
+      "bytes": 1290
+    },
+    {
+      "file": "worker-pipe-probe.py",
+      "sha256": "3ea577b5b797429063e8030470a08183595cd3d5bcfa7589e6438aa901c81bb8",
+      "bytes": 1239
+    },
+    {
+      "file": "worker-pipe-probe2.py",
+      "sha256": "3cb84c2113fc72927f55a1f7632bd3fef0aee9e5a235c21d1faaed60d56b2c19",
+      "bytes": 1436
+    },
+    {
+      "file": "new-vm-background-detached.py",
+      "sha256": "9bf1b2b8ddb86ab2706ddc8cf29af9009192fe491605f05660aa0002322dd763",
+      "bytes": 6416
+    },
+    {
+      "file": "new-vm-background-detached-1.txt",
+      "sha256": "ea9031c7cbf5bd7235519ed7901dd8a8fe8298c6ee7848cc29eff79f0f49e767",
+      "bytes": 138020
+    },
+    {
+      "file": "new-vm-background-detached-1-review.json",
+      "sha256": "a24cf4eb4cbbe8dca3e9578356b35510de248997689d6a8c1ad63bdc045bcad2",
+      "bytes": 810
+    },
+    {
+      "file": "rc013-amd64-full-win7.txt",
+      "sha256": "75e92a50571c148ff1c6a57262ea91b06cbddc0a87585847550c1ec5b8bb3a75",
+      "bytes": 133472
+    },
+    {
+      "file": "rc013-clean-build.json",
+      "sha256": "ae7d1fbfb93377d007cfaddb05433e18726280805195568d822e9a843d77e4b9",
+      "bytes": 2460
+    },
+    {
+      "file": "rc013-existing-tags-check.json",
+      "sha256": "70ef96d05fe5e66dda4b6398cb26fa466acd4b8fbb85f4e1f8898e435da40465",
+      "bytes": 78
+    },
+    {
+      "file": "rc013-final-summary.json",
+      "sha256": "eafa7c18a261f72e5841b2fea81a2230233868b18de307f6ed39fd774734b7c3",
+      "bytes": 312
+    },
+    {
+      "file": "rc013-product-upload-hash.txt",
+      "sha256": "b66e370b9b14bb78590268181cd5906b6c59b3bdd39cf9b6f473896fc8d05802",
+      "bytes": 234
+    },
+    {
+      "file": "rc013-tag-annotation.txt",
+      "sha256": "be7426ba15d20051522f6f520bee7380494198f6d39471f0ce436b50170df7b1",
+      "bytes": 1521
+    }
+  ],
+  "new_vm": {
+    "host": "192.168.140.128:22",
+    "boot": "20260911231151.111597+480",
+    "source_commit": "71f59df",
+    "scope": "JobObject focused regression only; not clean-commit full acceptance",
+    "product_sha256": "0781b439a9a5c17412fc8ea0d29da7407054c170148b29cebe1e4523f8759613",
+    "amd64_test_sha256": "9d6b902c1eeb410402f572bc49625cd4ac14490836da1a3efd207328be616954",
+    "386_test_sha256": "20c96f09210ee4bc3e88cd4de1de17ce0ddcca29d13857dd28783e22477744791"
+  },
+  "final_acceptance": {
+    "run_count": 1,
+    "top_level_pass": 149,
+    "top_level_fail": 0,
+    "skip": 0,
+    "exit": 0,
+    "vm_test_sha256": "9e975d2a866807be76faa7672a1f1a16ee9451aa626afeb6ade152ba9ba3c110",
+    "start": "2026-09-12T04:21:18.373205+08:00",
+    "boot": "LastBootUpTime             \r\r\n20260911231151.111597+480"
+  },
+  "final_clean_build": {
+    "tree": "E:\\codex-worktrees\\win7-agent\\pre-phase3",
+    "start": "2026-09-12T04:20:36.724202+08:00",
+    "commands": [
+      {
+        "env": {
+          "CGO_ENABLED": "0",
+          "GOOS": "windows",
+          "GOARCH": "amd64"
+        },
+        "cwd": "E:\\codex-worktrees\\win7-agent\\pre-phase3\\agent",
+        "argv": [
+          "E:/win7-agent/tools/go/bin/go.exe",
+          "test",
+          "-c",
+          "-o",
+          "../artifacts/h-evidence/rc013-amd64.test.exe.tmp",
+          "."
+        ]
+      },
+      {
+        "env": {
+          "CGO_ENABLED": "0",
+          "GOOS": "windows",
+          "GOARCH": "amd64"
+        },
+        "cwd": "E:\\codex-worktrees\\win7-agent\\pre-phase3\\agent",
+        "argv": [
+          "E:/win7-agent/tools/go/bin/go.exe",
+          "build",
+          "-o",
+          "../artifacts/h-evidence/rc013-amd64.exe.tmp",
+          "."
+        ]
+      },
+      {
+        "env": {
+          "CGO_ENABLED": "0",
+          "GOOS": "windows",
+          "GOARCH": "386"
+        },
+        "cwd": "E:\\codex-worktrees\\win7-agent\\pre-phase3\\agent",
+        "argv": [
+          "E:/win7-agent/tools/go/bin/go.exe",
+          "build",
+          "-o",
+          "../artifacts/h-evidence/rc013-386.exe.tmp",
+          "."
+        ]
+      }
+    ],
+    "commit": "9edc6ed6d9e1856291542872542257609608277f",
+    "status_before": "",
+    "go_version": "go version go1.20.14 windows/amd64",
+    "binaries": [
+      {
+        "file": "rc013-amd64.test.exe.tmp",
+        "sha256": "9e975d2a866807be76faa7672a1f1a16ee9451aa626afeb6ade152ba9ba3c110",
+        "bytes": 10671104
+      },
+      {
+        "file": "rc013-amd64.exe.tmp",
+        "sha256": "818fa3a793c24fd69e91a44727f8747f13ba787365724197230cb821c23e9b30",
+        "bytes": 9431552
+      },
+      {
+        "file": "rc013-386.exe.tmp",
+        "sha256": "9d35c6dd869a5082572934e7a04929dbbab4d185ca4c7096a0099827099cb3ae",
+        "bytes": 9371136
+      }
+    ],
+    "status_after_build": "",
+    "preserved_files": [
+      {
+        "file": "E:\\codex-worktrees\\win7-agent\\pre-phase3\\artifacts\\nongit-checkpoint-followup-tests.md",
+        "sha256": "0fda9f4ebcb8fdb65bcfa63b67e4b5934783a653e0c1573379598a4650d0f0b5",
+        "restored": true
+      },
+      {
+        "file": "E:\\codex-worktrees\\win7-agent\\pre-phase3\\artifacts\\nongit-checkpoint-probe.md",
+        "sha256": "bd5b146b23ea9b3760a3394f577959fcb412e188d6031be30f749719ced6970f",
+        "restored": true
+      }
+    ],
+    "end": "2026-09-12T04:20:43.135688+08:00"
+  }
+}

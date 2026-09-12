@@ -1,0 +1,15 @@
+# 阶段三证据
+
+C2见c2-build.json、c2-results.json、c2-comparison.json；生产源码提交f8f2c2a，构建时为该提交前的修改状态，精确改动文件SHA见c2-build。
+
+C3：c3-api-first-win7.txt/c3-api-final-win7.txt为Win7五项API专项；c3-live-first-win7.txt保留首次历史ID查询失败，c3-live-second-win7.txt为修正后真实HTTP固定模型联调。c3-vm-preflight.txt为启动窗口。c3-live.py为当前联调脚本，首轮只差fixture目录及异常堆栈记录，失败未被覆盖。产品构建SHA嵌在各live日志中；当前构建来源唯一开发树的C3未提交状态，不是最终干净全量证据。
+
+node-runtime下工具用于随后C4构建，不属于C3运行验证；Node16.18下载源nodejs.org/dist/v16.18.0/win-x64/node.exe，未修改历史树tools。
+
+C4：c4-browser-first 至 seventh-win7.txt 是独立 Win7 夹具的浏览器验证，全部保留；详细失败和修正链见 phase3-report.md C4 节。c4-browser.py 为最终夹具，控制端上传后在 Win7 Python3.7 运行 Chrome109 原生 sandbox。每份日志记录当次产物哈希与起止时间；源码均来自唯一开发树 7dd6066 上的 C4 修改状态。c4-win7.txt 为较早五项 API 专项，c4-connectivity.txt 为命令行引号导致的探测失败，不是 VM 失联或产品失败。
+
+最终源码59af113（本开发树干净提交）：build-hashes.json列构建命令与哈希；final-amd64-win7.txt缺H_PRODUCT，configured日志缺Git PATH并跳过16项，git-path日志为预检查启动错误；complete-env日志为157项、0跳过、exit0。final-win7.py为完整环境版本，前序差别详见报告。cli-listener-win7.py/txt是同一产物CLI无监听端侧证据。
+
+model-controller.py与model-guest-run.py负责官方DeepSeek实测；phase3-s1/s2/s3各自的log/jsonl/meta/audit/spec均来自Win7，同一59af113产品哈希。三组均401，非功能验收通过。model-python-path.txt记录新VM缺全局python，夹具仅补子进程PATH。R1/R2按用户本次裁决延期，没有生成替代证据。
+
+录入纠正后的phase3-s1/s2/s3-key-corrected文件组：同一59af113产品，官方DeepSeek真实模型，独立Win7会话。401归因为执行方漏录一位。S2-key-corrected有embedded Python环境阻碍，完整保留；phase3-s2-python-corrected在独立Python副本中按原命令重跑。prepare-python-regression.py/txt记录仅副本改._pth；verify-model-regression.py/txt独立复核S1/S2运行输出与产物哈希、S3零改动。每组meta存起止时间、命令、源二进制哈希与文件前后哈希；详情见报告最后一节。

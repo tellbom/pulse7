@@ -1,0 +1,14 @@
+{
+  "source_tree": "E:/codex-worktrees/win7-agent/pre-phase3",
+  "source_commit": "59af11319f3701d674b26f20ce5e6e26b4a0df21",
+  "source_status_at_build": "git status --porcelain empty before and after builds",
+  "preserved_user_files": "Two unrelated untracked nongit checkpoint documents temporarily renamed to ignored .phase3-build.tmp names, restored in finally and verified by SHA256; not committed",
+  "toolchain": "E:/win7-agent/tools/go/bin/go.exe go1.20.14",
+  "environment": {"CGO_ENABLED": "0", "GOOS": "windows"},
+  "builds": [
+    {"arch": "amd64", "command": "go build -o ../artifacts/phase3-evidence/final-amd64.exe.tmp .", "sha256": "d7cf38f224726692d4a7028c6f7cdb6cb17adff72ab2a49e62a13b98d6fbd840"},
+    {"arch": "amd64", "command": "go test -c -o ../artifacts/phase3-evidence/final-amd64.test.exe.tmp", "sha256": "af151b90b6cc29b7a7721ad8d080e8248875f332aa26029e7a6d72b9e193f0db"},
+    {"arch": "386", "command": "go build -o ../artifacts/phase3-evidence/final-386.exe.tmp .", "sha256": "41b4932256c8d29d56ecdd7e6623c5adb0d7fae4ba8b3997f73be5021aa08a62", "runtime": "推迟至真实用户实测"}
+  ],
+  "browser_product_identity": "Clean commit product hash equals C4 seventh Win7 browser binary hash; this is a hash identity argument, not a new browser run."
+}
