@@ -46,6 +46,8 @@ type agentConfig struct {
 	LLMCompressTimeoutSec int `json:"llm_compress_timeout_sec"`
 }
 
+const defaultMaxContextBytes = 256000
+
 func defaultAgentConfig() agentConfig {
 	return agentConfig{
 		BaseURL:                   "http://127.0.0.1:8080/v1",
@@ -60,7 +62,7 @@ func defaultAgentConfig() agentConfig {
 		ReadOnly:                  false,
 		ShellTimeoutSec:           120,
 		MemoryLimitMB:             2048,
-		MaxCtx:                    48000,
+		MaxCtx:                    defaultMaxContextBytes,
 		MaxRounds:                 100,
 		ProcessWarnThreshold:      defaultProcessWarnThreshold,
 		BackgroundTaskMaxOutputMB: defaultBackgroundTaskMaxOutputMB,

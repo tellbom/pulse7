@@ -236,7 +236,7 @@ func main() {
 	flag.BoolVar(&cfg.yolo, "yolo", false, "skip interactive confirmation")
 	flag.BoolVar(&cfg.readOnly, "read-only", false, "deny shell, write, edit and rollback in code")
 	flag.DurationVar(&cfg.shellTimeout, "shell-timeout", 120*time.Second, "shell tool timeout")
-	flag.IntVar(&cfg.maxCtx, "max-ctx", 48000, "max context chars before truncation")
+	flag.IntVar(&cfg.maxCtx, "max-ctx", defaultMaxContextBytes, "context budget in serialized UTF-8 bytes (messages + tools)")
 	flag.IntVar(&cfg.maxRounds, "max-rounds", 100, "maximum tool-call rounds before stopping without a final answer")
 	flag.IntVar(&cfg.processWarnThreshold, "process-warn-threshold", defaultProcessWarnThreshold, "warn above this session process count")
 	flag.IntVar(&cfg.backgroundTaskMaxOutputMB, "background-task-max-output-mb", defaultBackgroundTaskMaxOutputMB, "hard output cap per background task")
@@ -581,8 +581,8 @@ func loadPreparedMessages(plan resumePreparation, destination *session) ([]opena
 }
 
 // pushMsg appends to the conversation and records it in the session file.
-func pushMsg(msgs *[]openai.ChatCompletionMessage, m openai.ChatCompletionMessage) error {
-	if err := sess.record(m); err != nil {
+func pushMsg(msgs *[]openai.ChatCompletionMessage, m openai.ChatCompletionMessage, outcome ...*toolOutcome) error {
+	if err := sess.record(m, outcome...); err != nil {
 		return err
 	}
 	*msgs = append(*msgs, m)
@@ -959,11 +959,12 @@ func streamTurn(client *openai.Client, reg *Registry, cfg *config, msgs *[]opena
 			Stream:      true,
 			Temperature: codingTemperature,
 		}
-		var content string
+		var response openai.ChatCompletionMessage
 		var calls []openai.ToolCall
 		err := prepErr
 		if err == nil {
-			content, calls, err = roundStream(ctx, client, cfg, req)
+			response, err = roundStreamMessage(ctx, client, cfg, req)
+			calls = response.ToolCalls
 		}
 		if errors.Is(err, errLocalContextBudget) || contextLengthExceededError(err) {
 			if compressErr := emergencyCompressContext(ctx, client, cfg, tools, msgs); compressErr != nil {
@@ -973,7 +974,8 @@ func streamTurn(client *openai.Client, reg *Registry, cfg *config, msgs *[]opena
 				return "", fmt.Errorf("端点报告上下文超限，紧急压缩失败：%w", compressErr)
 			}
 			req.Messages = *msgs
-			content, calls, err = roundStream(ctx, client, cfg, req)
+			response, err = roundStreamMessage(ctx, client, cfg, req)
+			calls = response.ToolCalls
 			if contextLengthExceededError(err) {
 				return "", fmt.Errorf("紧急压缩后单次重试仍然上下文超限：%w", err)
 			}
@@ -984,12 +986,11 @@ func streamTurn(client *openai.Client, reg *Registry, cfg *config, msgs *[]opena
 			}
 			return "", err
 		}
+		content := response.Content
 		if len(calls) == 0 {
 			// M4-T0: persist the final assistant answer so the session file
 			// distinguishes convergence from cap-stop and --resume sees it.
-			if err := pushMsg(msgs, openai.ChatCompletionMessage{
-				Role: openai.ChatMessageRoleAssistant, Content: content,
-			}); err != nil {
+			if err := pushMsg(msgs, response); err != nil {
 				return "", err
 			}
 			out("[第 %d 轮完成，耗时 %v]\n", round+1, time.Since(roundStart).Round(time.Second))
@@ -998,7 +999,7 @@ func streamTurn(client *openai.Client, reg *Registry, cfg *config, msgs *[]opena
 			frameAnswer(content)
 			return content, nil
 		}
-		if err := pushMsg(msgs, openai.ChatCompletionMessage{Role: openai.ChatMessageRoleAssistant, ToolCalls: calls}); err != nil {
+		if err := pushMsg(msgs, response); err != nil {
 			return "", err
 		}
 		for _, c := range calls {
@@ -1015,7 +1016,7 @@ func streamTurn(client *openai.Client, reg *Registry, cfg *config, msgs *[]opena
 			}
 			if err := pushMsg(msgs, openai.ChatCompletionMessage{
 				Role: openai.ChatMessageRoleTool, ToolCallID: c.ID, Content: res,
-			}); err != nil {
+			}, toolOutcomeFor(c, res)); err != nil {
 				return "", err
 			}
 			if os.Getenv("PULSE7_PANIC_AFTER_TOOL") != "" {

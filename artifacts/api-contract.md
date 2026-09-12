@@ -53,7 +53,7 @@
 | 对象 | 字段及单位 | 当前来源/限制 |
 |---|---|---|
 | Session 列表项 | sessionId, cwd, updatedAt, messageCount, firstUser | sessionInfo 的 path/mtime/workspace/count/firstUser 映射，agent/session.go:556；列表不是消息全量 |
-| Context | usedTokens, budget:int；percentLeft:number；warningLevel:normal/warning/critical | events.go:91、284；全部为估算；max-ctx 是字节，默认48000，显示估算预算12000；百分比最低0 |
+| Context | usedTokens, budget:int；percentLeft:number；warningLevel:normal/warning/critical | 全部为估算；max-ctx 是字节，2026-09-13 起默认256000，显示估算预算64000；显式配置优先，百分比最低0 |
 | BackgroundTask | taskId, command, pid, detached, startedAt:ISO8601, runtimeMs:int, outputBytes:int, status, exitCode:int|null, outputTruncated:bool | tasks.go:64、263、447；当前内部运行时 exit=-1，HTTP 运行中应映射 null。status 为 running/exited/killed/failed/output_truncated；输出截断可与 running 并存，不能把 output_limit 当结束 |
 | ProcessOverview | count:int|null, threshold:int, exceeded:bool|null, error:string（失败时）；mode 为下述 process_mode 原对象 | tasks.go:318、447；unknown 不等于0；count 仅 Session Job 成员 |
 | Process / Detached | pid:uint32, creationTime:string, imagePath, command, startedAt, status, source, taskId?, detached, sessionManaged, parentPid? | process_records.go:17；creationTime 是精确 FILETIME 十进制字符串，禁止 JS Number。历史项另附 verified=false，不能宣称仍存活 |
@@ -170,3 +170,7 @@ C1.0–C1.4 已完成源码核实与文档定义。任务书的 F5 现状描述�
 冻结的操作和事件格式保持原样。运行事件总线与 CLI 消费者分别在 agent/events.go、events_cli.go；serve 入口在 main.go/runServe，监听/鉴权/SSE/配置/历史路由在 api_server.go，存储与路径验证在 api_storage.go。任务/确认/中断/恢复在 api_runtime.go，任务输出和 checkpoint 列表在 api_tasks.go。静态资源由 web_embed.go 嵌入，页面源文件 ui/main.js，构建配置 ui/vite.config.js。
 
 PUT permissions 的临时 profile 作用于当前 Registry；工作区切换或恢复会话重建 Registry 后重新读取配置，页面 GET permissions 显示实际值。配置密钥按既有全局字段持久化，未采用可选 DPAPI。页面中断终态以 SSE turn_result 为准，不由较晚 HTTP 响应覆盖。端侧证据及未满足项统一见 phase3-report.md，固定模型页面验收不等于真实模型验收。
+
+## 2026-09-13 后端增量契约
+
+会话 tool 消息新增可选 toolOutcome{ok:boolean,summary:string,errorCode?:string} 元数据，历史 API 原样返回，不发送给模型。缺失表示未知，不等于成功或失败。新增 assistant_reasoning_delta{attempt,delta}，沿用 assistant_attempt 生命周期；成功助手消息保留 reasoning_content 以及与 tool_calls 同时出现的 content。默认 max_ctx 为 256000 字节，继续除以 4 估算 token，不自动适配模型，显式配置优先。前述“不新增业务顶层字段”描述的是 C1 初始范围，此处为后续增量。完整前端修改与验收清单见 [gui-backend-frontend-handoff.md](gui-backend-frontend-handoff.md)。

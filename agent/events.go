@@ -52,6 +52,12 @@ type assistantDeltaEvent struct {
 	Attempt uint64 `json:"attempt,omitempty"`
 }
 
+// Provider-supplied reasoning stays separate from the assistant answer.
+type assistantReasoningDeltaEvent struct {
+	Delta   string `json:"delta"`
+	Attempt uint64 `json:"attempt"`
+}
+
 type assistantAttemptEvent struct {
 	Attempt uint64 `json:"attempt"`
 	Status  string `json:"status"`
@@ -240,18 +246,29 @@ func emitToolCall(call openai.ToolCall) {
 	})
 }
 
-func emitToolResult(call openai.ToolCall, result string) {
+type toolOutcome struct {
+	OK        bool   `json:"ok"`
+	Summary   string `json:"summary"`
+	ErrorCode string `json:"errorCode,omitempty"`
+}
+
+func toolOutcomeFor(call openai.ToolCall, result string) *toolOutcome {
 	summary, failed, _ := resultSummary(call.Function.Name, call.Function.Arguments, result)
-	ref := "tool:" + call.ID
-	if sess != nil {
-		ref = fmt.Sprintf("session:%s#tool:%s", sess.id(), call.ID)
-	}
 	code := ""
 	if strings.HasPrefix(result, "error: hard_link_impact_unknown:") {
 		code = "hard_link_impact_unknown"
 	}
-	emitRuntimeEvent("tool_result", toolResultEvent{ErrorCode: code,
-		ID: call.ID, OK: !failed, Summary: summary, ResultRef: ref,
+	return &toolOutcome{OK: !failed, Summary: summary, ErrorCode: code}
+}
+
+func emitToolResult(call openai.ToolCall, result string) {
+	outcome := toolOutcomeFor(call, result)
+	ref := "tool:" + call.ID
+	if sess != nil {
+		ref = fmt.Sprintf("session:%s#tool:%s", sess.id(), call.ID)
+	}
+	emitRuntimeEvent("tool_result", toolResultEvent{ErrorCode: outcome.ErrorCode,
+		ID: call.ID, OK: outcome.OK, Summary: outcome.Summary, ResultRef: ref,
 		Name: call.Function.Name, Args: call.Function.Arguments, Result: result,
 	})
 }

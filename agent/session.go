@@ -54,12 +54,13 @@ type sessionMetadata struct {
 }
 
 type sessionMessageRecord struct {
-	UUID       string  `json:"uuid"`
-	ParentUUID *string `json:"parentUuid"`
-	Timestamp  string  `json:"timestamp"`
-	SessionID  string  `json:"sessionId"`
-	Cwd        string  `json:"cwd"`
-	Version    int     `json:"version"`
+	ToolOutcome *toolOutcome `json:"toolOutcome,omitempty"`
+	UUID        string       `json:"uuid"`
+	ParentUUID  *string      `json:"parentUuid"`
+	Timestamp   string       `json:"timestamp"`
+	SessionID   string       `json:"sessionId"`
+	Cwd         string       `json:"cwd"`
+	Version     int          `json:"version"`
 	openai.ChatCompletionMessage
 }
 
@@ -78,17 +79,21 @@ func (r sessionMessageRecord) MarshalJSON() ([]byte, error) {
 	fields["sessionId"] = r.SessionID
 	fields["cwd"] = r.Cwd
 	fields["version"] = r.Version
+	if r.ToolOutcome != nil {
+		fields["toolOutcome"] = r.ToolOutcome
+	}
 	return json.Marshal(fields)
 }
 
 func (r *sessionMessageRecord) UnmarshalJSON(b []byte) error {
 	var metadata struct {
-		UUID       string  `json:"uuid"`
-		ParentUUID *string `json:"parentUuid"`
-		Timestamp  string  `json:"timestamp"`
-		SessionID  string  `json:"sessionId"`
-		Cwd        string  `json:"cwd"`
-		Version    int     `json:"version"`
+		ToolOutcome *toolOutcome `json:"toolOutcome,omitempty"`
+		UUID        string       `json:"uuid"`
+		ParentUUID  *string      `json:"parentUuid"`
+		Timestamp   string       `json:"timestamp"`
+		SessionID   string       `json:"sessionId"`
+		Cwd         string       `json:"cwd"`
+		Version     int          `json:"version"`
 	}
 	if err := json.Unmarshal(b, &metadata); err != nil {
 		return err
@@ -103,6 +108,7 @@ func (r *sessionMessageRecord) UnmarshalJSON(b []byte) error {
 	r.SessionID = metadata.SessionID
 	r.Cwd = metadata.Cwd
 	r.Version = metadata.Version
+	r.ToolOutcome = metadata.ToolOutcome
 	r.ChatCompletionMessage = message
 	return nil
 }
@@ -194,7 +200,7 @@ func (s *session) id() string {
 	return strings.TrimSuffix(strings.TrimPrefix(base, "sess-"), filepath.Ext(base))
 }
 
-func (s *session) record(m openai.ChatCompletionMessage) error {
+func (s *session) record(m openai.ChatCompletionMessage, outcome ...*toolOutcome) error {
 	if s == nil {
 		return fmt.Errorf("%w: session is not initialized", errSessionStorage)
 	}
@@ -219,6 +225,9 @@ func (s *session) record(m openai.ChatCompletionMessage) error {
 	record := sessionMessageRecord{
 		UUID: uuid, ParentUUID: parent, Timestamp: time.Now().UTC().Format(time.RFC3339Nano),
 		SessionID: s.id(), Cwd: cwd, Version: sessionSchemaVersion, ChatCompletionMessage: m,
+	}
+	if m.Role == openai.ChatMessageRoleTool && len(outcome) > 0 {
+		record.ToolOutcome = outcome[0]
 	}
 	if err := writeJSONLine(s.f, record); err != nil {
 		return fmt.Errorf("%w: write session record: %v", errSessionStorage, err)

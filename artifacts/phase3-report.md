@@ -181,3 +181,11 @@ B为序列化缺陷：go-openai的文本MarshalJSON省略空content。最小修�
 官方DeepSeek `deepseek-v4-pro` 经Win7上的serve HTTP/SSE真实联调：空目录ls产生1条`content:""`工具消息，后续write创建probe.txt，建立AUTO checkpoint，再read验证内容EMPTY-TOOL-OK，最终success，约9.88秒。会话`t0912-233727-696`，证据empty-tool-live-win7.txt。该检查是Win7 HTTP/SSE与真实模型闭环，不冒充本轮另做过浏览器点击。
 
 构建源码为main 9eeb75b加本次最小修复和用户已有的未提交正式GUI资源，**不是干净提交构建**；未覆盖或提交其web/、agent/web改动。amd64产物SHA256 `a3e387bf6c059609693c2971f785eac993a48d20b6db6c544638437fa2cf055a`，副本为开发树根目录pulse7-empty-tool-fix.exe，旁边已具备runtime/git。现有服务进程没有被中断或替换；需从修复版exe重新启动serve才会加载B修复。未自动push或打tag。
+
+## 2026-09-13 GUI 后端修正
+
+按用户要求只改后端及文档：新增持久化 toolOutcome，与实时失败判定共用逻辑；独立转发并保存 reasoning_content；保留带 tool_calls 的助手正文；会话初始化失败后清理半初始化状态。默认上下文 256000 UTF-8 字节（估算 64000 token），保留固定估算、65% 压缩机制和显式配置优先，不按模型适配。
+
+实测通过：Win7 amd64 全量 163 项、0 跳过、exit 0；随后仅增加链路测试，TestGUI 五项通过、exit 0。测试覆盖推理流重试丢弃、失败工具历史、助手正文/推理续传和重复工作区选择。amd64/386 静态检查及 386 构建通过。证据和哈希见 f1f4 之外的本轮 phase3-evidence 索引及 build-hashes.json 的 gui_backend_20260913。构建包含原有未提交 GUI 资源，不称干净提交构建。
+
+未验证：新推理字段在真实模型端点的兼容性、前端消费新事件后的浏览器表现；本轮未修改前端。386/Sandboxie 实测仍推迟。前端完整待办见 gui-backend-frontend-handoff.md；没有重启用户的当前服务，没有 push 或 tag。

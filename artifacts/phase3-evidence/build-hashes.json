@@ -4,11 +4,63 @@
   "source_status_at_build": "git status --porcelain empty before and after builds",
   "preserved_user_files": "Two unrelated untracked nongit checkpoint documents temporarily renamed to ignored .phase3-build.tmp names, restored in finally and verified by SHA256; not committed",
   "toolchain": "E:/win7-agent/tools/go/bin/go.exe go1.20.14",
-  "environment": {"CGO_ENABLED": "0", "GOOS": "windows"},
+  "environment": {
+    "CGO_ENABLED": "0",
+    "GOOS": "windows"
+  },
   "builds": [
-    {"arch": "amd64", "command": "go build -o ../artifacts/phase3-evidence/final-amd64.exe.tmp .", "sha256": "d7cf38f224726692d4a7028c6f7cdb6cb17adff72ab2a49e62a13b98d6fbd840"},
-    {"arch": "amd64", "command": "go test -c -o ../artifacts/phase3-evidence/final-amd64.test.exe.tmp", "sha256": "af151b90b6cc29b7a7721ad8d080e8248875f332aa26029e7a6d72b9e193f0db"},
-    {"arch": "386", "command": "go build -o ../artifacts/phase3-evidence/final-386.exe.tmp .", "sha256": "41b4932256c8d29d56ecdd7e6623c5adb0d7fae4ba8b3997f73be5021aa08a62", "runtime": "推迟至真实用户实测"}
+    {
+      "arch": "amd64",
+      "command": "go build -o ../artifacts/phase3-evidence/final-amd64.exe.tmp .",
+      "sha256": "d7cf38f224726692d4a7028c6f7cdb6cb17adff72ab2a49e62a13b98d6fbd840"
+    },
+    {
+      "arch": "amd64",
+      "command": "go test -c -o ../artifacts/phase3-evidence/final-amd64.test.exe.tmp",
+      "sha256": "af151b90b6cc29b7a7721ad8d080e8248875f332aa26029e7a6d72b9e193f0db"
+    },
+    {
+      "arch": "386",
+      "command": "go build -o ../artifacts/phase3-evidence/final-386.exe.tmp .",
+      "sha256": "41b4932256c8d29d56ecdd7e6623c5adb0d7fae4ba8b3997f73be5021aa08a62",
+      "runtime": "推迟至真实用户实测"
+    }
   ],
-  "browser_product_identity": "Clean commit product hash equals C4 seventh Win7 browser binary hash; this is a hash identity argument, not a new browser run."
+  "browser_product_identity": "Clean commit product hash equals C4 seventh Win7 browser binary hash; this is a hash identity argument, not a new browser run.",
+  "gui_backend_20260913": {
+    "source_tree": "E:\\codex-worktrees\\win7-agent\\pre-phase3",
+    "runtime": "Windows 7 amd64; 386 and Sandboxie runtime deferred",
+    "date": "2026-09-13",
+    "base_commit": "8be787467b7b1ff7b30d67cc608c70cb7bd801da",
+    "full": {
+      "skipped": 0,
+      "passed": 163,
+      "exit": 0
+    },
+    "source_state": "base commit plus backend working diff; pre-existing uncommitted GUI assets embedded; not a clean commit build",
+    "builds": [
+      {
+        "sha256": "2c7d54c8918f30fb537f40c862aee3b3d2b63949c3ebed63656a5226c5645604",
+        "file": "gui-backend-amd64.exe"
+      },
+      {
+        "sha256": "3a95419839a5ed4a0c1c24311973ed07ece2f278d07367e469df0c54fcf58217",
+        "file": "gui-backend-amd64.test.exe"
+      },
+      {
+        "sha256": "badcfac92337564973b8c9d9d7c6135a3aeb24f406af74a7f051fa9e0d37c262",
+        "file": "gui-backend-focused-amd64.test.exe"
+      },
+      {
+        "sha256": "727953e76663a935bf06cb8532b3f1e6152b13790fb948892cf425ab26d1dd46",
+        "file": "gui-backend-386.exe"
+      }
+    ],
+    "toolchain": "go1.20.14 CGO_ENABLED=0 GOOS=windows",
+    "focused": {
+      "exit": 0,
+      "passed": 5
+    },
+    "full_suite_note": "Focused binary adds one test after full run; product code identical"
+  }
 }

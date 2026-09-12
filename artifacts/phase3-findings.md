@@ -43,3 +43,12 @@ P3-F20：S1实际shell运行中出现一次后代登记失败`The parameter is i
 P3-F21（已修）：空tool.content被vendored SDK自定义MarshalJSON省略，官方DeepSeek拒绝下一轮。只对tool角色显式保留空字符串，159项Win7全量及真实官方HTTP续轮验证通过。后续升级go-openai时须保留/复核该兼容行为，不能只改结构体标签却遗漏自定义marshal。
 
 P3-F22（部署已补）：exe旁缺runtime/git时写入被AUTO checkpoint安全阻止，属运行包缺失。已补本机完整runtime，不绕开检查。源码仓库不打包runtime，部署时必须单独提供。当前启动中的旧exe不会自动获得序列化补丁，必须重新启动修复版。
+
+## 2026-09-13 GUI 增量未完成项
+
+- 前端历史工具卡片仍写死 success，需要改为消费 toolOutcome；旧记录未知，不回填推断结果。
+- 前端尚未消费 assistant_reasoning_delta，需独立显示并跟随 attempt 丢弃；历史读取 reasoning_content。
+- 切换工作区后前端状态清理、配置/权限重新加载及请求串行化待补；多标签页仍共享单上下文，没有跨页隔离保证。
+- 显式迁移会话的消息复制目前不保留新 toolOutcome 元数据，副本显示未知；源记录不受影响。
+- 默认预算提高不会覆盖用户旧的显式 max_ctx；前端必须标注 token 为估算、配置为字节。真实端点推理模式与新预算尚未实测。
+- 对接说明及验收清单：gui-backend-frontend-handoff.md。

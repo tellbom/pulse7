@@ -154,6 +154,14 @@ func (a *apiServer) ensureSession() error {
 	}
 	reg.confirmPermission = a.requestPermission
 	a.reg = reg
+	// Do not let a failed initialization make the next request reuse a
+	// half-open session (including after a workspace change).
+	initialized := false
+	defer func() {
+		if !initialized {
+			a.closeSession()
+		}
+	}()
 	sess = openSessionFor(cfg, plan.TaskID)
 	a.selected = sess.id()
 	a.messages, err = loadPreparedMessages(plan, sess)
@@ -166,6 +174,7 @@ func (a *apiServer) ensureSession() error {
 		}
 	}
 	emitSessionInit(cfg, reg, a.selected)
+	initialized = true
 	return nil
 }
 func apiNeedsAnswer(content string) bool {

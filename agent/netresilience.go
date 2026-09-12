@@ -32,6 +32,7 @@ var (
 // model's running commentary is visually distinct from tool lines and from
 // the framed final answer.
 type streamSink struct {
+	reasoning    strings.Builder
 	content      strings.Builder
 	attempt      uint64
 	toolAcc      map[int]*openai.ToolCall
@@ -50,12 +51,16 @@ func (s *streamSink) onChunk(chunk openai.ChatCompletionStreamResponse) {
 	}
 	choice := chunk.Choices[0]
 	d := choice.Delta
-	if s.finishReason != "" && (d.Content != "" || len(d.ToolCalls) > 0) {
+	if s.finishReason != "" && (d.Content != "" || d.ReasoningContent != "" || len(d.ToolCalls) > 0) {
 		s.terminalErr = errors.New("stream delivered data after terminal finish_reason")
 	}
 	if d.Content != "" {
 		emitRuntimeEvent("assistant_delta", assistantDeltaEvent{Delta: d.Content, Attempt: s.attempt})
 		s.content.WriteString(d.Content)
+	}
+	if d.ReasoningContent != "" {
+		emitRuntimeEvent("assistant_reasoning_delta", assistantReasoningDeltaEvent{Delta: d.ReasoningContent, Attempt: s.attempt})
+		s.reasoning.WriteString(d.ReasoningContent)
 	}
 	for _, tc := range d.ToolCalls {
 		idx := 0
@@ -309,8 +314,12 @@ func contextLengthExceededError(err error) bool {
 // roundStream: one LLM round with retry. A retried attempt starts a fresh
 // sink, so half-received fragments from the failed attempt are discarded -
 // the whole request is re-sent, never stitched together.
-func roundStream(ctx context.Context, client *openai.Client, cfg *config,
-	req openai.ChatCompletionRequest) (string, []openai.ToolCall, error) {
+func roundStream(ctx context.Context, client *openai.Client, cfg *config, req openai.ChatCompletionRequest) (string, []openai.ToolCall, error) {
+	message, err := roundStreamMessage(ctx, client, cfg, req)
+	return message.Content, message.ToolCalls, err
+}
+func roundStreamMessage(ctx context.Context, client *openai.Client, cfg *config,
+	req openai.ChatCompletionRequest) (openai.ChatCompletionMessage, error) {
 	var lastErr error
 	for attempt := 0; ; attempt++ {
 		if attempt > 0 {
@@ -319,7 +328,7 @@ func roundStream(ctx context.Context, client *openai.Client, cfg *config,
 			select {
 			case <-time.After(delay):
 			case <-ctx.Done():
-				return "", nil, ctx.Err()
+				return openai.ChatCompletionMessage{}, ctx.Err()
 			}
 		}
 		resetAssistantEvents()
@@ -329,19 +338,19 @@ func roundStream(ctx context.Context, client *openai.Client, cfg *config,
 		err := llmStreamOnce(ctx, client, cfg, req, sink)
 		if err == nil {
 			emitRuntimeEvent("assistant_attempt", assistantAttemptEvent{Attempt: sink.attempt, Status: "complete"})
-			return sink.content.String(), sink.calls(), nil
+			return openai.ChatCompletionMessage{Role: openai.ChatMessageRoleAssistant, Content: sink.content.String(), ReasoningContent: sink.reasoning.String(), ToolCalls: sink.calls()}, nil
 		}
 		emitRuntimeEvent("assistant_attempt", assistantAttemptEvent{Attempt: sink.attempt, Status: "discard", Error: err.Error()})
 		resetAssistantEvents()
 		lastErr = err
 		if ctx.Err() != nil || interrupted() {
-			return "", nil, err
+			return openai.ChatCompletionMessage{}, err
 		}
 		if !retryableLLMError(err) || attempt >= cfg.llmMaxRetries {
 			if attempt >= cfg.llmMaxRetries && retryableLLMError(err) {
-				return "", nil, fmt.Errorf("重试 %d 次后仍失败: %w", cfg.llmMaxRetries, lastErr)
+				return openai.ChatCompletionMessage{}, fmt.Errorf("重试 %d 次后仍失败: %w", cfg.llmMaxRetries, lastErr)
 			}
-			return "", nil, err
+			return openai.ChatCompletionMessage{}, err
 		}
 	}
 }

@@ -15,3 +15,11 @@ C4：c4-browser-first 至 seventh-win7.txt 是独立 Win7 夹具的浏览器验�
 model-controller.py与model-guest-run.py负责官方DeepSeek实测；phase3-s1/s2/s3各自的log/jsonl/meta/audit/spec均来自Win7，同一59af113产品哈希。三组均401，非功能验收通过。model-python-path.txt记录新VM缺全局python，夹具仅补子进程PATH。R1/R2按用户本次裁决延期，没有生成替代证据。
 
 录入纠正后的phase3-s1/s2/s3-key-corrected文件组：同一59af113产品，官方DeepSeek真实模型，独立Win7会话。401归因为执行方漏录一位。S2-key-corrected有embedded Python环境阻碍，完整保留；phase3-s2-python-corrected在独立Python副本中按原命令重跑。prepare-python-regression.py/txt记录仅副本改._pth；verify-model-regression.py/txt独立复核S1/S2运行输出与产物哈希、S3零改动。每组meta存起止时间、命令、源二进制哈希与文件前后哈希；详情见报告最后一节。
+
+## 2026-09-13 GUI 后端增量
+
+- gui-backend-win7.py：Win7 全量执行器（新日志覆盖写入，不读取历史测试结果）。
+- gui-backend-win7.txt：本地保留、git ignored，amd64 163 PASS / 0 SKIP / exit 0，包含 VM 启动时间、运行窗口与受测二进制哈希。
+- gui-backend-focused-win7.txt：本地保留、git ignored，新增链路用例后 TestGUI 五项通过 / exit 0；未重新宣称全量 164 项。
+- build-hashes.json 的 gui_backend_20260913：本轮二进制与源码来源；基于 8be7874 + 后端未提交差异 + 既有 GUI 资源，不是干净提交构建。
+- ../gui-backend-frontend-handoff.md：字段、前端修改项与验收边界。没有浏览器或真实模型新增证据。
