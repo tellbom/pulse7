@@ -61,7 +61,7 @@
 | Checkpoint | taskId, seq:int, createdAt, commit, tree, ref, kind:auto/model；dirtyFiles:int|null，dirtyFilesBasis:string | gittools.go:37、164；现存元数据没有计数。旧记录 dirtyFiles=null；禁止用当前 status 回填历史采集值。C3 接入新采集值时需同步保存到 checkpoint 元数据，不加会话字段 |
 | WorkspaceStatus | dirtyFiles:int, observedAt:ISO8601, dirtyFilesBasis | gittools.go:230；采集时普通索引 status -z 的逐条记录数，含 staged/unstaged/untracked，rename/copy 一条；相对 HEAD，非本次任务。无 Git 项目用私有 checkpoint 仓库基准，应披露该区别，首次无 HEAD 不凭空解释成0 |
 | OutsideWrite | tool, requestedPath, resolvedPath, checkpointCovered:false, rollbackCovered:false | events.go:356；tools.go:1085；不扩充成任意 shell 写集合 |
-| Listener | address:string, port:int|null, listening:bool, tokenValid:bool | 未实现；address 固定127.0.0.1；tokenValid 是当前进程凭据是否仍有效，不回传 token 内容 |
+| Listener | address:string, port:int|null, listening:bool, tokenValid:bool | 未实现；address 为0.0.0.0（2026-09-14 用户裁决）；tokenValid 是当前进程凭据是否仍有效，不回传 token 内容 |
 | ToolResult | id, ok, summary, resultRef；完整结果解析返回 result:string | 当前事件不含 result 原文，Name/Args/Result 的 json 标签是“-”，events.go:67、311 |
 
 配置响应列出当前有效非密钥配置（agent/config.go:15），用 `apiKeyConfigured:bool` 替代 api_key 内容。默认→全局→项目→显式 flags 的优先级照现有实现；项目 api_key 被忽略。连接测试仍只使用本次参数/已加载凭据；页面通过 PUT /api/config 保存 base_url（endpoint）、model、api_key 到用户全局配置层并生效，绝不写项目层。密钥不得进入日志、事件、会话或审计；可使用当前用户 DPAPI 加密保存。
@@ -147,7 +147,7 @@ hard link 目前是 `error: hard_link_impact_unknown: ...` 工具错误文本，
 2. CLI/GUI 同一事件 schema，NDJSON 与 SSE 两种运输；事件产生与 CLI 渲染须 C2 解耦，当前 emit 仍直接调用 renderer。C2 不得因 GUI 改造弱化 CLI 协议与原行为。
 3. 保底内容仍可能超预算：既有 R2 窄配置记录 4182 字节 > 可用3424，明确报错。默认48000字节也可能随仓库规模增大触发，阈值未知；不能承诺默认永不失败或显示剩余0后静默继续。来源：任务书 C1.4 及既有 f1f4-report.md；本次未重跑。
 4. Win7 确定性退出清理只覆盖 Session Job 成员；自动脱离后代不保证清理、不算异常。Sandboxie 跨命令、超时整箱、cleanupOnExit 与 JobObject 不等价。用户手动管理 detached，不能为了回收完整性反向限制第三方程序。
-5. HTTP 只绑定127.0.0.1随机端口，每进程生成一次临时 token，所有 API 含 SSE 必须鉴权；用 Authorization: Bearer 传递，页面通过 fetch 读取 SSE；token 生命周期至进程退出，不是每次请求消费即失效。不把 token 放 URL/日志。监听关闭与页面断连必须如实呈现；无 HTTP 的 CLI 不监听。C3/C4 验证前均未验证。
+5. HTTP 绑定0.0.0.0随机端口（2026-09-14 用户裁决），每进程生成一次临时 token，所有 API 含 SSE 必须鉴权；用 Authorization: Bearer 传递，页面通过 fetch 读取 SSE；token 生命周期至进程退出，不是每次请求消费即失效。不把 token 放 URL/日志。监听关闭与页面断连必须如实呈现；无 HTTP 的 CLI 不监听。C3/C4 验证前均未验证。
 
 ## C1 审阅结论与待确认边界
 
@@ -163,7 +163,7 @@ C1.0–C1.4 已完成源码核实与文档定义。任务书的 F5 现状描述�
 
 ## C3 启动入口批准（2026-09-12）
 
-用户批准新增子命令 `pulse7 serve`。仅该模式启动 HTTP/SSE（127.0.0.1、随机端口、每进程一次性 token）；普通 CLI 不启动监听、行为保持不变。本条解除报告 P3-F18 的启动入口待裁决项，其余冻结契约不变。
+用户批准新增子命令 `pulse7 serve`。仅该模式启动 HTTP/SSE（0.0.0.0、随机端口、每进程一次性 token）；普通 CLI 不启动监听、行为保持不变。本条解除报告 P3-F18 的启动入口待裁决项，其余冻结契约不变。
 
 ## C2–C4 实现定位更新（59af113）
 
@@ -174,3 +174,21 @@ PUT permissions 的临时 profile 作用于当前 Registry；工作区切换或�
 ## 2026-09-13 后端增量契约
 
 会话 tool 消息新增可选 toolOutcome{ok:boolean,summary:string,errorCode?:string} 元数据，历史 API 原样返回，不发送给模型。缺失表示未知，不等于成功或失败。新增 assistant_reasoning_delta{attempt,delta}，沿用 assistant_attempt 生命周期；成功助手消息保留 reasoning_content 以及与 tool_calls 同时出现的 content。默认 max_ctx 为 256000 字节，继续除以 4 估算 token，不自动适配模型，显式配置优先。前述“不新增业务顶层字段”描述的是 C1 初始范围，此处为后续增量。完整前端修改与验收清单见 [gui-backend-frontend-handoff.md](gui-backend-frontend-handoff.md)。
+## 2026-09-13 配置开放与会话列表隔离增量
+
+PUT /api/config 新增数值、开关与运行环境配置白名单；即时应用仅限空闲时更新的模型连接、max_ctx/max_rounds 和 LLM 超时/重试。runner/registry 配置仅保存，响应包含 saved（排除 api_key）、restartRequired、restartRequiredFields，顶层仍是运行值。值域、生效条件、资源风险与不开放项详见 [config-controls-and-session-isolation.md](config-controls-and-session-isolation.md)，取代此前“PUT 仅支持连接字段”的现状说明。
+
+GET /api/sessions 新增 errors 数组，单文件不可读取不阻断健康会话；列表目录自身读取失败仍错误。JSONL 写入与读取统一 1MiB（写入含 LF）限制，明确拒绝超限，不截断、不自动移动文件。
+# 2026-09-14 补充：两级压缩
+
+本补充对应 compact-redesign-report.md。GET /api/config 返回 micro_keep_recent；PUT /api/config 接受同名整数 1–1000，默认 8，写用户全局层并按现有任务间配置更新规则生效。最近工具结果数不等于模型轮数，最新完整工具组始终保留。
+
+compaction.method 新增 micro，表示纯本地工具结果投影，不是模型摘要。该方法下 removed 为替换正文的工具结果数，不是删除消息数。originalBytes/discardedBytes 为本地估算字节；beforeTokens/afterTokens 仍为估算值，不是实际 usage。summary 为说明文字，不是 assistant 最终回复。
+
+摘要仍只在 micro 后不能满足原阈值且存在可摘要历史时调用，接口为同一聊天端点 stream=true，不依赖 usage、stream_options 或 cache 字段。原有 65% 本地预算触发和显式失败语义不变。
+
+# 2026-09-14 补充：全部 IPv4 网卡监听
+
+按用户裁决，serve 默认绑定 tcp4 / 0.0.0.0:0，保留随机端口和每进程 token。GET /api/listener.address 返回实际绑定地址 0.0.0.0。本机通过 127.0.0.1、远端通过服务器实际 IPv4 地址访问，0.0.0.0 是绑定地址而不是客户端目标。
+
+现有页面自动注入 token、没有独立登录门槛的行为保留。因此能访问该端口页面的客户端可取得 API 操作权限，不能把 Bearer 校验宣称为远程用户隔离。程序不修改防火墙，不添加 TLS 或新认证机制。此项用户裁决覆盖前文仅回环监听限制。

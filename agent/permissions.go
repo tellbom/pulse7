@@ -153,6 +153,17 @@ func wildcardMatch(pattern, value string) bool {
 }
 
 func (r *Registry) permissionTarget(tool, argsJSON string) (string, error) {
+	if tool == "read" || tool == "grep" {
+		var args struct {
+			ContentRef string `json:"content_ref"`
+		}
+		if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
+			return "", err
+		}
+		if args.ContentRef != "" {
+			return r.contentRefPath(args.ContentRef)
+		}
+	}
 	switch tool {
 	case "write", "edit", "read":
 		var args struct {

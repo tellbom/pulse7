@@ -47,7 +47,7 @@ func newAPIServer(cfg *config) (*apiServer, error) {
 	if _, err := rand.Read(secret[:]); err != nil {
 		return nil, err
 	}
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	listener, err := net.Listen("tcp4", "0.0.0.0:0")
 	if err != nil {
 		return nil, err
 	}
@@ -64,7 +64,7 @@ func runServe(cfg *config) error {
 	defer a.Close()
 	// Only this mode replaces the runtime composition; CLI setup is untouched.
 	runtimeEvents = &eventBus{consumers: []eventConsumer{{emit: a.publish}}}
-	out("HTTP listening: http://%s (token valid; loopback only)\n", a.listener.Addr())
+	out("HTTP listening: http://%s (all IPv4 interfaces; token enabled)\n", a.listener.Addr())
 	return a.server.Serve(a.listener)
 }
 
@@ -191,7 +191,7 @@ func (a *apiServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer a.mu.Unlock()
 	switch r.Method + " " + r.URL.Path {
 	case "GET /api/listener":
-		apiJSON(w, 200, map[string]interface{}{"address": "127.0.0.1", "port": a.listener.Addr().(*net.TCPAddr).Port, "listening": true, "tokenValid": a.token != ""})
+		apiJSON(w, 200, map[string]interface{}{"address": a.listener.Addr().(*net.TCPAddr).IP.String(), "port": a.listener.Addr().(*net.TCPAddr).Port, "listening": true, "tokenValid": a.token != ""})
 	case "GET /api/config":
 		apiJSON(w, 200, a.configView())
 	case "PUT /api/config":
@@ -277,7 +277,7 @@ func (a *apiServer) events(w http.ResponseWriter, r *http.Request) {
 func (a *apiServer) configView() map[string]interface{} {
 	// Build from the effective runtime values, never from a key-bearing map.
 	c := a.cfg
-	return map[string]interface{}{"base_url": c.baseURL, "model": c.model, "workspace": c.workspace, "apiKeyConfigured": c.apiKey != "", "read_only": c.readOnly, "max_ctx": c.maxCtx, "max_rounds": c.maxRounds, "sandbox_preference": c.sandboxPreference, "shell_timeout_sec": int(c.shellTimeout / time.Second), "memory_limit_mb": c.memLimitMB, "process_warn_threshold": c.processWarnThreshold, "background_task_max_output_mb": c.backgroundTaskMaxOutputMB, "background_task_warn_count": c.backgroundTaskWarnCount, "background_task_warn_sec": c.backgroundTaskWarnSec, "cleanup_on_exit": c.cleanupOnExit, "box": c.box, "start_exe": c.startExe, "sandbox_root": c.sandboxRoot, "yolo": c.yolo, "llm_first_chunk_timeout_sec": int(c.llmFirstChunkTimeout / time.Second), "llm_idle_timeout_sec": int(c.llmIdleTimeout / time.Second), "llm_max_retries": c.llmMaxRetries, "llm_compress_timeout_sec": int(c.llmCompressTimeout / time.Second)}
+	return map[string]interface{}{"base_url": c.baseURL, "model": c.model, "workspace": c.workspace, "apiKeyConfigured": c.apiKey != "", "read_only": c.readOnly, "max_ctx": c.maxCtx, "max_rounds": c.maxRounds, "micro_keep_recent": c.microKeepRecent, "sandbox_preference": c.sandboxPreference, "shell_timeout_sec": int(c.shellTimeout / time.Second), "memory_limit_mb": c.memLimitMB, "process_warn_threshold": c.processWarnThreshold, "background_task_max_output_mb": c.backgroundTaskMaxOutputMB, "background_task_warn_count": c.backgroundTaskWarnCount, "background_task_warn_sec": c.backgroundTaskWarnSec, "cleanup_on_exit": c.cleanupOnExit, "box": c.box, "start_exe": c.startExe, "sandbox_root": c.sandboxRoot, "yolo": c.yolo, "llm_first_chunk_timeout_sec": int(c.llmFirstChunkTimeout / time.Second), "llm_idle_timeout_sec": int(c.llmIdleTimeout / time.Second), "llm_max_retries": c.llmMaxRetries, "llm_compress_timeout_sec": int(c.llmCompressTimeout / time.Second)}
 }
 func (a *apiServer) idle(w http.ResponseWriter) bool {
 	if a.busy {
@@ -306,6 +306,10 @@ func (a *apiServer) putConfig(w http.ResponseWriter, r *http.Request) {
 		apiBad(w, err)
 		return
 	}
+	if err := validateRuntimeParams(&update); err != nil {
+		apiBad(w, err)
+		return
+	}
 	home, err := os.UserHomeDir()
 	if err == nil {
 		err = saveAPIConfig(globalConfigPath(home), update)
@@ -318,7 +322,118 @@ func (a *apiServer) putConfig(w http.ResponseWriter, r *http.Request) {
 	if update.APIKey != nil {
 		a.cfg.apiKey = *update.APIKey
 	}
-	apiJSON(w, 200, a.configView())
+	applyRuntimeParams(a.cfg, &update)
+	view := a.configView()
+	saved := update.provided()
+	delete(saved, "api_key")
+	restart := []string{}
+	for _, key := range []string{"shell_timeout_sec", "memory_limit_mb", "process_warn_threshold", "background_task_max_output_mb", "background_task_warn_count", "background_task_warn_sec", "cleanup_on_exit", "read_only", "sandbox_preference"} {
+		if _, ok := saved[key]; ok {
+			restart = append(restart, key)
+		}
+	}
+	view["saved"] = saved
+	view["restartRequired"] = len(restart) > 0
+	view["restartRequiredFields"] = restart
+	apiJSON(w, 200, view)
+}
+
+// Apply only turn-local settings; runner/registry settings require restart.
+func applyRuntimeParams(cfg *config, u *apiConfigUpdate) {
+	if u.MaxCtx != nil {
+		cfg.maxCtx = *u.MaxCtx
+	}
+	if u.MaxRounds != nil {
+		cfg.maxRounds = *u.MaxRounds
+	}
+	if u.MicroKeepRecent != nil {
+		cfg.microKeepRecent = *u.MicroKeepRecent
+	}
+	if u.LLMFirstChunkTimeoutSec != nil {
+		cfg.llmFirstChunkTimeout = time.Duration(*u.LLMFirstChunkTimeoutSec) * time.Second
+	}
+	if u.LLMIdleTimeoutSec != nil {
+		cfg.llmIdleTimeout = time.Duration(*u.LLMIdleTimeoutSec) * time.Second
+	}
+	if u.LLMMaxRetries != nil {
+		cfg.llmMaxRetries = *u.LLMMaxRetries
+	}
+	if u.LLMCompressTimeoutSec != nil {
+		cfg.llmCompressTimeout = time.Duration(*u.LLMCompressTimeoutSec) * time.Second
+	}
+}
+
+// validateRuntimeParams 只校验本次提交的数值字段，范围宽松但拒绝零/负值与未知枚举。
+func validateRuntimeParams(u *apiConfigUpdate) error {
+	for _, c := range []struct {
+		v  *int
+		n  string
+		lo int
+		hi int
+	}{
+		{u.MaxCtx, "max_ctx", 16000, 32000000},
+		{u.MaxRounds, "max_rounds", 1, 10000},
+		{u.MicroKeepRecent, "micro_keep_recent", 1, 1000},
+		{u.ShellTimeoutSec, "shell_timeout_sec", 5, 86400},
+		{u.MemoryLimitMB, "memory_limit_mb", 64, 4095},
+		{u.ProcessWarnThreshold, "process_warn_threshold", 0, 100000},
+		{u.BgTaskMaxOutputMB, "background_task_max_output_mb", 1, 4096},
+		{u.BgTaskWarnCount, "background_task_warn_count", 0, 1000},
+		{u.BgTaskWarnSec, "background_task_warn_sec", 0, 864000},
+		{u.LLMFirstChunkTimeoutSec, "llm_first_chunk_timeout_sec", 5, 3600},
+		{u.LLMIdleTimeoutSec, "llm_idle_timeout_sec", 5, 3600},
+		{u.LLMMaxRetries, "llm_max_retries", 0, 10},
+		{u.LLMCompressTimeoutSec, "llm_compress_timeout_sec", 5, 3600},
+	} {
+		if c.v != nil && (*c.v < c.lo || *c.v > c.hi) {
+			return fmt.Errorf("%s must be between %d and %d", c.n, c.lo, c.hi)
+		}
+	}
+	if u.SandboxPreference != nil && *u.SandboxPreference != "auto" && *u.SandboxPreference != "sandboxie" && *u.SandboxPreference != "jobobject" {
+		return errors.New("sandbox_preference must be auto, sandboxie or jobobject")
+	}
+	return nil
+}
+
+// GET /api/fs/dirs?path=... — 目录浏览（一层），供前端工作区选择器；仅返回目录名，不含文件内容。
+func (a *apiServer) fsDirs(w http.ResponseWriter, r *http.Request) {
+	type ent struct {
+		Name string `json:"name"`
+		Path string `json:"path"`
+	}
+	p := r.URL.Query().Get("path")
+	if p == "" {
+		drives := []ent{}
+		for c := 'A'; c <= 'Z'; c++ {
+			d := string(c) + `:\`
+			if fi, err := os.Stat(d); err == nil && fi.IsDir() {
+				drives = append(drives, ent{d, d})
+			}
+		}
+		apiJSON(w, 200, map[string]interface{}{"path": "", "parent": "", "dirs": drives})
+		return
+	}
+	ap, err := filepath.Abs(p)
+	if err != nil {
+		apiBad(w, err)
+		return
+	}
+	es, err := os.ReadDir(ap)
+	if err != nil {
+		apiError(w, 400, "unreadable_dir", err.Error())
+		return
+	}
+	dirs := []ent{}
+	for _, e := range es {
+		if e.IsDir() && !strings.HasPrefix(e.Name(), "$") {
+			dirs = append(dirs, ent{e.Name(), filepath.Join(ap, e.Name())})
+		}
+	}
+	parent := filepath.Dir(ap)
+	if parent == ap {
+		parent = ""
+	}
+	apiJSON(w, 200, map[string]interface{}{"path": ap, "parent": parent, "dirs": dirs})
 }
 func (a *apiServer) connectionTest(w http.ResponseWriter, r *http.Request) {
 	var input struct {
@@ -399,26 +514,37 @@ func (a *apiServer) sessionMessages(w http.ResponseWriter, r *http.Request, id s
 		apiBad(w, err)
 		return
 	}
-	rows, err := a.readHistory(id)
+	path, err := a.sessionFile(id)
 	if err != nil {
 		apiReadError(w, err)
 		return
 	}
-	if offset > len(rows) {
+	index, err := indexAPIHistory(path)
+	if err != nil {
+		apiReadError(w, err)
+		return
+	}
+	if offset > len(index.spans) {
 		apiBad(w, errors.New("offset outside history"))
 		return
 	}
-	end := offset + limit
-	if end > len(rows) {
-		end = len(rows)
+	rows, count, err := apiPagedMessages(path, offset, limit)
+	if err != nil {
+		apiReadError(w, err)
+		return
 	}
-	apiJSON(w, 200, map[string]interface{}{"sessionId": id, "messages": rows[offset:end], "offset": offset, "nextOffset": end, "hasMore": end < len(rows)})
+	if offset > count {
+		apiBad(w, errors.New("offset outside history"))
+		return
+	}
+	end := offset + len(rows)
+	apiJSON(w, 200, map[string]interface{}{"sessionId": id, "messages": rows, "offset": offset, "nextOffset": end, "hasMore": end < count})
 }
 func (a *apiServer) sessions(w http.ResponseWriter, r *http.Request) {
 	dir := filepath.Join(a.cfg.exeDirStore(), "data", "sessions")
 	entries, err := os.ReadDir(dir)
 	if os.IsNotExist(err) {
-		apiJSON(w, 200, map[string]interface{}{"sessions": []interface{}{}})
+		apiJSON(w, 200, map[string]interface{}{"sessions": []interface{}{}, "errors": []interface{}{}})
 		return
 	}
 	if err != nil {
@@ -426,44 +552,48 @@ func (a *apiServer) sessions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	list := []interface{}{}
+	problems := []interface{}{}
+	addProblem := func(id, filename, stage string) {
+		// Do not expose raw parse errors or record contents (which can contain
+		// user data). Leave the source untouched and make the omission visible.
+		problems = append(problems, map[string]string{"sessionId": id, "fileName": filename,
+			"code": "session_unreadable", "stage": stage, "message": "Session could not be listed; source file was not modified."})
+	}
 	for _, e := range entries {
 		if e.IsDir() || (e.Name() == "audit.jsonl" || e.Name() == "checkpoint-metadata.jsonl" || strings.HasPrefix(e.Name(), "manifest-")) || !strings.HasSuffix(e.Name(), ".jsonl") {
 			continue
 		}
 		id := sessionTaskID(e.Name())
-		rows, err := a.readHistory(id)
+		path, err := a.sessionFile(id)
 		if err != nil {
-			apiReadError(w, err)
-			return
+			addProblem(id, e.Name(), "messages")
+			continue
 		}
-		path, _ := a.sessionFile(id)
+		count, first, err := apiSessionSummary(path)
+		if err != nil {
+			addProblem(id, e.Name(), "messages")
+			continue
+		}
 		meta, err := loadSessionMetadata(path)
 		if err != nil {
-			apiReadError(w, err)
-			return
+			addProblem(id, e.Name(), "metadata")
+			continue
 		}
 		info, err := e.Info()
 		if err != nil {
-			apiReadError(w, err)
-			return
+			addProblem(id, e.Name(), "stat")
+			continue
 		}
-		first := ""
-		for _, raw := range rows {
-			var m openai.ChatCompletionMessage
-			json.Unmarshal(raw, &m)
-			if m.Role == "user" {
-				first = m.Content
-				break
-			}
-		}
-		list = append(list, map[string]interface{}{"sessionId": id, "cwd": meta.Workspace, "updatedAt": info.ModTime(), "messageCount": len(rows), "firstUser": first})
+		list = append(list, map[string]interface{}{"sessionId": id, "cwd": meta.Workspace, "updatedAt": info.ModTime(), "messageCount": count, "firstUser": first})
 	}
-	apiJSON(w, 200, map[string]interface{}{"sessions": list})
+	apiJSON(w, 200, map[string]interface{}{"sessions": list, "errors": problems})
 }
 func (a *apiServer) toolResult(w http.ResponseWriter, r *http.Request) {
 	ref := r.URL.Query().Get("ref")
-	id := a.selected
-	call := ""
+	id, call := a.selected, ""
+	if value := r.URL.Query().Get("sessionId"); value != "" {
+		id = value
+	}
 	if strings.HasPrefix(ref, "session:") {
 		parts := strings.SplitN(strings.TrimPrefix(ref, "session:"), "#tool:", 2)
 		if len(parts) == 2 {
@@ -472,22 +602,47 @@ func (a *apiServer) toolResult(w http.ResponseWriter, r *http.Request) {
 	} else if strings.HasPrefix(ref, "tool:") {
 		call = strings.TrimPrefix(ref, "tool:")
 	}
-	if id == "" || call == "" {
+	if id == "" || (call == "" && !strings.HasPrefix(ref, "lc1.")) {
 		apiBad(w, errors.New("invalid result reference"))
 		return
 	}
-	rows, err := a.readHistory(id)
+	offset, limit, err := apiResultPagination(r.URL.Query().Get("offset"), r.URL.Query().Get("limit"))
+	if err != nil {
+		apiBad(w, err)
+		return
+	}
+	path, err := a.sessionFile(id)
 	if err != nil {
 		apiReadError(w, err)
 		return
 	}
-	for _, raw := range rows {
-		var m openai.ChatCompletionMessage
-		json.Unmarshal(raw, &m)
-		if m.Role == "tool" && m.ToolCallID == call {
-			apiJSON(w, 200, map[string]string{"id": call, "result": m.Content})
+	if _, err := loadSessionMetadata(path); err != nil {
+		apiReadError(w, err)
+		return
+	}
+	contentRef := ref
+	var message sessionMessageRecord
+	if call != "" {
+		message, err = apiFindToolResult(path, call)
+		if err != nil {
+			apiReadError(w, err)
 			return
 		}
+		contentRef = message.LargeContent["content"]
 	}
-	apiError(w, 404, "not_found", "tool result not found")
+	var result string
+	var total, next int64
+	if contentRef != "" {
+		result, total, next, err = readLargeContent(path, contentRef, int64(offset), int64(limit))
+	} else {
+		var n int
+		result, n, _, err = apiResultRange(message.Content, offset, limit)
+		next = int64(n)
+		total = int64(len(message.Content))
+	}
+	if err != nil {
+		apiError(w, 400, "content_unavailable", a.safeError(err))
+		return
+	}
+	apiJSON(w, 200, map[string]interface{}{"id": call, "result": result, "offset": offset, "nextOffset": next, "totalBytes": total, "hasMore": next < total, "contentRef": contentRef})
 }

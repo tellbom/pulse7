@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -45,7 +46,7 @@ func TestAPIAuthenticationAndConfigRedaction(t *testing.T) {
 	if w.Code != 200 || strings.Contains(w.Body.String(), a.cfg.apiKey) || !strings.Contains(w.Body.String(), "apiKeyConfigured") {
 		t.Fatalf("config=%s", w.Body)
 	}
-	if a.listener.Addr().(*net.TCPAddr).IP.String() != "127.0.0.1" || a.listener.Addr().(*net.TCPAddr).Port == 0 {
+	if a.listener.Addr().(*net.TCPAddr).IP.String() != "0.0.0.0" || a.listener.Addr().(*net.TCPAddr).Port == 0 {
 		t.Fatal(a.listener.Addr())
 	}
 }
@@ -142,7 +143,7 @@ func TestAPISessionPaginationPreservesToolCallsAndBytes(t *testing.T) {
 }
 func TestAPISSESameEnvelopeAndListenerRelease(t *testing.T) {
 	a := testAPI(t)
-	address := a.listener.Addr().String()
+	address := net.JoinHostPort("127.0.0.1", strconv.Itoa(a.listener.Addr().(*net.TCPAddr).Port))
 	go a.server.Serve(a.listener)
 	req, _ := http.NewRequest("GET", "http://"+address+"/api/events", nil)
 	req.Header.Set("Authorization", "Bearer "+a.token)

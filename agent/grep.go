@@ -20,9 +20,10 @@ func rgExePath(exeDir string) string {
 
 func (r *Registry) toolGrep(argsJSON string) (string, error) {
 	var a struct {
-		Pattern string `json:"pattern"`
-		Path    string `json:"path"`
-		Glob    string `json:"glob"`
+		Pattern    string `json:"pattern"`
+		Path       string `json:"path"`
+		Glob       string `json:"glob"`
+		ContentRef string `json:"content_ref"`
 	}
 	if err := json.Unmarshal([]byte(argsJSON), &a); err != nil {
 		return "", err
@@ -31,6 +32,13 @@ func (r *Registry) toolGrep(argsJSON string) (string, error) {
 		return "", fmt.Errorf("bad regex: %v", err)
 	}
 	root := r.workspace
+	if a.ContentRef != "" {
+		p, err := r.contentRefPath(a.ContentRef)
+		if err != nil {
+			return "", err
+		}
+		a.Path = p
+	}
 	if a.Path != "" {
 		p, err := r.absPath(a.Path)
 		if err != nil {
@@ -110,6 +118,9 @@ func (r *Registry) grepViaRg(rgPath, pattern, root, glob string, gbk bool) (stri
 	args = append(args, pattern, root)
 	cmd := exec.Command(rgPath, args...)
 	cmd.Dir = root
+	if info, err := os.Stat(root); err == nil && !info.IsDir() {
+		cmd.Dir = filepath.Dir(root)
+	}
 	var out strings.Builder
 	cmd.Stdout = &out
 	cmd.Stderr = nil
@@ -162,9 +173,6 @@ func (r *Registry) grepGo(pattern, root, glob string) (string, error) {
 			if !matched {
 				return nil
 			}
-		}
-		if fi, _ := d.Info(); fi != nil && fi.Size() > 1024*1024 {
-			return nil
 		}
 		safe, err := r.absPath(p)
 		if err != nil {

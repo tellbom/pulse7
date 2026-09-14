@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -361,39 +362,60 @@ func (m *backgroundTaskManager) output(id string, offset, limit int) (string, er
 	if err != nil {
 		return "", err
 	}
-	b, err := os.ReadFile(task.OutputPath)
+	f, err := os.Open(task.OutputPath)
 	if errors.Is(err, os.ErrNotExist) {
-		b = nil
-	} else if err != nil {
+		if offset != 0 {
+			return "", fmt.Errorf("offset %d outside empty output", offset)
+		}
+		return "task_id=" + id + " offset=0 next_offset=0 total_bytes=0 complete=true\n", nil
+	}
+	if err != nil {
 		return "", err
 	}
-	if offset < 0 || offset > len(b) {
-		return "", fmt.Errorf("offset %d outside output size %d", offset, len(b))
+	defer f.Close()
+	info, err := f.Stat()
+	if err != nil {
+		return "", err
+	}
+	total := info.Size()
+	if offset < 0 || int64(offset) > total {
+		return "", fmt.Errorf("offset %d outside output size %d", offset, total)
 	}
 	if limit <= 0 {
-		limit = 4096
+		limit = 32 << 10
 	}
-	if limit > 1<<20 {
-		limit = 1 << 20
+	if limit > maxReadBytes {
+		limit = maxReadBytes
 	}
-	end := offset + limit
-	if end > len(b) {
-		end = len(b)
+	end := int64(offset) + int64(limit)
+	if end > total {
+		end = total
+	}
+	b := make([]byte, end-int64(offset))
+	if len(b) > 0 {
+		n, err := f.ReadAt(b, int64(offset))
+		if err != nil && err != io.EOF {
+			return "", err
+		}
+		b = b[:n]
+		_, encoding, reason, inspectErr := cachedTextInspection(f, info)
+		if inspectErr != nil {
+			return "", inspectErr
+		}
+		if reason == "" {
+			b = b[:rawCharacterEnd(b, encoding)]
+		}
+		end = int64(offset) + int64(len(b))
 	}
 	m.mu.Lock()
 	status, exitCode := task.Status, task.ExitCode
 	m.mu.Unlock()
 	_, native := m.runner.(*jobObjectRunner)
-	if end > offset && !native {
-		emitRuntimeEvent("background_task", backgroundTaskEvent{
-			Action: "output", TaskID: id, Status: status, ExitCode: intPointer(exitCode),
-			Offset: offset, NextOffset: end,
-		})
+	if end > int64(offset) && !native {
+		emitRuntimeEvent("background_task", backgroundTaskEvent{Action: "output", TaskID: id, Status: status, ExitCode: intPointer(exitCode), Offset: offset, NextOffset: int(end)})
 	}
-	return fmt.Sprintf("task_id=%s status=%s exitcode=%d offset=%d next_offset=%d total_bytes=%d\n%s",
-		id, status, exitCode, offset, end, len(b), decodeShellOutput(b[offset:end])), nil
+	return fmt.Sprintf("task_id=%s status=%s exitcode=%d offset=%d next_offset=%d total_bytes=%d complete=%v\n%s", id, status, exitCode, offset, end, total, end == total, decodeShellOutput(b)), nil
 }
-
 func (m *backgroundTaskManager) kill(id string) (string, error) {
 	task, err := m.get(id)
 	if err != nil {

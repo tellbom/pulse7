@@ -68,8 +68,7 @@ func TestCompressionPromptKeepsUserConstraintAfterByte500(t *testing.T) {
 	var captured []byte
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		captured, _ = io.ReadAll(req.Body)
-		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprint(w, `{"choices":[{"message":{"role":"assistant","content":"summary"}}]}`)
+		writeSummaryFixture(w, "summary")
 	}))
 	defer srv.Close()
 	ocfg := openai.DefaultConfig("test")

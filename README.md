@@ -39,7 +39,7 @@ npm run build
 .\pulse7.exe --workspace C:\work serve
 ```
 
-参数置于子命令之前。仅 `serve` 监听 `127.0.0.1` 随机端口；在本机浏览器打开终端打印的地址。API/SSE 校验本次进程 token，不将该服务暴露到公网。
+参数置于子命令之前。仅 `serve` 监听 `0.0.0.0`（全部 IPv4 网卡）的随机端口；本机使用 `http://127.0.0.1:端口`，其他机器使用 `http://服务器IP:端口`。API/SSE 校验本次进程 token，但页面会自动注入 token，没有独立登录门槛：可访问页面的客户端即可操作 Agent。网络访问还取决于系统防火墙，本程序不会自动修改防火墙。
 
 全局配置为 `%USERPROFILE%/.pulse7/config.json`，项目配置为 `<workspace>/.pulse7/config.json`。优先级为默认值→全局→项目→显式参数，项目密钥被忽略。页面可保存 endpoint/model/api_key 到用户全局层；当前实现使用既有明文配置字段，未启用 DPAPI。运行数据位于 exe 旁 `data/`，不得提交到 Git。
 

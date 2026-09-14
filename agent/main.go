@@ -29,6 +29,7 @@ type config struct {
 	shellTimeout                      time.Duration
 	maxCtx                            int
 	maxRounds                         int
+	microKeepRecent                   int
 	processWarnThreshold              int
 	backgroundTaskMaxOutputMB         int
 	backgroundTaskWarnCount           int
@@ -238,6 +239,7 @@ func main() {
 	flag.DurationVar(&cfg.shellTimeout, "shell-timeout", 120*time.Second, "shell tool timeout")
 	flag.IntVar(&cfg.maxCtx, "max-ctx", defaultMaxContextBytes, "context budget in serialized UTF-8 bytes (messages + tools)")
 	flag.IntVar(&cfg.maxRounds, "max-rounds", 100, "maximum tool-call rounds before stopping without a final answer")
+	flag.IntVar(&cfg.microKeepRecent, "micro-keep-recent", defaultMicroKeepRecent, "recent tool results retained by local micro compaction")
 	flag.IntVar(&cfg.processWarnThreshold, "process-warn-threshold", defaultProcessWarnThreshold, "warn above this session process count")
 	flag.IntVar(&cfg.backgroundTaskMaxOutputMB, "background-task-max-output-mb", defaultBackgroundTaskMaxOutputMB, "hard output cap per background task")
 	flag.IntVar(&cfg.backgroundTaskWarnCount, "background-task-warn-count", defaultBackgroundTaskWarnCount, "warn above this concurrent background task count")
@@ -395,6 +397,12 @@ func newClient(cfg *config) *openai.Client {
 }
 
 func setupEnv(cfg *config, taskID string) (*Registry, error) {
+	if cfg.microKeepRecent < 0 || cfg.microKeepRecent > 1000 {
+		return nil, errors.New("micro_keep_recent must be between 1 and 1000")
+	}
+	if cfg.microKeepRecent == 0 {
+		cfg.microKeepRecent = defaultMicroKeepRecent
+	}
 	if err := validateBackgroundTaskConfig(cfg.backgroundTaskMaxOutputMB, cfg.backgroundTaskWarnCount,
 		cfg.backgroundTaskWarnSec, cfg.processWarnThreshold); err != nil {
 		return nil, err
@@ -571,21 +579,31 @@ func loadPreparedMessages(plan resumePreparation, destination *session) ([]opena
 		return nil, err
 	}
 	if plan.Migrated {
-		for _, msg := range msgs {
-			if err := destination.record(msg); err != nil {
+		records, loadErr := loadSessionFullRecords(plan.ResumeTarget)
+		err = loadErr
+		if err != nil {
+			return nil, err
+		}
+		var projected []openai.ChatCompletionMessage
+		for _, record := range records {
+			stored, err := destination.recordProjected(record.ChatCompletionMessage, record.ToolOutcome)
+			if err != nil {
 				return nil, err
 			}
+			projected = append(projected, stored)
 		}
+		msgs = projected
 	}
 	return msgs, nil
 }
 
 // pushMsg appends to the conversation and records it in the session file.
 func pushMsg(msgs *[]openai.ChatCompletionMessage, m openai.ChatCompletionMessage, outcome ...*toolOutcome) error {
-	if err := sess.record(m, outcome...); err != nil {
+	projected, err := sess.recordProjected(m, outcome...)
+	if err != nil {
 		return err
 	}
-	*msgs = append(*msgs, m)
+	*msgs = append(*msgs, projected)
 	return nil
 }
 
@@ -1002,11 +1020,16 @@ func streamTurn(client *openai.Client, reg *Registry, cfg *config, msgs *[]opena
 		if err := pushMsg(msgs, response); err != nil {
 			return "", err
 		}
-		for _, c := range calls {
+		visibleCalls := (*msgs)[len(*msgs)-1].ToolCalls
+		for callIndex, c := range calls {
 			if interrupted() {
 				return "", errInterrupted
 			}
-			emitToolCall(c)
+			visible := c
+			if callIndex < len(visibleCalls) {
+				visible = visibleCalls[callIndex]
+			}
+			emitToolCall(visible)
 			res := reg.Execute(c.Function.Name, c.Function.Arguments)
 			emitToolResult(c, res)
 			if !strings.HasPrefix(res, "error:") {

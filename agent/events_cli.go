@@ -44,6 +44,8 @@ func (r *cliEventRenderer) render(event runtimeEvent) {
 	case compactionEvent:
 		if data.Method == compressionTruncate {
 			out("[上下文已截断：移除 %d 条较早消息]\n", data.Removed)
+		} else if data.Method == "micro" {
+			out("[上下文微压缩：%d 条旧工具结果替换为原文引用]\n", data.Removed)
 		} else {
 			out("[上下文已压缩：%d 条消息 → 摘要]\n", data.Removed)
 		}

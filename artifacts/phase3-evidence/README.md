@@ -23,3 +23,6 @@ model-controller.py与model-guest-run.py负责官方DeepSeek实测；phase3-s1/s
 - gui-backend-focused-win7.txt：本地保留、git ignored，新增链路用例后 TestGUI 五项通过 / exit 0；未重新宣称全量 164 项。
 - build-hashes.json 的 gui_backend_20260913：本轮二进制与源码来源；基于 8be7874 + 后端未提交差异 + 既有 GUI 资源，不是干净提交构建。
 - ../gui-backend-frontend-handoff.md：字段、前端修改项与验收边界。没有浏览器或真实模型新增证据。
+## 2026-09-13 会话隔离与配置开放验证
+
+session-isolation-win7.py / config-controls-win7.py 是 Win7 执行器；同名前缀 .txt 为本地原始日志（git ignored）。前者全量166项、后者全量170项，均0跳过、exit0。build-hashes.json 的 config_and_sessions_20260913 记录运行窗口、VM启动时间与上传哈希。源码来自 be8e130 上的工作树增量，包含并行配置/目录浏览草稿及原有GUI资源；不声称干净提交构建。配置风险/契约详见 ../config-controls-and-session-isolation.md。

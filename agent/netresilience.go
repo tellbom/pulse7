@@ -32,6 +32,7 @@ var (
 // model's running commentary is visually distinct from tool lines and from
 // the framed final answer.
 type streamSink struct {
+	silent       bool
 	reasoning    strings.Builder
 	content      strings.Builder
 	attempt      uint64
@@ -55,11 +56,15 @@ func (s *streamSink) onChunk(chunk openai.ChatCompletionStreamResponse) {
 		s.terminalErr = errors.New("stream delivered data after terminal finish_reason")
 	}
 	if d.Content != "" {
-		emitRuntimeEvent("assistant_delta", assistantDeltaEvent{Delta: d.Content, Attempt: s.attempt})
+		if !s.silent {
+			emitRuntimeEvent("assistant_delta", assistantDeltaEvent{Delta: d.Content, Attempt: s.attempt})
+		}
 		s.content.WriteString(d.Content)
 	}
 	if d.ReasoningContent != "" {
-		emitRuntimeEvent("assistant_reasoning_delta", assistantReasoningDeltaEvent{Delta: d.ReasoningContent, Attempt: s.attempt})
+		if !s.silent {
+			emitRuntimeEvent("assistant_reasoning_delta", assistantReasoningDeltaEvent{Delta: d.ReasoningContent, Attempt: s.attempt})
+		}
 		s.reasoning.WriteString(d.ReasoningContent)
 	}
 	for _, tc := range d.ToolCalls {

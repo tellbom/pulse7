@@ -281,6 +281,7 @@ func emitCompaction(beforeChars, afterChars int, emergency bool, method string, 
 	emitRuntimeEvent("compaction", compactionEvent{
 		Reason: reason, BeforeTokens: beforeChars / 4, AfterTokens: afterChars / 4,
 		Emergency: emergency, Summary: summary, Method: method, Removed: removed,
+		OriginalBytes: intPointer(beforeChars), DiscardedBytes: intPointer(beforeChars - afterChars),
 	})
 }
 

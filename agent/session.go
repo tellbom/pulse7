@@ -54,13 +54,14 @@ type sessionMetadata struct {
 }
 
 type sessionMessageRecord struct {
-	ToolOutcome *toolOutcome `json:"toolOutcome,omitempty"`
-	UUID        string       `json:"uuid"`
-	ParentUUID  *string      `json:"parentUuid"`
-	Timestamp   string       `json:"timestamp"`
-	SessionID   string       `json:"sessionId"`
-	Cwd         string       `json:"cwd"`
-	Version     int          `json:"version"`
+	ToolOutcome  *toolOutcome      `json:"toolOutcome,omitempty"`
+	LargeContent map[string]string `json:"largeContent,omitempty"`
+	UUID         string            `json:"uuid"`
+	ParentUUID   *string           `json:"parentUuid"`
+	Timestamp    string            `json:"timestamp"`
+	SessionID    string            `json:"sessionId"`
+	Cwd          string            `json:"cwd"`
+	Version      int               `json:"version"`
 	openai.ChatCompletionMessage
 }
 
@@ -82,18 +83,22 @@ func (r sessionMessageRecord) MarshalJSON() ([]byte, error) {
 	if r.ToolOutcome != nil {
 		fields["toolOutcome"] = r.ToolOutcome
 	}
+	if len(r.LargeContent) > 0 {
+		fields["largeContent"] = r.LargeContent
+	}
 	return json.Marshal(fields)
 }
 
 func (r *sessionMessageRecord) UnmarshalJSON(b []byte) error {
 	var metadata struct {
-		ToolOutcome *toolOutcome `json:"toolOutcome,omitempty"`
-		UUID        string       `json:"uuid"`
-		ParentUUID  *string      `json:"parentUuid"`
-		Timestamp   string       `json:"timestamp"`
-		SessionID   string       `json:"sessionId"`
-		Cwd         string       `json:"cwd"`
-		Version     int          `json:"version"`
+		ToolOutcome  *toolOutcome      `json:"toolOutcome,omitempty"`
+		LargeContent map[string]string `json:"largeContent,omitempty"`
+		UUID         string            `json:"uuid"`
+		ParentUUID   *string           `json:"parentUuid"`
+		Timestamp    string            `json:"timestamp"`
+		SessionID    string            `json:"sessionId"`
+		Cwd          string            `json:"cwd"`
+		Version      int               `json:"version"`
 	}
 	if err := json.Unmarshal(b, &metadata); err != nil {
 		return err
@@ -109,6 +114,7 @@ func (r *sessionMessageRecord) UnmarshalJSON(b []byte) error {
 	r.Cwd = metadata.Cwd
 	r.Version = metadata.Version
 	r.ToolOutcome = metadata.ToolOutcome
+	r.LargeContent = metadata.LargeContent
 	r.ChatCompletionMessage = message
 	return nil
 }
@@ -119,11 +125,27 @@ func sessionTaskID(path string) string {
 }
 
 func writeJSONLine(f osFileWriter, value interface{}) error {
-	b, err := json.Marshal(value)
+	b, err := encodeJSONLine(value)
 	if err != nil {
 		return err
 	}
-	b = append(b, '\n')
+	return writeEncodedJSONLine(f, b)
+}
+
+// Include the LF in the byte limit so every accepted record fits the
+// Scanner buffer used by the read paths. Reject before touching the file.
+func encodeJSONLine(value interface{}) ([]byte, error) {
+	b, err := json.Marshal(value)
+	if err != nil {
+		return nil, err
+	}
+	if len(b)+1 > maxSessionRecordBytes {
+		return nil, fmt.Errorf("JSONL record exceeds %d-byte limit: encoded_bytes=%d (including LF)", maxSessionRecordBytes, len(b)+1)
+	}
+	return append(b, '\n'), nil
+}
+
+func writeEncodedJSONLine(f osFileWriter, b []byte) error {
 	n, err := f.Write(b)
 	if err != nil {
 		return err
@@ -135,11 +157,15 @@ func writeJSONLine(f osFileWriter, value interface{}) error {
 }
 
 func appendJSONLine(path string, value interface{}) error {
+	b, err := encodeJSONLine(value)
+	if err != nil {
+		return err
+	}
 	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 	if err != nil {
 		return err
 	}
-	if err := writeJSONLine(f, value); err != nil {
+	if err := writeEncodedJSONLine(f, b); err != nil {
 		f.Close()
 		return err
 	}
@@ -201,21 +227,26 @@ func (s *session) id() string {
 }
 
 func (s *session) record(m openai.ChatCompletionMessage, outcome ...*toolOutcome) error {
+	_, err := s.recordProjected(m, outcome...)
+	return err
+}
+
+func (s *session) recordProjected(m openai.ChatCompletionMessage, outcome ...*toolOutcome) (openai.ChatCompletionMessage, error) {
 	if s == nil {
-		return fmt.Errorf("%w: session is not initialized", errSessionStorage)
+		return m, fmt.Errorf("%w: session is not initialized", errSessionStorage)
 	}
 	if s.f == nil {
 		if err := s.open(); err != nil {
-			return fmt.Errorf("%w: open session: %v", errSessionStorage, err)
+			return m, fmt.Errorf("%w: open session: %v", errSessionStorage, err)
 		}
 	}
 	uuid, err := newMessageUUID()
 	if err != nil {
-		return fmt.Errorf("%w: create message uuid: %v", errSessionStorage, err)
+		return m, fmt.Errorf("%w: create message uuid: %v", errSessionStorage, err)
 	}
 	cwd, err := filepath.Abs(s.workspace)
 	if err != nil {
-		return fmt.Errorf("%w: resolve session cwd: %v", errSessionStorage, err)
+		return m, fmt.Errorf("%w: resolve session cwd: %v", errSessionStorage, err)
 	}
 	var parent *string
 	if s.lastUUID != "" {
@@ -229,12 +260,15 @@ func (s *session) record(m openai.ChatCompletionMessage, outcome ...*toolOutcome
 	if m.Role == openai.ChatMessageRoleTool && len(outcome) > 0 {
 		record.ToolOutcome = outcome[0]
 	}
+	if err := externalizeLargeMessage(s.path, &record); err != nil {
+		return m, fmt.Errorf("%w: save large session content: %v", errSessionStorage, err)
+	}
 	if err := writeJSONLine(s.f, record); err != nil {
-		return fmt.Errorf("%w: write session record: %v", errSessionStorage, err)
+		return m, fmt.Errorf("%w: write session record: %v", errSessionStorage, err)
 	}
 	s.lastUUID = uuid
 	s.n++
-	return nil
+	return record.ChatCompletionMessage, nil
 }
 
 func newMessageUUID() (string, error) {
@@ -372,10 +406,14 @@ func loadSession(path string) ([]openai.ChatCompletionMessage, error) {
 			}}
 			continue
 		}
-		var m openai.ChatCompletionMessage
-		if err := json.Unmarshal(sc.Bytes(), &m); err != nil {
+		var record sessionMessageRecord
+		if err := json.Unmarshal(sc.Bytes(), &record); err != nil {
 			return nil, fmt.Errorf("invalid session message at line %d: %w", line, err)
 		}
+		if err := validateLargeMessageReferences(path, record); err != nil {
+			return nil, fmt.Errorf("invalid session message at line %d: %w", line, err)
+		}
+		m := record.ChatCompletionMessage
 		if m.Role == "" {
 			return nil, fmt.Errorf("invalid session message at line %d: missing role", line)
 		}

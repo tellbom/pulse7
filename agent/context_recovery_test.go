@@ -94,6 +94,12 @@ func runOverflowTurn(t *testing.T, client *openai.Client) (string, error) {
 	oldSession, oldCfg := sess, curCfg
 	sess = newSession(filepath.Join(t.TempDir(), "session.jsonl"), t.TempDir())
 	curCfg = nil
+	// Recovery indexes read the persisted history, as production pushMsg does.
+	for _, m := range msgs {
+		if err := sess.record(m); err != nil {
+			t.Fatal(err)
+		}
+	}
 	t.Cleanup(func() {
 		if err := sess.Close(); err != nil {
 			t.Errorf("close test session: %v", err)
@@ -117,10 +123,9 @@ func TestContextOverflowCompressesOnceAndRetriesCurrentRequest(t *testing.T) {
 			return
 		}
 		temperatures = append(temperatures, body.Temperature)
-		if !body.Stream {
+		if len(body.Messages) == 1 && strings.Contains(body.Messages[0].Content, "结构化摘要") {
 			compressionRequests++
-			w.Header().Set("Content-Type", "application/json")
-			fmt.Fprint(w, `{"choices":[{"message":{"role":"assistant","content":"older work summarized"}}]}`)
+			writeSummaryFixture(w, "older work summarized")
 			return
 		}
 
@@ -165,10 +170,9 @@ func TestContextOverflowStopsAfterOneEmergencyRetry(t *testing.T) {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		if !body.Stream {
+		if len(body.Messages) == 1 && strings.Contains(body.Messages[0].Content, "结构化摘要") {
 			compressionRequests++
-			w.Header().Set("Content-Type", "application/json")
-			fmt.Fprint(w, `{"choices":[{"message":{"role":"assistant","content":"older work summarized"}}]}`)
+			writeSummaryFixture(w, "older work summarized")
 			return
 		}
 		streamRequests++
@@ -202,8 +206,7 @@ func TestEmergencyCompressionFailureIsExplicit(t *testing.T) {
 
 func TestEmergencyCompressionAuditIsMarked(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprint(w, `{"choices":[{"message":{"role":"assistant","content":"older work summarized"}}]}`)
+		writeSummaryFixture(w, "older work summarized")
 	}))
 	defer srv.Close()
 	clientCfg := openai.DefaultConfig("test")

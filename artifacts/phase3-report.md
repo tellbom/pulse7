@@ -189,3 +189,8 @@ B为序列化缺陷：go-openai的文本MarshalJSON省略空content。最小修�
 实测通过：Win7 amd64 全量 163 项、0 跳过、exit 0；随后仅增加链路测试，TestGUI 五项通过、exit 0。测试覆盖推理流重试丢弃、失败工具历史、助手正文/推理续传和重复工作区选择。amd64/386 静态检查及 386 构建通过。证据和哈希见 f1f4 之外的本轮 phase3-evidence 索引及 build-hashes.json 的 gui_backend_20260913。构建包含原有未提交 GUI 资源，不称干净提交构建。
 
 未验证：新推理字段在真实模型端点的兼容性、前端消费新事件后的浏览器表现；本轮未修改前端。386/Sandboxie 实测仍推迟。前端完整待办见 gui-backend-frontend-handoff.md；没有重启用户的当前服务，没有 push 或 tag。
+## 2026-09-13 配置开放与单会话故障隔离
+
+后端已统一 JSONL 写读大小限制，拒绝超限写入；会话列表用 errors 显式披露单文件失败并保留健康列表。配置扩展按即时生效/保存后重启分类，避免只改 cfg 就声称 Job/Registry 已更新；修正草稿 typed-nil 导致遗漏字段写 null、参数类型错误，以及重试0重启后丢失。详细字段表与前端要求见 config-controls-and-session-isolation.md。
+
+实测：Win7 amd64 先166项全量、加入配置后170项全量，均0跳过、exit0；最终产品/测试上传 SHA256 与本地一致。amd64/386 vet、386构建通过。原始日志与来源索引见 phase3-evidence。未做浏览器、真实模型、386或Sandboxie运行验证；没有替换当前服务、没有push/tag。本轮工作树含并行草稿，未将其作为独立干净提交交付。

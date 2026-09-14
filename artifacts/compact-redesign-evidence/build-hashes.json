@@ -1,0 +1,513 @@
+{
+  "toolchain": "go1.20.14",
+  "sourceState": "uncommitted working tree; frontend changes preserved",
+  "files": [
+    {
+      "sha256": "4a4eac3d68df81d8cbc3e7e791676ffca472666c5be346d6c947d2d11b8b7040",
+      "bytes": 11006976,
+      "file": "E:\\codex-worktrees\\win7-agent\\pre-phase3\\artifacts\\large-content-evidence\\compact-386.exe"
+    },
+    {
+      "sha256": "909354bd648bbd0118cc67a62d9a23d447be44a03120f1fe67a20f070b5adf93",
+      "bytes": 12431360,
+      "file": "E:\\codex-worktrees\\win7-agent\\pre-phase3\\artifacts\\large-content-evidence\\compact-386.test.exe"
+    },
+    {
+      "sha256": "c6173050481dda86f78db7c17eaf922d47713d4e783d0f75413872467e7c25c8",
+      "bytes": 11077120,
+      "file": "E:\\codex-worktrees\\win7-agent\\pre-phase3\\artifacts\\large-content-evidence\\compact-amd64.exe"
+    },
+    {
+      "sha256": "ac8dd11d422a1905f888085259b7e82d2c710c31ad76ee2a6902eb864b4d71d1",
+      "bytes": 12478464,
+      "file": "E:\\codex-worktrees\\win7-agent\\pre-phase3\\artifacts\\large-content-evidence\\compact-amd64.test.exe"
+    },
+    {
+      "sha256": "8e704ba9bbbc2a6dbe6252328c89e328bb3040161d31fa2b25bbe84d8de3edd2",
+      "bytes": 11013120,
+      "file": "E:\\codex-worktrees\\win7-agent\\pre-phase3\\artifacts\\large-content-evidence\\compact-final-386.exe"
+    },
+    {
+      "sha256": "6a004fb08be3b00c881359326501c63bdfb12e3ccc9cee06cf069a63aec99ccf",
+      "bytes": 12436992,
+      "file": "E:\\codex-worktrees\\win7-agent\\pre-phase3\\artifacts\\large-content-evidence\\compact-final-386.test.exe"
+    },
+    {
+      "sha256": "4adf9284c45b9ab1878111c021ee9e16954cb3fc04f414017726370698ce2b5e",
+      "bytes": 11080704,
+      "file": "E:\\codex-worktrees\\win7-agent\\pre-phase3\\artifacts\\large-content-evidence\\compact-final-amd64.exe"
+    },
+    {
+      "sha256": "03d64b893dabba8604e14f27c6d3ab859865719d10c9b9d988860f6260a5904e",
+      "bytes": 12480000,
+      "file": "E:\\codex-worktrees\\win7-agent\\pre-phase3\\artifacts\\large-content-evidence\\compact-final-amd64.test.exe"
+    },
+    {
+      "sha256": "269c4838f0ed17bbd0bc344d98a3738e89502fb74949c4bdff6573dab67bad06",
+      "bytes": 1390,
+      "file": "E:\\codex-worktrees\\win7-agent\\pre-phase3\\artifacts\\large-content-evidence\\compact-final-full-win7.py"
+    },
+    {
+      "sha256": "7a327740e175509924e75860197a12db78409001e4e1545a264e9136c950cdab",
+      "bytes": 149265,
+      "file": "E:\\codex-worktrees\\win7-agent\\pre-phase3\\artifacts\\large-content-evidence\\compact-final-full.log"
+    },
+    {
+      "sha256": "9f85db96713d25f84d759f76dfe2308f8b398130215a02f25662bacdd27d520e",
+      "bytes": 4832,
+      "file": "E:\\codex-worktrees\\win7-agent\\pre-phase3\\artifacts\\large-content-evidence\\compact-final-http-win7.py"
+    },
+    {
+      "sha256": "91ae8abe1935dcb949ee8a9cb1b69925399fa6b587da53b0b409afe4539199ee",
+      "bytes": 12437504,
+      "file": "E:\\codex-worktrees\\win7-agent\\pre-phase3\\artifacts\\large-content-evidence\\compact-final2-386.test.exe"
+    },
+    {
+      "sha256": "fcd5bb745f76f6ddd34eaadfc9d933c58d845bb3cfe9f09e0b6d09b92aed1583",
+      "bytes": 12481024,
+      "file": "E:\\codex-worktrees\\win7-agent\\pre-phase3\\artifacts\\large-content-evidence\\compact-final2-amd64.test.exe"
+    },
+    {
+      "sha256": "0449be6036d3f12e27d30f3505ad96248b8e3c99e3744aaf539c110aaac308f0",
+      "bytes": 1470,
+      "file": "E:\\codex-worktrees\\win7-agent\\pre-phase3\\artifacts\\large-content-evidence\\compact-final2-focused-win7.py"
+    },
+    {
+      "sha256": "eee6c9789335ad923eb5efa7a4dd8f34640c5f2fc4fcf1fdf62304f8b755aa11",
+      "bytes": 6958,
+      "file": "E:\\codex-worktrees\\win7-agent\\pre-phase3\\artifacts\\large-content-evidence\\compact-final2-focused.log"
+    },
+    {
+      "sha256": "9939f5548b21e0962dcf5bf36cf3d441ca1f1e36e2c7c3080a5f3d8197872dd1",
+      "bytes": 1393,
+      "file": "E:\\codex-worktrees\\win7-agent\\pre-phase3\\artifacts\\large-content-evidence\\compact-final2-full-win7.py"
+    },
+    {
+      "sha256": "6cb742d8da1257d1cbd28d4b774f34a3e47a013842fc2ed39779ba011eed9a19",
+      "bytes": 151860,
+      "file": "E:\\codex-worktrees\\win7-agent\\pre-phase3\\artifacts\\large-content-evidence\\compact-final2-full.log"
+    },
+    {
+      "sha256": "925861cd06e6d42afd32fed27015445f6ac3618533cbb1ae3999df734e49f3ad",
+      "bytes": 6663,
+      "file": "E:\\codex-worktrees\\win7-agent\\pre-phase3\\artifacts\\large-content-evidence\\compact-focused-first.log"
+    },
+    {
+      "sha256": "acdb4b4dd1ba93b191ea0ce188affaa1bb7bd39830e5eeac4e627a065debfb2e",
+      "bytes": 1453,
+      "file": "E:\\codex-worktrees\\win7-agent\\pre-phase3\\artifacts\\large-content-evidence\\compact-focused-win7.py"
+    },
+    {
+      "sha256": "72bdcb410d865011404f696cb3e5dd32ec8adb596d8ea9651efdf559b03f7206",
+      "bytes": 153003,
+      "file": "E:\\codex-worktrees\\win7-agent\\pre-phase3\\artifacts\\large-content-evidence\\compact-full-first.log"
+    },
+    {
+      "sha256": "9b4361168e2eff55595961eb4363e2756c61ff53e4dff786e4af447931625260",
+      "bytes": 1376,
+      "file": "E:\\codex-worktrees\\win7-agent\\pre-phase3\\artifacts\\large-content-evidence\\compact-full-win7.py"
+    },
+    {
+      "sha256": "67417d224294401f77ecf14e58f79b0e632e68eba5785bb438f3d49d8696e147",
+      "bytes": 669,
+      "file": "E:\\codex-worktrees\\win7-agent\\pre-phase3\\artifacts\\large-content-evidence\\compact-http-drained.log"
+    },
+    {
+      "sha256": "98e5de8ce9088ec350291e57d4affbad49d498245803f132a88983569dcd1dbd",
+      "bytes": 650,
+      "file": "E:\\codex-worktrees\\win7-agent\\pre-phase3\\artifacts\\large-content-evidence\\compact-http-first.log"
+    },
+    {
+      "sha256": "b489b8023652a2f54b8e57c2e0f0c1e36084030657c511ff033335bd7d77724e",
+      "bytes": 4824,
+      "file": "E:\\codex-worktrees\\win7-agent\\pre-phase3\\artifacts\\large-content-evidence\\compact-http-win7.py"
+    },
+    {
+      "sha256": "a7a2aea042d4e916e2fdfaccc86c7b0c91ba205d0c2165f79a33e33b3a56506b",
+      "bytes": 11012096,
+      "file": "E:\\codex-worktrees\\win7-agent\\pre-phase3\\artifacts\\large-content-evidence\\compact-release-386.exe"
+    },
+    {
+      "sha256": "4073f779615ab7ab4cd14be3b953e1a7ee9edbd4b44a2ef63fca7423461e9127",
+      "bytes": 12438528,
+      "file": "E:\\codex-worktrees\\win7-agent\\pre-phase3\\artifacts\\large-content-evidence\\compact-release-386.test.exe"
+    },
+    {
+      "sha256": "9852c11bf32d162a45ff0e3eaa6de77cba7226494502b711fa188c28ddf54db2",
+      "bytes": 11080192,
+      "file": "E:\\codex-worktrees\\win7-agent\\pre-phase3\\artifacts\\large-content-evidence\\compact-release-amd64.exe"
+    },
+    {
+      "sha256": "6d78d71e4f58059572290c1ddc5dbdf86f34b01cdd134661abca1f8700e8ff68",
+      "bytes": 12482048,
+      "file": "E:\\codex-worktrees\\win7-agent\\pre-phase3\\artifacts\\large-content-evidence\\compact-release-amd64.test.exe"
+    },
+    {
+      "sha256": "c4923270f9e5641e9de7c04b715b0323e42a6d999dba912d64895a2e5212d01b",
+      "bytes": 1394,
+      "file": "E:\\codex-worktrees\\win7-agent\\pre-phase3\\artifacts\\large-content-evidence\\compact-release-full-win7.py"
+    },
+    {
+      "sha256": "d813d1dfe39156d30bd9ff3120442021b283c1c60fe743db03de8a3d79654aa3",
+      "bytes": 151982,
+      "file": "E:\\codex-worktrees\\win7-agent\\pre-phase3\\artifacts\\large-content-evidence\\compact-release-full.log"
+    },
+    {
+      "sha256": "979573c57ee2d9ce445a843e7e7427104acd749e66e86a02271365479c8e674b",
+      "bytes": 4834,
+      "file": "E:\\codex-worktrees\\win7-agent\\pre-phase3\\artifacts\\large-content-evidence\\compact-release-http-win7.py"
+    },
+    {
+      "sha256": "26a913af91e3d94ac39dc7e25492c2f1118c4a528684e8e08177612e67635d57",
+      "bytes": 668,
+      "file": "E:\\codex-worktrees\\win7-agent\\pre-phase3\\artifacts\\large-content-evidence\\compact-release-http.log"
+    },
+    {
+      "sha256": "724ea3ac2c12c178efc032dfdd83b0a957912b1419f28db0e5d5ec4dd98474dd",
+      "bytes": 163,
+      "file": "E:\\codex-worktrees\\win7-agent\\pre-phase3\\artifacts\\large-content-evidence\\compact-release-vm-window.log"
+    }
+  ],
+  "tree": "E:\\codex-worktrees\\win7-agent\\pre-phase3",
+  "sources": [
+    {
+      "file": "agent/ansi.go",
+      "sha256": "9d96048d46c3315cd0c98a45a6bedbe861ed9666a5b7007dd785c6368eaa54bd"
+    },
+    {
+      "file": "agent/api_config_controls_test.go",
+      "sha256": "0a21f02aa3155afafe508a7b5338762f5e84a127fb2b9ac4b85f03f14eb52fd1"
+    },
+    {
+      "file": "agent/api_runtime.go",
+      "sha256": "caa2fb96b700515b831e947628a6a7de61ac9f0fa02a3b86f2719d2e156e28af"
+    },
+    {
+      "file": "agent/api_server.go",
+      "sha256": "4895decbb209c8c822fda66f0767aa9c2e755d71e13762c5daac8843071dec86"
+    },
+    {
+      "file": "agent/api_storage.go",
+      "sha256": "77258c28b7daf212d7b3da9aa81eb17628c83cf59ba3474fa2eb582bffa0a0f1"
+    },
+    {
+      "file": "agent/api_tasks.go",
+      "sha256": "cca87ae8ac774d9d73db9c75dedccc84c5ebeaa5df8eda4ee089a20b7ad3cb21"
+    },
+    {
+      "file": "agent/api_test.go",
+      "sha256": "d5c01eebdfc9c96265135bbe90fcdea9cd8d6ddf1c9519f3f057a7a56d7e2a97"
+    },
+    {
+      "file": "agent/auto_checkpoint_test.go",
+      "sha256": "68208a6ef2184fdaa26f0f4c2546baa0196ac3d3db825fb8ff1badb3d4c5ca63"
+    },
+    {
+      "file": "agent/b5_reliability_test.go",
+      "sha256": "93332104586fb2b7f2e5bec5dec5a37590312efa1d69c5a1004cc6b6511c6885"
+    },
+    {
+      "file": "agent/cleanup.go",
+      "sha256": "b114cafe2ba50030a7cde7d1faed84f94a80ef6a84995bad20c8da0957a66e7b"
+    },
+    {
+      "file": "agent/config.go",
+      "sha256": "a58321e0e62ccfba58c98f02ed08c394f86d7780bc5ee06f108eab333698a61c"
+    },
+    {
+      "file": "agent/context_protocol_test.go",
+      "sha256": "f34d99828e3337c44ba94a409bf7851bc7fa88c7b405130976810372eae0842f"
+    },
+    {
+      "file": "agent/context_recovery_test.go",
+      "sha256": "46003b28cffa4862b2b1ff8a9b051d266b3a08da714496ac3d0a7b7b04b8f3a4"
+    },
+    {
+      "file": "agent/ctxcompress.go",
+      "sha256": "54f634c4d884c54150d107ce0dfae88a96fde7905b2e07e069e35d95ef3ffc4c"
+    },
+    {
+      "file": "agent/detached_records.go",
+      "sha256": "eb4a75d6a91ea0b068bbb827d5dddce200c1320e51833974e5513d154d7ed5cf"
+    },
+    {
+      "file": "agent/empty_tool_content_test.go",
+      "sha256": "0c92cc6bfb6d5a81d3396b4ba5b5541c253e0dfcec75bdf80812097fb2a83817"
+    },
+    {
+      "file": "agent/envdetect.go",
+      "sha256": "cc7698d02330cdeac8e7ebdde001ecf0eac5e7495fa1ecb7df28180a2c50bab2"
+    },
+    {
+      "file": "agent/events_cli.go",
+      "sha256": "2bfdee5267ddee9cbcfdd5a9b7bb564f03f43500633c241e30c01b8ea7700d6d"
+    },
+    {
+      "file": "agent/events_consumers_test.go",
+      "sha256": "3a0c8fd7dbd793fa269c8c8d7519f0fb1c5515b56f79370bdd4dbc65c9ae98ce"
+    },
+    {
+      "file": "agent/events_test.go",
+      "sha256": "2fbf7095707782d85c96dc2d1c8b729997394ec96b0ced7f265a848e9176635e"
+    },
+    {
+      "file": "agent/events.go",
+      "sha256": "c7aebe983af41cc4e092faa6f549ddfc49093b5d9089b84b70ab7e860f554179"
+    },
+    {
+      "file": "agent/f1_remediation_test.go",
+      "sha256": "b2142bb5426f8fe3ecb9f7fc17a3830571424afae75c7036c9da5e2849263db9"
+    },
+    {
+      "file": "agent/f2_remediation_test.go",
+      "sha256": "0fe936caa0e5079ad07f72ff556ee45eb4eaaf2208d7d1e3c690d4720d202fc4"
+    },
+    {
+      "file": "agent/f3_remediation_test.go",
+      "sha256": "5bc4432a8e233a5f78101490307e1d9f4daf8912ea4c8c04a36b6bc35213d6a2"
+    },
+    {
+      "file": "agent/f4_remediation_test.go",
+      "sha256": "342d1afb0eb63c5b266a2f4f2d66c768b98b233ffead0b2e8e39d24e31b28efd"
+    },
+    {
+      "file": "agent/fileenc_test.go",
+      "sha256": "548a1aa0830db6b764d1bd099bd4f19ddd330ac44383599da6b0794736d551be"
+    },
+    {
+      "file": "agent/filefreshness_test.go",
+      "sha256": "64f4b222e58aadf9c3eb9d2ed19c681f2c4b6abcb3124bb2d8f60897d2701f7d"
+    },
+    {
+      "file": "agent/g1_tasks_test.go",
+      "sha256": "65e88466d33a6233f717876d6b705f52c3c401451705a232fed51904e1ad5a5d"
+    },
+    {
+      "file": "agent/g2_context_source_test.go",
+      "sha256": "03618462c55abfcbbe4bb4bd57a7ba6013c85245370bb9ccb910eb15233df124"
+    },
+    {
+      "file": "agent/g4_checkpoint_status_test.go",
+      "sha256": "865bd1cced96a8417a3289dfede7b4b135a76e91a33a62d7560b2d75877ad246"
+    },
+    {
+      "file": "agent/g5_junction_rules_test.go",
+      "sha256": "8eec2740bcf6fc8bebd6f55edd5d4ecd702944c71d19f7c974088c73a8d5dfb8"
+    },
+    {
+      "file": "agent/gittools.go",
+      "sha256": "25db289fa9127588e40250dd2378ce0bf5d977a9098b24cf06a455a8ead07f00"
+    },
+    {
+      "file": "agent/grep.go",
+      "sha256": "b42582a83a88813dba407842ea2c49508d7e2ac3c8cb6ae0abf084d8f13de5bc"
+    },
+    {
+      "file": "agent/gui_backend_test.go",
+      "sha256": "97e515146dd77d2d66a5c3abed4bd7dcb7716993e0ae0ea4b81693c2586ca747"
+    },
+    {
+      "file": "agent/h_silent_breakaway_test.go",
+      "sha256": "332f7e6cbdb2d974bc13de6134a3ad8674a2331e8ca75ebd56706987dfdf7bf6"
+    },
+    {
+      "file": "agent/h1_restricted_test.go",
+      "sha256": "1c8693f3f89dceaaa29c2e78ac9c217c9377a887cd87551d7ab7330470f32fbb"
+    },
+    {
+      "file": "agent/h13_cycles_test.go",
+      "sha256": "58be30800f582b96136bea424fe30cdc595a38116796e16296343f887ab7b50b"
+    },
+    {
+      "file": "agent/h2_termination_test.go",
+      "sha256": "93964a3e40b31d949c489366b7a43f35a0dae9b363aa5edff99ecbf8bca909de"
+    },
+    {
+      "file": "agent/h3_process_test.go",
+      "sha256": "2c65cd0c303dccc963663866c782965c0d6c7e74033ebc604c797da25a10da5d"
+    },
+    {
+      "file": "agent/h4_identity_test.go",
+      "sha256": "8fec5c5dc7bd8ed5ebe95cabe113d30557a772268c4b9c80813708c7f87cd52c"
+    },
+    {
+      "file": "agent/h5_exit_test.go",
+      "sha256": "159f4caa8991c2f6e9f4e8086a92afe3f825ce9fc7177d8b530d251fdbf5a8f6"
+    },
+    {
+      "file": "agent/h5_output_test.go",
+      "sha256": "fb403beca02089a2d5e3067417b532cb6d62e19ab1f7bc15ffc68a0e781c216b"
+    },
+    {
+      "file": "agent/h6_warning_test.go",
+      "sha256": "68b48b7789dd7b5e4cbbe73d6bc06c8bd910785fcbe3273dbfb5ad9c058c6a05"
+    },
+    {
+      "file": "agent/input.go",
+      "sha256": "3f42e40480a61cf17ec9770364af62c54e3eed8b9aad1a7bb5c93ab58dca8d0c"
+    },
+    {
+      "file": "agent/jobobject_test.go",
+      "sha256": "1b888092284654fc12250b643f42482466a597175387245e36f24d1fe903e39a"
+    },
+    {
+      "file": "agent/jobobject.go",
+      "sha256": "29f607209800e22612c99a8ee5bc290ec17480c6c18a687a52ec490aaa8322d0"
+    },
+    {
+      "file": "agent/large_content_test.go",
+      "sha256": "f27a9537d114958c14276756e4b22b82fd948f492edabef9e500bb7e707f0e7d"
+    },
+    {
+      "file": "agent/large_content.go",
+      "sha256": "82c0771e7fefe63eee3e697bf7e551b2c78b17be9dd3716af401fe105cf21b44"
+    },
+    {
+      "file": "agent/large_read.go",
+      "sha256": "f723edb0c6c90e2eb8e8ca4e2da9a72de1d9097ed1d3abe9bd1a8f5cad23717d"
+    },
+    {
+      "file": "agent/main.go",
+      "sha256": "d5f4c90a620f5d36b90e2ef5762377a43e700abfdff4b706bb7d211765958700"
+    },
+    {
+      "file": "agent/microcompact_test.go",
+      "sha256": "710b908ec9f161f7fa4b73d3b1c8f09cfaf1bb467363790d73c95f186bcb34b3"
+    },
+    {
+      "file": "agent/microcompact.go",
+      "sha256": "59a95245306b5148bdf121fb023a4cb7c4bf40537beec1e07256785557218fb1"
+    },
+    {
+      "file": "agent/mock_protocol_test.go",
+      "sha256": "a53fff8d0d1387b9c37d11efde4942efdf631301b6560e530a0c75f68adc458a"
+    },
+    {
+      "file": "agent/mock.go",
+      "sha256": "ec557ed3bd3da5774957e503e47e760d8907613efe8d6c80ddaa92d004062564"
+    },
+    {
+      "file": "agent/n5_schema_test.go",
+      "sha256": "408e633faca334438fd30ded1f715342ba923a8b00716938fb9f6c45c7d0db9e"
+    },
+    {
+      "file": "agent/netresilience_test.go",
+      "sha256": "7040e9b33edd47f286397617be70a54c29c507aecda05e6758e14b3c71d5d572"
+    },
+    {
+      "file": "agent/netresilience.go",
+      "sha256": "810008dfaf24d8e1b08093ef9b3175c37df3238cb2458fe40f38bfa391bece1c"
+    },
+    {
+      "file": "agent/pathpolicy_test.go",
+      "sha256": "f8db1a1d360f52a9e2f78eb1ab4760427b60d496a1e8f44f05beb6a5f77a7538"
+    },
+    {
+      "file": "agent/pathpolicy_windows.go",
+      "sha256": "f10dd7d55165bf5929ac4c070562224520013516705a2462250ec3a9293de0ea"
+    },
+    {
+      "file": "agent/permissions_test.go",
+      "sha256": "ed31aa56fb2987ce75b6b5c72343ead08da00758ead26957023d4b0050e5bd75"
+    },
+    {
+      "file": "agent/permissions.go",
+      "sha256": "36aae5bc2a1dfd2f21d2d5563dfb768649003cf0ec9741e6730e93b79c5c7e0f"
+    },
+    {
+      "file": "agent/present.go",
+      "sha256": "99b0a753438584178a4e48b297a85ff90533ce1e98b19b99b3546d4e0a8657c6"
+    },
+    {
+      "file": "agent/process_records.go",
+      "sha256": "5f3136e84e2c58b0bcc3780a508d144e01e273456e31197df6c51f15464c80bc"
+    },
+    {
+      "file": "agent/readpage_test.go",
+      "sha256": "bb9759d199ac37628a46f78560dd3c67c687bfe9d2ecc6e593568c8a72c794ca"
+    },
+    {
+      "file": "agent/resume_test.go",
+      "sha256": "60c763004e9e9b5ec1989413645da9d14dbe6f9e1d9b8b8d0adf1df9685bee9b"
+    },
+    {
+      "file": "agent/rollback_test.go",
+      "sha256": "1cf6f4c8662a6de3f6aec0d7ca329bad348af94f64b002e4759fa32d4aa3be72"
+    },
+    {
+      "file": "agent/round_limit_test.go",
+      "sha256": "f17b6b9d12954c25b16f0b046b7c804bc5a710b546c9e420ccaccf0d3851e461"
+    },
+    {
+      "file": "agent/runner.go",
+      "sha256": "bcfdbee7583277ea31aa77701e6b1edd85e51b2bdcdee6f995ef6f8f9708be79"
+    },
+    {
+      "file": "agent/sandbox.go",
+      "sha256": "59ee2acfaa27602359bc9e73bd888bdb2d802c3b902e3dd8f5c68bebd1ccd356"
+    },
+    {
+      "file": "agent/sandboxiecfg.go",
+      "sha256": "edbb62492650dfb4072cb53039f9d6d1c95afa83f8df41ee80a4d9bd1c785369"
+    },
+    {
+      "file": "agent/sbx.go",
+      "sha256": "6cecb09b8e5384e6ab65a90a1aecb3bf8bf34e46d655784d745afd8ff7e79812"
+    },
+    {
+      "file": "agent/session_isolation_test.go",
+      "sha256": "571c5f735f709518d1d5ddf8589f0b49cb74fcc5f72ee9d7fec71b4c6d4a97ea"
+    },
+    {
+      "file": "agent/session_summary_test.go",
+      "sha256": "6509742afed5df5b97f14ea51b302363e73245e3c5ccaa5fab613eeb4ae9c561"
+    },
+    {
+      "file": "agent/session.go",
+      "sha256": "498972c419bfd7cbf30686b1e43f92ec053d71fb59ee6774eb37f2df574c7466"
+    },
+    {
+      "file": "agent/skills_test.go",
+      "sha256": "b4d31306a5911c73d9588c664e947b51d07164631b3a183b0bf849fb52844883"
+    },
+    {
+      "file": "agent/skills.go",
+      "sha256": "78af1daa02d21bc2ad8f1f4952a20938a7409089d55218cf2364fff8b1958d19"
+    },
+    {
+      "file": "agent/task_output_events.go",
+      "sha256": "57da350261f511de5b39e203a0c0cb0078b826d9438b6426e02a7059c8c3af7a"
+    },
+    {
+      "file": "agent/task_process.go",
+      "sha256": "176c62f41cd42e6b0eefee816117a0c53ad9f9116a9d16bf54a84c35c3cbc12a"
+    },
+    {
+      "file": "agent/task_worker.go",
+      "sha256": "470b8416c5281794cabb31d3c70a35567bb417ab3606787f98dd664757d6d964"
+    },
+    {
+      "file": "agent/tasks_test.go",
+      "sha256": "9d643be55f456182f75d825ba6bff1adfadf5988a8b0ba8a280bf9aecabac19d"
+    },
+    {
+      "file": "agent/tasks.go",
+      "sha256": "b897a4ba7576906170ab00b4a6bd84583e08505e7a4d2e394e8f36cbe7ae64a8"
+    },
+    {
+      "file": "agent/tools.go",
+      "sha256": "87787fccb9454207005e875d3c0b7ff7cdaf9d3976212ead25769571411fab82"
+    },
+    {
+      "file": "agent/tree.go",
+      "sha256": "a413866d1947f2f2855d451b9ca51b158f5fed5d1294fc1a9f6afded9ff945cd"
+    },
+    {
+      "file": "agent/web_embed.go",
+      "sha256": "0ccdbd6cea7d03bf9b78bf9a3f3858bb3a993b14573a9d7ca42018c1b3fec75c"
+    }
+  ],
+  "head": "be8e130d858f7bce7a708af345072cb33fe5f62f",
+  "recordedAt": "2026-09-14T15:59:13.8989915+08:00",
+  "validation": "Final candidate: Win7 amd64 182 PASS/0 FAIL/0 SKIP; HTTP PASS. Earlier two fixture failures and first HTTP timeout retained."
+}

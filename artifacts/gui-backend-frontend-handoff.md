@@ -69,3 +69,9 @@
 ## 验证记录
 
 Win7 amd64 全量 163 项通过、0 跳过、exit 0，耗时约 66.6 秒；随后新增执行链路测试，专项 TestGUI 五项通过、exit 0（没有把它写成 164 项全量通过）。两次之间产品源码没有变化，仅新增一个测试。amd64/386 go vet 及 386 构建通过。测试工具链为 Go 1.20.14，CGO_ENABLED=0。原始日志在 phase3-evidence/gui-backend-win7.txt 与 gui-backend-focused-win7.txt，本地保留；构建及上传哈希见 phase3-evidence/build-hashes.json。全量 VM 启动窗口为 20260911231151.111597+480，运行时间戳 1789229586.6297817–1789229653.2370913。前端未修改，浏览器联调不属于本轮已验证项。386 与 Sandboxie 实测仍按用户裁决推迟。
+
+## 2026-09-13 配置开放与会话列表隔离增量
+
+PUT /api/config 新增数值、开关与运行环境配置白名单；即时应用仅限空闲时更新的模型连接、max_ctx/max_rounds 和 LLM 超时/重试。runner/registry 配置仅保存，响应包含 saved（排除 api_key）、restartRequired、restartRequiredFields，顶层仍是运行值。值域、生效条件、资源风险与不开放项详见 [config-controls-and-session-isolation.md](config-controls-and-session-isolation.md)，取代此前“PUT 仅支持连接字段”的现状说明。
+
+GET /api/sessions 新增 errors 数组，单文件不可读取不阻断健康会话；列表目录自身读取失败仍错误。JSONL 写入与读取统一 1MiB（写入含 LF）限制，明确拒绝超限，不截断、不自动移动文件。

@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -69,10 +70,13 @@ func NewRegistry(policy *Policy, runner sandboxRunner, auditPath, manPath string
 		Function: &openai.FunctionDefinition{
 			Name: "read", Description: "Read a text file. Long files are paginated: the result is annotated with the line range and total, and names the next offset while lines remain - page through large files with offset/limit instead of re-reading the whole file.",
 			Parameters: map[string]interface{}{"type": "object", "properties": map[string]interface{}{
-				"path":   map[string]interface{}{"type": "string"},
-				"offset": map[string]interface{}{"type": "integer", "description": "1-based start line (default 1)"},
-				"limit":  map[string]interface{}{"type": "integer", "description": "number of lines to read (default: auto, ~4KB window)"},
-			}, "required": []string{"path"}},
+				"path":        map[string]interface{}{"type": "string"},
+				"offset":      map[string]interface{}{"type": "integer", "description": "1-based start line (default 1)"},
+				"limit":       map[string]interface{}{"type": "integer", "description": "number of lines to read; also bounded by byte_limit (default 32KiB)"},
+				"byte_offset": map[string]interface{}{"type": "integer", "description": "raw file byte continuation returned by a previous page; overrides line offset"},
+				"byte_limit":  map[string]interface{}{"type": "integer", "description": "maximum source bytes, default 32768, maximum 262144"},
+				"content_ref": map[string]interface{}{"type": "string", "description": "opaque large result reference from session history"},
+			}},
 		},
 	}, r.toolRead)
 	r.register(openai.Tool{
@@ -130,9 +134,10 @@ func NewRegistry(policy *Policy, runner sandboxRunner, auditPath, manPath string
 		Function: &openai.FunctionDefinition{
 			Name: "grep", Description: "Search text across workspace files using ripgrep (fast) or Go fallback. Supports regex, case sensitivity, and file type filter. Returns file:line matches.",
 			Parameters: map[string]interface{}{"type": "object", "properties": map[string]interface{}{
-				"pattern": map[string]interface{}{"type": "string"},
-				"path":    map[string]interface{}{"type": "string", "description": "optional sub path"},
-				"glob":    map[string]interface{}{"type": "string", "description": "file glob filter, e.g. *.cs"},
+				"content_ref": map[string]interface{}{"type": "string", "description": "search full stored result by opaque reference instead of path"},
+				"pattern":     map[string]interface{}{"type": "string"},
+				"path":        map[string]interface{}{"type": "string", "description": "optional sub path"},
+				"glob":        map[string]interface{}{"type": "string", "description": "file glob filter, e.g. *.cs"},
 			}, "required": []string{"pattern"}},
 		},
 	}, r.toolGrep)
@@ -273,9 +278,19 @@ func (r *Registry) recordSuccessfulMutation(tool string) {
 }
 
 func (r *Registry) audit(tool, args, res string) error {
+	argumentBytes := len(args)
+	argumentHash := ""
+	if argumentBytes > 32<<10 {
+		argumentHash = fmt.Sprintf("%x", sha256.Sum256([]byte(args)))
+		args = largeContentPreview(args) + "\n[argument audit preview; full arguments reside in session tool call]"
+	}
 	entry := map[string]interface{}{
 		"ts": time.Now().Format(time.RFC3339), "task": r.taskID, "tool": tool, "args": args,
-		"ok": !strings.HasPrefix(res, "error:"), "result_bytes": len(res),
+		"ok": !strings.HasPrefix(res, "error:"), "result_bytes": len(res), "args_bytes": argumentBytes,
+	}
+	if argumentHash != "" {
+		entry["args_sha256"] = argumentHash
+		entry["args_preview_only"] = true
 	}
 	return appendJSONLine(r.auditPath, entry)
 }
@@ -447,30 +462,27 @@ func (r *Registry) ensureMutable(tool string) error {
 
 func (r *Registry) toolRead(argsJSON string) (string, error) {
 	var a struct {
-		Path   string `json:"path"`
-		Offset int    `json:"offset"`
-		Limit  int    `json:"limit"`
+		Path       string `json:"path"`
+		Offset     int    `json:"offset"`
+		Limit      int    `json:"limit"`
+		ByteOffset *int64 `json:"byte_offset"`
+		ByteLimit  int    `json:"byte_limit"`
+		ContentRef string `json:"content_ref"`
 	}
 	if err := json.Unmarshal([]byte(argsJSON), &a); err != nil {
 		return "", err
+	}
+	if a.ContentRef != "" {
+		return r.readContentRef(a.ContentRef, a.ByteOffset, a.ByteLimit)
+	}
+	if a.Path == "" {
+		return "", errors.New("path or content_ref is required")
 	}
 	abs, err := r.absPath(a.Path)
 	if err != nil {
 		return "", err
 	}
-	b, info, err := r.readValidatedFileForRead(abs)
-	if err != nil {
-		return "", err
-	}
-	// T1.1 (file-encoding): files themselves may be GBK — decode for the
-	// model instead of feeding mojibake/U+FFFD into context. Binary and
-	// UTF-16 files are refused with an explicit note, never guessed.
-	content, ok, reason := decodeFileBytes(b)
-	r.rememberFileRead(abs, info)
-	if !ok {
-		return fmt.Sprintf("[无法按文本读取 %s：%s]\n", abs, reason), nil
-	}
-	return readPage(content, a.Offset, a.Limit), nil
+	return r.readFilePage(abs, a.Offset, a.Limit, a.ByteOffset, a.ByteLimit)
 }
 
 // readPage: line-based pagination for the read tool (encoding-pagination T3).

@@ -1,0 +1,206 @@
+/* pulse7 GUI 设计令牌 — 与定稿 Figma 原型（web/figma/Agent Tool Web Page/src/App.tsx）一致。
+   约束：Win7 自带字体（微软雅黑/Consolas）、1px 细边框分层、颜色只承担状态、无渐变装饰。 */
+
+:root {
+  /* 中性灰阶（对应原型 Tailwind gray 色阶） */
+  --g50: #f9fafb;
+  --g100: #f3f4f6;
+  --g150: #eef0f3;
+  --g200: #e5e7eb;
+  --g300: #d1d5db;
+  --g400: #9ca3af;
+  --g500: #6b7280;
+  --g600: #4b5563;
+  --g700: #374151;
+  --g800: #1f2937;
+  --g900: #111827;
+
+  /* 状态功能色 */
+  --blue50: #eff6ff;
+  --blue100: #dbeafe;
+  --blue200: #bfdbfe;
+  --blue400: #60a5fa;
+  --blue500: #3b82f6;
+  --blue600: #2563eb;
+  --blue700: #1d4ed8;
+
+  --green50: #f0fdf4;
+  --green100: #dcfce7;
+  --green200: #bbf7d0;
+  --green400: #4ade80;
+  --green500: #22c55e;
+  --green600: #16a34a;
+  --green700: #15803d;
+
+  --red50: #fef2f2;
+  --red100: #fee2e2;
+  --red200: #fecaca;
+  --red400: #f87171;
+  --red500: #ef4444;
+  --red600: #dc2626;
+
+  --amber50: #fffbeb;
+  --amber100: #fef3c7;
+  --amber200: #fde68a;
+  --amber300: #fcd34d;
+  --amber400: #fbbf24;
+  --amber500: #f59e0b;
+  --amber600: #d97706;
+  --amber700: #b45309;
+
+  --code-bg: #f8f8f8;
+
+  --font-sans: 'Microsoft YaHei', 'PingFang SC', system-ui, sans-serif;
+  --font-mono: Consolas, 'Courier New', monospace;
+
+  /* 字阶（design-system.md：固定六档，档外字号禁止） */
+  --fs-xs: 11px;
+  --fs-sm: 12px;
+  --fs-base: 13px;
+  --fs-md: 15px;
+  --fs-lg: 18px;
+  --fs-xl: 26px;
+  /* 交互主色（唯一 accent）：链接/激活/当前项/展开入口 */
+  --accent: #2563eb;
+  /* Manus 实测取色（截图像素解码）：米白顶栏/浅灰侧栏/纯白内容/米白底栏黑字 */
+  --bar-bg: #f8f8f7;
+  --bar-bg-soft: #ffffff;
+  --bar-fg: #1c1c17;
+  --bar-fg-dim: #6b6b66;
+  --bar-line: rgba(0, 0, 0, 0.09);
+  --paper: #ffffff;
+  --paper-deep: #f8f8f7;
+  --ink: #1c1c17;
+  --side-bg: #f0f0f0;
+
+  --radius-xl: 16px;
+  --radius-lg: 12px;
+  --radius-md: 10px;
+  --radius-sm: 8px;
+  --radius-xs: 6px;
+
+  --shell-bshadow: 0 0 0 1px rgba(0, 0, 0, 0.08), 0 4px 24px rgba(0, 0, 0, 0.06);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: var(--fs-base);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 标题字阶：全局统一，弹窗/空态/区块标题不再各写各的 */
+h1, h2, h3 {
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--g900);
+}
+h1 { font-size: var(--fs-xl); }
+h2 { font-size: var(--fs-lg); }
+h3 { font-size: var(--fs-md); font-weight: 500; }
+
+button {
+  font-family: inherit;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: inherit;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+button:disabled {
+  cursor: default;
+}
+
+textarea,
+input {
+  font-family: inherit;
+}
+
+ul,
+ol {
+  list-style: none;
+}
+
+.font-mono,
+.mono {
+  font-family: var(--font-mono);
+}
+
+/* 细滚动条（原型 4px） */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--g300);
+  border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--g400);
+}
+
+/* 状态点呼吸动画 */
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}
+.pulse-dot {
+  animation: pulse-dot 1.6s ease-in-out infinite;
+}
+
+@keyframes blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+.cursor-blink {
+  animation: blink 1s step-end infinite;
+}
+
+*:focus-visible {
+  outline: 2px solid var(--blue600);
+  outline-offset: 1px;
+}
+
+textarea {
+  resize: none;
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Element Plus 局部对齐（仅覆盖必要处，浅层级选择器，避免嵌套覆盖） */
+.el-message {
+  --el-message-bg-color: #ffffff;
+  border: 1px solid var(--g200);
+}

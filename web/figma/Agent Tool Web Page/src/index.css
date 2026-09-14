@@ -1,0 +1,49 @@
+@import 'tailwindcss';
+
+* {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  background-color: #ffffff;
+  color: #0f0f0f;
+  font-family: 'Microsoft YaHei', 'PingFang SC', 'Noto Sans SC', system-ui, sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.font-mono {
+  font-family: Consolas, 'Courier New', monospace !important;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+.pulse-dot { animation: pulse-dot 1.6s ease-in-out infinite; }
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+.cursor-blink { animation: blink 1s step-end infinite; }
+
+*:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 1px;
+}
+
+textarea { resize: none; }
+.tabular-nums { font-variant-numeric: tabular-nums; }

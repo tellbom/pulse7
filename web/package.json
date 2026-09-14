@@ -1,0 +1,22 @@
+{
+  "name": "pulse7-web",
+  "private": true,
+  "version": "1.0.0",
+  "description": "pulse7 图形界面 — 基于 artifacts/api-contract.md 与定稿 Figma 原型复刻（Chrome 109 / Win7 目标）",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview --host",
+    "deploy:agent": "node scripts/copy-to-agent.mjs"
+  },
+  "dependencies": {
+    "@element-plus/icons-vue": "^2.3.1",
+    "element-plus": "2.4.4",
+    "vue": "3.4.38"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^4.6.2",
+    "vite": "^4.5.14",
+    "vite-plugin-singlefile": "^0.13.0"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "description": "This web application serves as a streamlined agent tool designed for desktop use, offering a clean interface that enhances productivity and user experience.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}

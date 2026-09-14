@@ -62,5 +62,51 @@
       "passed": 5
     },
     "full_suite_note": "Focused binary adds one test after full run; product code identical"
+  },
+  "config_and_sessions_20260913": {
+    "source_state": "working diff including concurrently supplied config and unconnected fsDirs draft; pre-existing GUI assets; not clean commit build",
+    "builds": [
+      {
+        "sha256": "b2cdfb5cf1c4dfa105bfdff9b843195a5db8f63ded5d7edee21a62428635ef42",
+        "file": "config-controls-amd64.exe"
+      },
+      {
+        "sha256": "ccca2e1c5add4e042b15ec112ff4a5510f1ae236fcab94813fa52fac5ade2611",
+        "file": "config-controls-amd64.test.exe"
+      },
+      {
+        "sha256": "09b854f4102a84f23711e20920e1f2ff857e15b86e1d4c04a393f9a58466e9f9",
+        "file": "config-controls-386.exe"
+      }
+    ],
+    "base_commit": "be8e130",
+    "toolchain": "go1.20.14 CGO_ENABLED=0 GOOS=windows",
+    "source_tree": "E:\\codex-worktrees\\win7-agent\\pre-phase3",
+    "runs": [
+      {
+        "skipped": [],
+        "ended": 1789233810.7551775,
+        "boot": "LastBootUpTime             \r\r\n20260911231107.353146+480  \r\r\n\r\r\n",
+        "vm_test_sha256": "30e5908988211316e7481026f400140fbff5671335aca5a16cbee39d3807fbcb",
+        "failed": [],
+        "started": 1789233740.4378548,
+        "exit": 0,
+        "vm_product_sha256": "9160f2f96ccae3f155907138f5dbc22ec0931ec0fb15b79ed2b94ced3a5dfdb8",
+        "passed": 166,
+        "name": "session-isolation"
+      },
+      {
+        "skipped": [],
+        "ended": 1789263296.0504804,
+        "boot": "LastBootUpTime             \r\r\n20260911230841.473887+480  \r\r\n\r\r\n",
+        "vm_test_sha256": "ccca2e1c5add4e042b15ec112ff4a5510f1ae236fcab94813fa52fac5ade2611",
+        "failed": [],
+        "started": 1789263223.5833626,
+        "exit": 0,
+        "vm_product_sha256": "b2cdfb5cf1c4dfa105bfdff9b843195a5db8f63ded5d7edee21a62428635ef42",
+        "passed": 170,
+        "name": "config-controls"
+      }
+    ]
   }
 }

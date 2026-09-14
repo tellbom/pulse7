@@ -27,6 +27,7 @@ type agentConfig struct {
 	MemoryLimitMB             int    `json:"memory_limit_mb"`
 	MaxCtx                    int    `json:"max_ctx"`
 	MaxRounds                 int    `json:"max_rounds"`
+	MicroKeepRecent           int    `json:"micro_keep_recent"`
 	ProcessWarnThreshold      int    `json:"process_warn_threshold"`
 	BackgroundTaskMaxOutputMB int    `json:"background_task_max_output_mb"`
 	BackgroundTaskWarnCount   int    `json:"background_task_warn_count"`
@@ -64,6 +65,7 @@ func defaultAgentConfig() agentConfig {
 		MemoryLimitMB:             2048,
 		MaxCtx:                    defaultMaxContextBytes,
 		MaxRounds:                 100,
+		MicroKeepRecent:           defaultMicroKeepRecent,
 		ProcessWarnThreshold:      defaultProcessWarnThreshold,
 		BackgroundTaskMaxOutputMB: defaultBackgroundTaskMaxOutputMB,
 		BackgroundTaskWarnCount:   defaultBackgroundTaskWarnCount,
@@ -228,6 +230,7 @@ func writeAgentConfigTemplate(path string) error {
 		"_doc_llm_compress_timeout_sec":      "上下文压缩调用的独立超时(秒)，不影响主对话",
 		"_doc_read_only":                     "只读模式：代码层拒绝 shell、write、edit、rollback；不依赖模型提示词",
 		"_doc_max_rounds":                    "单次任务的工具调用轮次上限，默认 100；触顶表示未得到最终答复，不会宣称任务完成",
+		"_doc_micro_keep_recent":             "本地微压缩保留最近工具结果数，默认 8，范围 1–1000；最新完整工具组始终保留",
 		"_doc_process_warn_threshold":        "会话 Job 内进程数告警阈值，默认 50；只告警，不阻止进程",
 		"_doc_background_task_max_output_mb": "单个后台任务输出硬上限，默认 50MB；超限截断并标注",
 		"_doc_background_task_warn_count":    "并发后台任务告警阈值，默认 5；只告警，不阻止任务",
@@ -286,6 +289,9 @@ func applyConfigToFlags(cfg *config, ac agentConfig, fs *flag.FlagSet) {
 			cfg.maxRounds = ac.MaxRounds
 		}
 	})
+	use("micro-keep-recent", func() {
+		cfg.microKeepRecent = ac.MicroKeepRecent
+	})
 	use("process-warn-threshold", func() { cfg.processWarnThreshold = ac.ProcessWarnThreshold })
 	use("background-task-max-output-mb", func() { cfg.backgroundTaskMaxOutputMB = ac.BackgroundTaskMaxOutputMB })
 	use("background-task-warn-count", func() { cfg.backgroundTaskWarnCount = ac.BackgroundTaskWarnCount })
@@ -302,7 +308,7 @@ func applyConfigToFlags(cfg *config, ac agentConfig, fs *flag.FlagSet) {
 		}
 	})
 	use("llm-max-retries", func() {
-		if ac.LLMMaxRetries > 0 {
+		if ac.LLMMaxRetries >= 0 {
 			cfg.llmMaxRetries = ac.LLMMaxRetries
 		}
 	})
