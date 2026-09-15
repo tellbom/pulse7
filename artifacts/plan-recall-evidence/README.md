@@ -34,3 +34,8 @@
 - decision-http-1789435498: 首次候选后端链路通过；decision-http-1789435660: 最终候选链路通过、8 请求，均位于 decision-captured/。
 - runtime-decision-win7.py: 流式模拟协议验收，不是真实模型收敛评估。
 - 详细解释见 ../plan-recall-report.md 的计划状态与显式问答章节。
+
+
+## 2026-09-15 当前任务刷新恢复
+
+reconnect-build.json / reconnect-source.zip 保留未提交构建输入与哈希；reconnect-captured/index.json 索引 Win7 原始日志/会话/HTTP 记录。首轮 reconnect-full.json 的旧 SSE 字节断言失败保留；最终 reconnect-full-final.json 196 项通过。最终 HTTP/SSE 模拟链路见 reconnect-runtime-final.log。详情见 ../session-reconnect-report.md；前端接入见 ../session-reconnect-frontend-handoff.md。

@@ -212,3 +212,14 @@ compaction.method 新增 micro，表示纯本地工具结果投影，不是模�
 新增工具 ask_planning_decision、SSE planning_decision、GET /api/plan、POST /api/plan/exit。POST /api/answer 为计划问题新增 decisionId，必须与 sessionId 及持久化待答问题同时匹配。收到回复不等于批准或解决；问题后暂停本轮，返回 need_answer，同批未执行工具仍回填失败消息。用户退出不会启动模型请求或关闭全局只读，沿用计划文件存在与路径校验。
 
 完整请求、状态、错误和恢复/前端接入要求见 [plan-decision-frontend-handoff.md](plan-decision-frontend-handoff.md)。运行时事实附件按请求重新生成，不改写用户原文，不依赖摘要保存阶段状态。既有本地估算阈值、压缩顺序、轮数预算与 usage 无依赖规则保持不变。
+
+
+## 2026-09-15：运行状态、刷新恢复与只读历史
+
+新增 GET /api/runtime（鉴权；运行中可查询），返回当前 sessionId/workspace/state/busy/turnActive 与 streamId/cursor/oldestCursor/turnStartCursor/turnHistoryCount。只读，不触发会话恢复。
+
+HTTP SSE envelope 增加 sessionId、streamId、seq；帧增加 id: streamId:seq。支持 /api/events?after=streamId:seq 或 Last-Event-ID 补发；内存上限 2048 条 / 4 MiB，过期/不同进程/未来 cursor 返回 409 event_cursor_expired。未传 cursor 保持 live-only。新增 turn_started 数据为 sessionId/historyCount。CLI 事件不改。
+
+GET /api/sessions/{id}/messages 可在任务进行中只读浏览；POST resume/new、PUT workspace 的既有 busy/background_running 约束不变。页读取与本进程 JSONL 写入同步，避免半行与页内变化；外部修改仍报错。
+
+前端按 [session-reconnect-frontend-handoff.md](session-reconnect-frontend-handoff.md) 执行启动/重连同步、历史与事件分界、会话归属和按需分页，不能通过解除 busy 来解决浏览问题。

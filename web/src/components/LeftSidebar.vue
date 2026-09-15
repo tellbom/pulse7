@@ -9,7 +9,16 @@ const cpOpen = ref(true);
 
 const groups = computed(() => {
   const buckets = { today: [], yesterday: [], earlier: [] };
-  store.sessions.forEach((s) => buckets[dateGroup(s.updatedAt)].push(s));
+  const sessions = [...store.sessions];
+  if (store.activeSessionId && !sessions.some((s) => s.sessionId === store.activeSessionId)) {
+    sessions.unshift({
+      sessionId: store.activeSessionId,
+      cwd: store.workspace,
+      updatedAt: new Date().toISOString(),
+      firstUser: store.runtime.turnActive ? '当前正在执行的会话' : '当前执行会话'
+    });
+  }
+  sessions.forEach((s) => buckets[dateGroup(s.updatedAt)].push(s));
   return [
     { key: 'today', label: '今天', items: buckets.today },
     { key: 'yesterday', label: '昨天', items: buckets.yesterday },
@@ -28,8 +37,12 @@ const wsName = computed(() => {
 });
 
 function select(s) {
-  if (s.sessionId === store.sessionId && !store.emptyMode) return;
-  actions.resumeSession(s.sessionId);
+  if (s.sessionId === store.viewedSessionId && !store.emptyMode) return;
+  if (s.sessionId === store.activeSessionId) {
+    actions.returnToActive();
+    return;
+  }
+  actions.viewSession(s.sessionId);
 }
 </script>
 
@@ -80,11 +93,21 @@ function select(s) {
           v-for="s in g.items"
           :key="s.sessionId"
           class="sb-item"
-          :class="{ 'sb-item--cur': s.sessionId === store.sessionId && !store.emptyMode }"
+          :class="{
+            'sb-item--cur': s.sessionId === store.viewedSessionId && !store.emptyMode,
+            'sb-item--active': s.sessionId === store.activeSessionId
+          }"
           @click="select(s)"
         >
+          <span
+            v-if="s.sessionId === store.activeSessionId"
+            class="sb-item__run"
+            :class="{ 'pulse-dot': store.runtime.turnActive }"
+            :title="store.runtime.turnActive ? '当前执行会话正在运行' : '当前执行会话'"
+          />
           <span class="sb-item__txt">{{ s.firstUser || s.sessionId }}</span>
-          <span v-if="s.sessionId === store.sessionId && !store.emptyMode" class="sb-item__cur">当前</span>
+          <span v-if="s.sessionId === store.activeSessionId" class="sb-item__active">执行</span>
+          <span v-if="s.sessionId === store.viewedSessionId && !store.emptyMode" class="sb-item__cur">查看中</span>
         </button>
       </div>
       <div v-if="!groups.length" class="sb-empty">暂无历史会话</div>
@@ -275,6 +298,17 @@ function select(s) {
   font-weight: 600;
   box-shadow: inset 3px 0 0 #17171c;
 }
+.sb-item--active:not(.sb-item--cur) {
+  color: var(--g700);
+}
+.sb-item__run {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--blue500);
+  margin-right: 7px;
+  flex-shrink: 0;
+}
 .sb-item__txt {
   flex: 1;
   overflow: hidden;
@@ -290,6 +324,17 @@ function select(s) {
   border-radius: 999px;
   padding: 1px 7px;
   font-weight: 600;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+.sb-item__active {
+  font-size: 10px;
+  color: var(--blue600);
+  background: var(--blue50);
+  border: 1px solid var(--blue100);
+  border-radius: 999px;
+  padding: 1px 6px;
+  margin-right: 4px;
   font-weight: 500;
   flex-shrink: 0;
 }

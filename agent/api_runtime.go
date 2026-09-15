@@ -31,6 +31,12 @@ func (a *apiServer) closeSession() {
 		sess = nil
 	}
 	a.reg = nil
+	a.streamMu.Lock()
+	a.streamSession = ""
+	a.streamMu.Unlock()
+	a.turnActive = false
+	a.turnHistoryCount = 0
+	a.turnStartCursor = 0
 	a.messages = nil
 	curRegistry = nil
 	curRunner = nil
@@ -263,8 +269,20 @@ func (a *apiServer) startTurn(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	index, err := indexAPIHistory(sess.path)
+	if err != nil {
+		apiError(w, 500, "storage_error", a.safeError(err))
+		return
+	}
+	a.turnActive = true
+	a.turnHistoryCount = len(index.spans)
+	a.streamMu.Lock()
+	a.turnStartCursor = a.eventSeq
+	a.streamSession = a.selected
+	a.streamMu.Unlock()
 	a.busy = true
 	a.waitingAnswer = false
+	a.publish(runtimeEvent{Type: "turn_started", Data: map[string]interface{}{"sessionId": a.selected, "historyCount": a.turnHistoryCount}})
 	apiJSON(w, 202, map[string]string{"sessionId": a.selected})
 	go a.runTurn()
 }
@@ -284,6 +302,7 @@ func (a *apiServer) runTurn() {
 		printTaskEnd(a.reg, false, taskEndState{status: status, rounds: stats.rounds, elapsed: time.Since(started)})
 		a.mu.Lock()
 		a.busy = false
+		a.turnActive = false
 		a.waitingAnswer = status == "need_answer"
 		resetInterrupt()
 		emitTurnResult(status, turnErr)

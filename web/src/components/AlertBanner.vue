@@ -16,11 +16,16 @@ function dismiss() {
     >
     <button class="al__close" aria-label="关闭告警" @click="dismiss">✕</button>
   </div>
+  <div v-if="store.streamNotice" class="al al--notice">
+    <span class="al__text">{{ store.streamNotice }}</span>
+    <button class="al__close" aria-label="关闭同步提示" @click="store.streamNotice = ''">✕</button>
+  </div>
+  <div v-if="store.connectionState === 'syncing'" class="al al--sync">
+    <span class="al__text">连接中断，正在重新同步当前执行状态与实时事件；最后已知的任务状态会保留。</span>
+  </div>
   <div v-else-if="store.alertEndpointDown" class="al al--down">
-    <span class="al__text"
-      >事件流已断开 — {{ store.streamError || '连接中断' }}。断开期间产生的事件不回放；检查 pulse7 serve 是否仍在运行。</span
-    >
-    <button class="al__reconnect" @click="actions.connectStream()">重新连接</button>
+    <span class="al__text">事件流已断开 — {{ store.streamError || '连接中断' }}。任务状态尚未被判定为结束。</span>
+    <button class="al__reconnect" @click="actions.reconnectStream()">立即重新同步</button>
   </div>
 </template>
 
@@ -43,6 +48,16 @@ function dismiss() {
   border-color: var(--red200);
   background: var(--red50);
   color: var(--red600);
+}
+.al--sync {
+  border-color: var(--blue200);
+  background: var(--blue50);
+  color: var(--blue700);
+}
+.al--notice {
+  border-color: var(--amber200);
+  background: var(--amber50);
+  color: var(--amber700);
 }
 .al__text {
   flex: 1;

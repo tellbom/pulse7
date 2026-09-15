@@ -29,6 +29,14 @@ const WORKSPACES = [
 const S_ = {
   planState: null,
   _evt: null,
+  currentSessionId: 's-001',
+  runtimeState: 'idle',
+  turnActive: false,
+  turnStartCursor: 0,
+  turnHistoryCount: 0,
+  streamId: 'mock-stream-session-reconnect',
+  eventSeq: 0,
+  replay: [],
   config: {
     base_url: 'http://192.168.1.100:8080/v1',
     model: 'gpt-4o-internal',
@@ -181,7 +189,23 @@ export function createMockBackend() {
   let pendingPermission = null;
 
   const emit = (type, data) => {
-    listeners.forEach((cb) => cb({ type, data }));
+    if (type === 'turn_started') {
+      S_.runtimeState = 'running';
+      S_.turnActive = true;
+    } else if (type === 'turn_result') {
+      S_.runtimeState = data && data.status === 'need_answer' ? 'need_answer' : 'idle';
+      S_.turnActive = false;
+    }
+    const envelope = {
+      type,
+      data,
+      sessionId: (data && data.sessionId) || S_.currentSessionId || '',
+      streamId: S_.streamId,
+      seq: ++S_.eventSeq
+    };
+    S_.replay.push(envelope);
+    if (S_.replay.length > 2048) S_.replay.shift();
+    listeners.forEach((cb) => cb(envelope));
   };
 
   const busy = () => script && !script.aborted;
@@ -226,14 +250,6 @@ export function createMockBackend() {
 
   // 主演示脚本：完整复现定稿原型中的对话流。
   async function runShowcase(s, sessionId) {
-    emit('session_init', {
-      sessionId,
-      workspace: S_.config.workspace,
-      model: S_.config.model,
-      tools: S_.toolsCount,
-      skills: S_.skillsAvailable.map((x) => ({ name: x.name, source: x.source })),
-      contextBudget: 64000
-    });
     emit('context_state', { usedTokens: 21000, budget: 64000, percentLeft: 67.2, warningLevel: 'normal' });
     await s.wait(300);
 
@@ -348,6 +364,32 @@ export function createMockBackend() {
     const sessionId = S_.currentSessionId || (S_.currentSessionId = nextSessionId);
     const s = makeScript();
     script = s;
+    emit('session_init', {
+      sessionId,
+      workspace: S_.config.workspace,
+      model: S_.config.model,
+      tools: S_.toolsCount,
+      skills: S_.skillsAvailable.map((x) => ({ name: x.name, source: x.source })),
+      contextBudget: 64000
+    });
+    if (sessionId === 's-001') {
+      const previous = HISTORY_S001[HISTORY_S001.length - 1];
+      HISTORY_S001.push({
+        uuid: `hist-live-${Date.now()}`,
+        parentUuid: previous ? previous.uuid : null,
+        timestamp: new Date().toISOString(),
+        sessionId,
+        cwd: S_.config.workspace,
+        version: 1,
+        role: 'user',
+        content: prompt
+      });
+      const session = S_.sessions.find((x) => x.sessionId === sessionId);
+      if (session) session.messageCount = HISTORY_S001.length;
+    }
+    S_.turnHistoryCount = sessionId === 's-001' ? HISTORY_S001.length : 1;
+    S_.turnStartCursor = S_.eventSeq;
+    emit('turn_started', { sessionId, historyCount: S_.turnHistoryCount });
     const finish = () => {
       script = null;
     };
@@ -414,6 +456,20 @@ export function createMockBackend() {
     if (seg[0] !== 'api') return err(404, 'not_found', '未知接口');
     const rest = seg.slice(1);
 
+    if (method === 'GET' && rest[0] === 'runtime') {
+      return {
+        sessionId: S_.currentSessionId || '',
+        workspace: S_.config.workspace,
+        state: S_.runtimeState,
+        busy: busy(),
+        turnActive: S_.turnActive,
+        streamId: S_.streamId,
+        cursor: S_.eventSeq,
+        oldestCursor: S_.replay.length ? S_.replay[0].seq : S_.eventSeq + 1,
+        turnStartCursor: S_.turnStartCursor,
+        turnHistoryCount: S_.turnHistoryCount
+      };
+    }
     if (method === 'GET' && rest[0] === 'config') return { ...S_.config };
     if (method === 'PUT' && rest[0] === 'config') {
       if (busy()) return err(409, 'busy', '当前有任务执行中，配置暂不可修改');
@@ -459,6 +515,10 @@ export function createMockBackend() {
       if (!body || !body.path) return err(400, 'invalid', '缺少 path');
       S_.config.workspace = body.path;
       S_.currentSessionId = '';
+      S_.runtimeState = 'idle';
+      S_.turnActive = false;
+      S_.turnHistoryCount = 0;
+      S_.turnStartCursor = 0;
       return { workspace: body.path };
     }
     if (method === 'GET' && rest[0] === 'tasks' && rest[2] === 'output') {
@@ -512,7 +572,20 @@ export function createMockBackend() {
       if (!s) return err(404, 'not_found', '会话不存在');
       S_.currentSessionId = s.sessionId;
       S_.config.workspace = s.cwd;
+      S_.runtimeState = 'idle';
+      S_.turnActive = false;
       return { sessionId: s.sessionId, cwd: s.cwd };
+    }
+    if (method === 'POST' && rest[0] === 'sessions' && rest[1] === 'new') {
+      if (busy()) return err(409, 'busy', '当前有任务执行中，先中断或等待完成');
+      if (S_.tasks.some((t) => t.status === 'running' || t.status === 'output_truncated')) return err(409, 'background_running', '后台任务仍在运行，先停止任务再新建');
+      S_.currentSessionId = '';
+      S_.runtimeState = 'idle';
+      S_.turnActive = false;
+      S_.turnHistoryCount = 0;
+      S_.turnStartCursor = 0;
+      S_.planState = null;
+      return { ok: true };
     }
     if (method === 'POST' && rest[0] === 'turns') {
       const pd = S_.planState && S_.planState.decision;
@@ -567,9 +640,24 @@ export function createMockBackend() {
     return err(404, 'not_found', `未实现 ${method} ${path}`);
   };
 
-  const connect = (cb) => {
+  const connect = (handlers, { after = '' } = {}) => {
+    let replay = [];
+    if (after) {
+      const cut = after.lastIndexOf(':');
+      const streamId = cut >= 0 ? after.slice(0, cut) : '';
+      const seq = cut >= 0 ? Number(after.slice(cut + 1)) : NaN;
+      const oldestAfter = S_.replay.length ? S_.replay[0].seq - 1 : S_.eventSeq;
+      if (streamId !== S_.streamId || !Number.isInteger(seq) || seq < oldestAfter || seq > S_.eventSeq) {
+        delay(0).then(() => handlers.error({ status: 409, code: 'event_cursor_expired', message: 'cursor unavailable; refresh runtime and persisted history' }));
+        return { close() {} };
+      }
+      replay = S_.replay.filter((evt) => evt.seq > seq);
+    }
+    const cb = (evt) => handlers.event(evt);
     S_._evt = cb;
     listeners.add(cb);
+    handlers.open();
+    replay.forEach((evt) => handlers.event(evt));
     // 初始常驻状态：受限模式横幅 + 历史遗留 detached 清单 + 首个 context_state。
     delay(200).then(() => {
       emit('process_mode', S_.overview.mode);

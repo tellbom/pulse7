@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
+	"encoding/json"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -154,14 +156,34 @@ func TestAPISSESameEnvelopeAndListenerRelease(t *testing.T) {
 	}
 	defer response.Body.Close()
 	a.publish(runtimeEvent{Type: "turn_result", Data: turnResultEvent{Status: "success"}})
-	b := make([]byte, 512)
-	n, err := response.Body.Read(b)
-	if err != nil {
+	reader := bufio.NewReader(response.Body)
+	var frame strings.Builder
+	var payload string
+	for {
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			t.Fatal(err)
+		}
+		frame.WriteString(line)
+		if strings.HasPrefix(line, "data: ") {
+			payload = strings.TrimSpace(strings.TrimPrefix(line, "data: "))
+		}
+		if line == "\n" {
+			break
+		}
+	}
+	var envelope struct {
+		Type      string          `json:"type"`
+		Data      turnResultEvent `json:"data"`
+		SessionID string          `json:"sessionId"`
+		StreamID  string          `json:"streamId"`
+		Seq       uint64          `json:"seq"`
+	}
+	if err := json.Unmarshal([]byte(payload), &envelope); err != nil {
 		t.Fatal(err)
 	}
-	text := string(b[:n])
-	if !strings.Contains(text, "event: turn_result") || !strings.Contains(text, `data: {"type":"turn_result","data":{"status":"success"}}`) {
-		t.Fatal(text)
+	if envelope.Type != "turn_result" || envelope.Data.Status != "success" || envelope.StreamID != a.streamID || envelope.Seq != 1 || envelope.SessionID != "" || !strings.Contains(frame.String(), "event: turn_result") || !strings.Contains(frame.String(), "id: "+a.streamID+":1") {
+		t.Fatal(frame.String())
 	}
 	a.Close()
 	listener, err := net.Listen("tcp", address)

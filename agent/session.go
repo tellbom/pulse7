@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	openai "github.com/sashabaranov/go-openai"
@@ -145,7 +146,11 @@ func encodeJSONLine(value interface{}) ([]byte, error) {
 	return append(b, '\n'), nil
 }
 
+var journalIOMu sync.RWMutex
+
 func writeEncodedJSONLine(f osFileWriter, b []byte) error {
+	journalIOMu.Lock()
+	defer journalIOMu.Unlock()
 	n, err := f.Write(b)
 	if err != nil {
 		return err

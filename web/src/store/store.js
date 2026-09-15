@@ -13,6 +13,13 @@ let streamCtrl = null;
 let mockSub = null;
 let itemSeq = 0;
 let switchGen = 0; // 工作区/会话切换代次：旧异步响应不得覆盖新页面（handoff §3）
+let viewGen = 0; // 历史浏览代次：迟到分页不得覆盖后来选择的会话
+let streamGen = 0;
+let reconnectTimer = null;
+let streamOpen = false;
+let streamBuffering = false;
+let bufferedEvents = [];
+const HISTORY_PAGE_SIZE = 100;
 const nid = (p) => `${p}-${++itemSeq}`;
 
 export const store = reactive({
@@ -23,7 +30,11 @@ export const store = reactive({
   // 连接
   listener: { address: '127.0.0.1', port: null, listening: false, tokenValid: false },
   connected: false,
+  connectionState: 'syncing', // connected | disconnected | syncing
   streamError: '',
+  streamNotice: '',
+  streamId: '',
+  lastEventSeq: 0,
 
   // 配置与权限
   config: {},
@@ -33,8 +44,14 @@ export const store = reactive({
   // 会话
   sessions: [],
   sessionErrors: [], // GET /api/sessions 的 errors[]：坏文件逐项警告，不掩盖健康会话
-  sessionId: null,
-  hasMoreHistory: false,
+  activeSessionId: null, // 服务端当前执行上下文；只能由 runtime/session_init/成功恢复更新
+  viewedSessionId: null, // 只控制页面正在浏览的会话；点击历史不得改变服务端上下文
+  historyLoading: false,
+  historyStartOffset: 0,
+  historyEndOffset: 0,
+  historyBoundary: null,
+  hasEarlierHistory: false,
+  historyToolResults: {},
   skillsAvailable: [],
   skillsUsed: [],
 
@@ -62,6 +79,15 @@ export const store = reactive({
   overview: { count: null, threshold: 50, exceeded: null, error: '', mode: null },
   checkpoints: [],
   taskOutputs: {}, // taskId -> { text, nextOffset, totalBytes }
+  runtime: {
+    state: 'idle',
+    busy: false,
+    turnActive: false,
+    cursor: 0,
+    oldestCursor: 1,
+    turnStartCursor: 0,
+    turnHistoryCount: 0
+  },
 
   // 告警横幅
   alertRestricted: false,
@@ -81,7 +107,19 @@ export const store = reactive({
 
 export const getters = {
   get busy() {
-    return ['waiting_first', 'streaming', 'tool_running'].includes(store.phase);
+    return !!store.runtime.busy || !!store.runtime.turnActive || ['waiting_first', 'streaming', 'tool_running'].includes(store.phase);
+  },
+  get viewingActive() {
+    if (!store.viewedSessionId && !store.activeSessionId) return true;
+    return !!store.viewedSessionId && store.viewedSessionId === store.activeSessionId;
+  },
+  get historyPreview() {
+    return !!store.viewedSessionId && store.viewedSessionId !== store.activeSessionId;
+  },
+  get viewedWorkspace() {
+    if (getters.viewingActive) return store.workspace;
+    const session = store.sessions.find((s) => s.sessionId === store.viewedSessionId);
+    return (session && session.cwd) || '';
   },
   get runningTasks() {
     return store.tasks.filter((t) => t.status === 'running' || t.status === 'output_truncated');
@@ -116,10 +154,10 @@ const removeWhere = (fn) => {
 
 // ─── 会话/工作区状态全量清理（handoff §3.3） ──────────────────
 function resetSessionState() {
-  store.timeline = [];
-  store.attempts = {};
-  store.sessionId = null;
-  store.emptyMode = true;
+  resetViewState();
+  store.activeSessionId = null;
+  store.viewedSessionId = null;
+  store.runtime = { state: 'idle', busy: false, turnActive: false, cursor: store.runtime.cursor || 0, oldestCursor: store.runtime.oldestCursor || 1, turnStartCursor: 0, turnHistoryCount: 0 };
   store.phase = 'idle';
   store.pendingPermission = null;
   store.waitedSeconds = 0;
@@ -132,6 +170,42 @@ function resetSessionState() {
   store.skillsUsed = [];
   store.checkpoints = [];
   store.taskOutputs = {};
+  store.planState = null;
+}
+
+function resetViewState() {
+  store.timeline = [];
+  store.attempts = {};
+  store.emptyMode = true;
+  store.historyStartOffset = 0;
+  store.historyEndOffset = 0;
+  store.historyBoundary = null;
+  store.hasEarlierHistory = false;
+  store.historyToolResults = {};
+}
+
+function cursorKey(streamId, seq) {
+  return streamId ? `${streamId}:${Number(seq) || 0}` : '';
+}
+
+function applyRuntime(runtime) {
+  if (!runtime) return;
+  store.activeSessionId = runtime.sessionId || null;
+  store.workspace = runtime.workspace || store.workspace;
+  store.streamId = runtime.streamId || store.streamId;
+  store.runtime = {
+    state: runtime.state || 'idle',
+    busy: !!runtime.busy,
+    turnActive: !!runtime.turnActive,
+    cursor: Number(runtime.cursor) || 0,
+    oldestCursor: Number(runtime.oldestCursor) || (Number(runtime.cursor) || 0) + 1,
+    turnStartCursor: Number(runtime.turnStartCursor) || 0,
+    turnHistoryCount: Number(runtime.turnHistoryCount) || 0
+  };
+  if (store.runtime.state === 'need_answer') store.phase = 'need_answer';
+  else if (!store.runtime.busy && !store.runtime.turnActive) store.phase = 'idle';
+  else if (store.runtime.busy && !store.runtime.turnActive) store.phase = 'idle';
+  else if (!['waiting_first', 'streaming', 'tool_running'].includes(store.phase)) store.phase = 'waiting_first';
 }
 
 export const actions = {
@@ -142,18 +216,26 @@ export const actions = {
     if (!liveMode) mock = createMockBackend();
     const call = mock ? mock.api : api;
     try {
-      store.config = await call('GET', '/api/config');
-      store.workspace = store.config.workspace || '';
-      store.listener = await call('GET', '/api/listener');
-      store.permissions = await call('GET', '/api/permissions');
-      await actions.refreshTasks();
-      await actions.refreshSessions();
-      await actions.loadCheckpoints();
+      // runtime 必须先于历史与 SSE：它给出活动会话、持久化分界和可补发游标。
+      const runtime = await call('GET', '/api/runtime');
+      applyRuntime(runtime);
+      [store.config, store.listener, store.permissions] = await Promise.all([
+        call('GET', '/api/config'),
+        call('GET', '/api/listener'),
+        call('GET', '/api/permissions')
+      ]);
+      store.workspace = runtime.workspace || store.config.workspace || '';
+      await Promise.all([actions.refreshTasks(), actions.refreshSessions(), actions.loadCheckpoints()]);
+      store.viewedSessionId = store.activeSessionId;
+      await actions.syncFromRuntime(runtime, { resetView: true });
+      if (getters.viewingActive) await actions.refreshPlan();
     } catch (e) {
+      store.connectionState = 'disconnected';
+      store.connected = false;
+      store.streamError = e.message || '初始化失败';
+      store.alertEndpointDown = true;
       ElMessage.error('初始化失败：' + e.message);
     }
-    actions.connectStream();
-    actions.refreshPlan();
     if (!store.config.base_url || !store.config.model) store.wizardOpen = true;
   },
 
@@ -161,37 +243,162 @@ export const actions = {
     return (mock ? mock.api : api)(method, path, body);
   },
 
-  connectStream() {
+  startEventStream({ streamId, afterSeq, buffer = false } = {}) {
     if (streamCtrl) streamCtrl.abort();
     if (mockSub) {
       mockSub.close();
       mockSub = null;
     }
+    const gen = ++streamGen;
+    streamOpen = false;
+    streamBuffering = buffer;
+    bufferedEvents = [];
+    if (streamId) store.streamId = streamId;
+    store.lastEventSeq = Number(afterSeq) || 0;
+    store.connectionState = 'syncing';
+    store.connected = false;
     store.streamError = '';
-    if (mock) {
-      mockSub = mock.connect((evt) => consumeEvent(evt));
-      store.connected = true;
-      return;
-    }
-    streamCtrl = openStream({
+    store.alertEndpointDown = false;
+    const handlers = {
       open() {
+        if (gen !== streamGen) return;
+        streamOpen = true;
         store.connected = true;
+        if (!streamBuffering) store.connectionState = 'connected';
         store.alertEndpointDown = false;
       },
       event(evt) {
-        consumeEvent(evt);
+        if (gen === streamGen) actions.acceptEvent(evt);
       },
       error(e) {
+        if (gen !== streamGen) return;
+        streamOpen = false;
         store.connected = false;
+        store.connectionState = 'disconnected';
         store.streamError = e.message || '事件流断开';
         store.alertEndpointDown = true;
-        // SSE 断开时不得永久卡 busy：本地复位轮次态（会话与历史保留）
-        if (getters.busy) {
-          store.phase = 'idle';
-          removeWhere((x) => x.type === 'waiting');
-        }
+        // 断线保留最后已知运行态；event_cursor_expired 必须走新快照，不能重试旧游标。
+        if (e.code === 'event_cursor_expired') {
+          store.streamNotice = '部分实时输出已超出补发窗口，正在恢复已保存的记录。';
+          actions.scheduleReconnect(true);
+        } else actions.scheduleReconnect(false);
       }
-    });
+    };
+    const after = cursorKey(store.streamId, store.lastEventSeq);
+    if (mock) mockSub = mock.connect(handlers, { after });
+    else streamCtrl = openStream({ ...handlers, after });
+  },
+
+  acceptEvent(evt) {
+    const seq = Number(evt && evt.seq);
+    const incomingStream = (evt && evt.streamId) || '';
+    if (incomingStream) {
+      if (store.streamId && incomingStream !== store.streamId) {
+        store.streamNotice = '服务已重启，正在按保存记录重新同步。';
+        actions.scheduleReconnect(true);
+        return;
+      }
+      store.streamId = incomingStream;
+      if (seq <= store.lastEventSeq) return;
+      if (store.lastEventSeq && seq !== store.lastEventSeq + 1) {
+        store.streamNotice = '检测到实时事件缺口，正在重新同步。';
+        actions.scheduleReconnect(true);
+        return;
+      }
+      store.lastEventSeq = seq;
+      store.runtime.cursor = Math.max(store.runtime.cursor || 0, seq);
+    }
+    if (streamBuffering) bufferedEvents.push(evt);
+    else dispatchEvent(evt);
+  },
+
+  async syncFromRuntime(runtime, { resetView = false, gap = false } = {}) {
+    applyRuntime(runtime);
+    const viewingActive = getters.viewingActive;
+    // 游标过期时绝不能再次请求同一个 turnStartCursor；从新快照 cursor 接续，
+    // 并通过 streamNotice 明确此前未落盘实时文字无法保证恢复。
+    const replayFrom = gap ? runtime.cursor : runtime.turnActive ? runtime.turnStartCursor : runtime.cursor;
+    actions.startEventStream({ streamId: runtime.streamId, afterSeq: replayFrom, buffer: viewingActive && !!runtime.sessionId });
+    if (resetView && !runtime.sessionId) {
+      resetViewState();
+      store.viewedSessionId = null;
+    }
+    if (viewingActive && runtime.sessionId) {
+      store.viewedSessionId = runtime.sessionId;
+      if (!runtime.turnActive) await actions.refreshSessions();
+      await actions.loadHistory({
+        sessionId: runtime.sessionId,
+        boundary: runtime.turnActive ? runtime.turnHistoryCount : null,
+        reset: true
+      });
+      // runtime 快照为空闲，但历史读取期间可能正好开始了新轮；以 turn_started 的
+      // historyCount 重新建立持久化/实时分界，避免漏掉本轮用户消息或重复工具记录。
+      const started = bufferedEvents
+        .filter((evt) => evt.type === 'turn_started' && eventSessionId(evt) === runtime.sessionId)
+        .sort((a, b) => (Number(a.seq) || 0) - (Number(b.seq) || 0))
+        .pop();
+      if (!runtime.turnActive && started) {
+        await actions.loadHistory({ sessionId: runtime.sessionId, boundary: Number(started.data && started.data.historyCount) || 0, reset: true });
+      }
+    }
+    streamBuffering = false;
+    const pending = bufferedEvents.sort((a, b) => (Number(a.seq) || 0) - (Number(b.seq) || 0));
+    bufferedEvents = [];
+    pending.forEach((evt) => dispatchEvent(evt));
+    if (streamOpen) {
+      store.connectionState = 'connected';
+      store.connected = true;
+    }
+    if (gap) store.streamNotice = store.streamNotice || '实时输出存在缺口，已恢复保存的记录；后续内容标记为重连后输出。';
+  },
+
+  scheduleReconnect(forceFull = false) {
+    if (reconnectTimer) clearTimeout(reconnectTimer);
+    reconnectTimer = setTimeout(() => {
+      reconnectTimer = null;
+      actions.reconnectStream({ forceFull });
+    }, 1000);
+  },
+
+  async reconnectStream({ forceFull = false } = {}) {
+    if (reconnectTimer) {
+      clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+    }
+    store.connectionState = 'syncing';
+    try {
+      const previousStream = store.streamId;
+      const previousSession = store.activeSessionId;
+      const runtime = await actions.call('GET', '/api/runtime');
+      const oldestAfter = Math.max(0, (Number(runtime.oldestCursor) || 1) - 1);
+      const canContinue =
+        !forceFull &&
+        previousStream &&
+        previousStream === runtime.streamId &&
+        previousSession === (runtime.sessionId || null) &&
+        store.lastEventSeq >= oldestAfter &&
+        store.lastEventSeq <= Number(runtime.cursor || 0);
+      applyRuntime(runtime);
+      if (canContinue) {
+        actions.startEventStream({ streamId: runtime.streamId, afterSeq: store.lastEventSeq, buffer: false });
+        return;
+      }
+      if (previousStream && previousStream !== runtime.streamId) store.streamNotice = '服务已重启，已按保存记录重新同步。';
+      else if (forceFull) store.streamNotice = store.streamNotice || '实时补发游标已失效，已按保存记录重新同步。';
+      if (getters.historyPreview) {
+        // 历史预览保持不动，只从快照游标继续维护活动会话；返回当前任务时再重建其展示。
+        actions.startEventStream({ streamId: runtime.streamId, afterSeq: runtime.cursor, buffer: false });
+      } else {
+        store.viewedSessionId = runtime.sessionId || null;
+        await actions.syncFromRuntime(runtime, { resetView: true, gap: true });
+      }
+    } catch (e) {
+      store.connected = false;
+      store.connectionState = 'disconnected';
+      store.streamError = e.message || '重新同步失败';
+      store.alertEndpointDown = true;
+      actions.scheduleReconnect(forceFull);
+    }
   },
 
   // ─── 列表刷新 ───
@@ -228,6 +435,14 @@ export const actions = {
   async send(prompt, attachment) {
     prompt = (prompt || '').trim();
     if (!prompt) return;
+    if (!getters.viewingActive) {
+      ElMessage.warning('当前是只读历史预览；请先返回当前任务，或明确恢复该会话后再发送');
+      return;
+    }
+    if (store.connectionState !== 'connected') {
+      ElMessage.warning('事件流正在重新同步，连接恢复后再发送');
+      return;
+    }
     if (getters.busy || store.switching) {
       ElMessage.warning(store.switching ? '工作区切换进行中' : '任务进行中，中断后可继续输入');
       return;
@@ -242,11 +457,14 @@ export const actions = {
     const isAnswer = store.phase === 'need_answer';
     try {
       const r = isAnswer
-        ? await actions.call('POST', '/api/answer', { sessionId: store.sessionId, answer: prompt })
+        ? await actions.call('POST', '/api/answer', { sessionId: store.activeSessionId, answer: prompt })
         : await actions.call('POST', '/api/turns', { prompt });
-      store.sessionId = r.sessionId;
+      store.activeSessionId = r.sessionId;
+      store.viewedSessionId = r.sessionId;
+      store.runtime = { ...store.runtime, state: 'running', busy: true, turnActive: true };
       store.phase = 'waiting_first';
       actions.pushWaiting('waiting_first');
+      actions.refreshSessions();
     } catch (e) {
       if (e.code === 'plan_decision_pending') {
         // 存在待答计划问题：普通输入不猜成回答，提示用关联入口
@@ -259,13 +477,18 @@ export const actions = {
   },
 
   async interrupt() {
+    if (!store.runtime.turnActive && !getters.busy) {
+      ElMessage.warning('当前没有运行中的模型任务');
+      return;
+    }
     try {
       await actions.call('POST', '/api/interrupt', {});
-      ElMessage.info('已请求中断，等待结束事件确认');
+      ElMessage.info('已请求中断当前执行会话，等待结束事件确认');
     } catch (e) {
       // 后端明确"没有活动轮"= 前端状态机卡住：就地复位，避免永远点不掉
       if (e.status === 409) {
         store.phase = 'idle';
+        store.runtime = { ...store.runtime, state: 'idle', busy: false, turnActive: false };
         store.pendingPermission = null;
         store.waitedSeconds = 0;
         removeWhere((x) => x.type === 'waiting');
@@ -278,6 +501,10 @@ export const actions = {
 
   // ─── 权限确认 ───
   async confirmPermission(decision) {
+    if (!getters.viewingActive) {
+      ElMessage.warning('历史预览为只读，不能在这里确认当前任务权限');
+      return;
+    }
     const p = store.pendingPermission;
     if (!p) return;
     try {
@@ -313,12 +540,14 @@ export const actions = {
   async switchWorkspace(path) {
     if (!path || store.switching) return;
     const gen = ++switchGen;
+    let switched = false;
     store.switching = true;
     try {
       const r = await actions.call('PUT', '/api/workspace', { path });
       if (gen !== switchGen) return;
       resetSessionState();
       store.workspace = r.workspace;
+      switched = true;
       ElMessage.success('工作区已切换：' + r.workspace);
     } catch (e) {
       if (gen !== switchGen) return;
@@ -332,8 +561,12 @@ export const actions = {
     } finally {
       if (gen === switchGen) store.switching = false;
     }
-    if (gen !== switchGen) return;
+    if (gen !== switchGen || !switched) return;
     await Promise.all([actions.refreshSessions(), actions.loadCheckpoints(), actions.refreshTasks(), actions.reloadConfig()]);
+    const runtime = await actions.call('GET', '/api/runtime');
+    applyRuntime(runtime);
+    store.viewedSessionId = runtime.sessionId || null;
+    await actions.syncFromRuntime(runtime, { resetView: true });
   },
 
   async reloadConfig() {
@@ -344,20 +577,50 @@ export const actions = {
     }
   },
 
+  // 点击历史只读预览，不调用 resume，也不改变工作区或活动执行上下文。
+  async viewSession(id) {
+    if (!id || (id === store.viewedSessionId && !store.emptyMode)) return;
+    store.viewedSessionId = id;
+    await actions.loadHistory({ sessionId: id, reset: true });
+  },
+
+  async returnToActive() {
+    store.connectionState = 'syncing';
+    try {
+      const runtime = await actions.call('GET', '/api/runtime');
+      applyRuntime(runtime);
+      if (!runtime.sessionId) {
+        store.viewedSessionId = null;
+        resetViewState();
+        actions.startEventStream({ streamId: runtime.streamId, afterSeq: runtime.cursor, buffer: false });
+        ElMessage.info('当前没有执行会话');
+        return;
+      }
+      store.viewedSessionId = runtime.sessionId;
+      await actions.syncFromRuntime(runtime, { resetView: true });
+      await Promise.all([actions.refreshPlan(), actions.loadCheckpoints(), actions.refreshTasks()]);
+    } catch (e) {
+      store.connectionState = 'disconnected';
+      store.streamError = e.message || '返回当前任务失败';
+      store.alertEndpointDown = true;
+      ElMessage.error('返回当前任务失败：' + store.streamError);
+    }
+  },
+
+  async resumeViewedSession() {
+    if (store.viewedSessionId) await actions.resumeSession(store.viewedSessionId);
+  },
+
+  // “恢复并继续”是显式状态变更；失败时必须保留当前历史预览。
   async resumeSession(id) {
     if (store.switching) return;
     const gen = ++switchGen;
+    let resumed = null;
     store.switching = true;
     try {
       const r = await actions.call('POST', '/api/sessions/resume', { sessionId: id });
       if (gen !== switchGen) return;
-      resetSessionState();
-      store.sessionId = r.sessionId;
-      store.workspace = r.cwd || store.workspace;
-      store.emptyMode = false;
-      await actions.loadHistory();
-      await Promise.all([actions.loadCheckpoints(), actions.refreshTasks(), actions.refreshPlan()]);
-      ElMessage.success('会话已恢复，历史已载入');
+      resumed = r;
     } catch (e) {
       if (gen !== switchGen) return;
       if (e.status === 409 && e.code === 'workspace_mismatch') {
@@ -369,14 +632,7 @@ export const actions = {
           await actions.call('PUT', '/api/workspace', { path: cwd });
           const r = await actions.call('POST', '/api/sessions/resume', { sessionId: id });
           if (gen !== switchGen) return;
-          resetSessionState();
-          store.sessionId = r.sessionId;
-          store.workspace = r.cwd || cwd;
-          store.emptyMode = false;
-          await actions.loadHistory();
-          await Promise.all([actions.loadCheckpoints(), actions.refreshTasks(), actions.refreshPlan()]);
-          ElMessage.success('已切回原工作区并恢复会话');
-          return;
+          resumed = { ...r, cwd: r.cwd || cwd, switchedWorkspace: true };
         } catch (e2) {
           ElMessage.error('恢复失败：' + (e2.message || '请先手动切换到该会话的工作区'));
         }
@@ -390,21 +646,73 @@ export const actions = {
     } finally {
       if (gen === switchGen) store.switching = false;
     }
+    if (gen !== switchGen || !resumed) return;
+    resetSessionState();
+    store.activeSessionId = resumed.sessionId;
+    store.viewedSessionId = resumed.sessionId;
+    store.workspace = resumed.cwd || store.workspace;
+    await Promise.all([actions.refreshSessions(), actions.loadCheckpoints(), actions.refreshTasks(), actions.reloadConfig()]);
+    const runtime = await actions.call('GET', '/api/runtime');
+    applyRuntime(runtime);
+    store.viewedSessionId = runtime.sessionId || resumed.sessionId;
+    await actions.syncFromRuntime(runtime, { resetView: true });
+    await actions.refreshPlan();
+    ElMessage.success(resumed.switchedWorkspace ? '已切回原工作区并恢复会话' : '会话已恢复，可以继续输入');
   },
 
-  async loadHistory() {
-    if (!store.sessionId) return;
-    let offset = 0;
+  async loadHistory({ sessionId = store.viewedSessionId, boundary = null, reset = true } = {}) {
+    if (!sessionId) return;
+    const gen = reset ? ++viewGen : viewGen;
+    if (reset) {
+      resetViewState();
+      store.viewedSessionId = sessionId;
+      store.emptyMode = false;
+    }
+    const session = store.sessions.find((s) => s.sessionId === sessionId);
+    const knownCount = boundary !== null && boundary !== undefined ? Number(boundary) : session && Number.isFinite(Number(session.messageCount)) ? Number(session.messageCount) : null;
+    const offset = knownCount === null ? 0 : Math.max(0, knownCount - HISTORY_PAGE_SIZE);
+    const limit = knownCount === null ? HISTORY_PAGE_SIZE : Math.min(HISTORY_PAGE_SIZE, knownCount - offset);
+    store.historyLoading = true;
     try {
-      for (;;) {
-        const r = await actions.call('GET', `/api/sessions/${encodeURIComponent(store.sessionId)}/messages?offset=${offset}&limit=100`);
-        renderHistory(r.messages || []);
-        store.hasMoreHistory = !!r.hasMore;
-        if (!r.hasMore) break;
-        offset = r.nextOffset;
+      let messages = [];
+      let nextOffset = offset;
+      if (limit > 0) {
+        const r = await actions.call('GET', `/api/sessions/${encodeURIComponent(sessionId)}/messages?offset=${offset}&limit=${limit}`);
+        if (gen !== viewGen || store.viewedSessionId !== sessionId) return;
+        messages = r.messages || [];
+        nextOffset = Number(r.nextOffset) || offset + messages.length;
       }
+      if (gen !== viewGen || store.viewedSessionId !== sessionId) return;
+      renderHistory(messages, 'replace');
+      store.historyStartOffset = offset;
+      store.historyEndOffset = nextOffset;
+      store.historyBoundary = knownCount;
+      store.hasEarlierHistory = offset > 0;
+      store.emptyMode = false;
     } catch (e) {
-      ElMessage.error('历史读取失败：' + e.message);
+      if (gen === viewGen && store.viewedSessionId === sessionId) ElMessage.error('历史读取失败：' + e.message);
+    } finally {
+      if (gen === viewGen) store.historyLoading = false;
+    }
+  },
+
+  async loadEarlierHistory() {
+    const sessionId = store.viewedSessionId;
+    if (!sessionId || store.historyLoading || store.historyStartOffset <= 0) return;
+    const gen = viewGen;
+    const end = store.historyStartOffset;
+    const offset = Math.max(0, end - HISTORY_PAGE_SIZE);
+    store.historyLoading = true;
+    try {
+      const r = await actions.call('GET', `/api/sessions/${encodeURIComponent(sessionId)}/messages?offset=${offset}&limit=${end - offset}`);
+      if (gen !== viewGen || store.viewedSessionId !== sessionId) return;
+      renderHistory(r.messages || [], 'prepend');
+      store.historyStartOffset = offset;
+      store.hasEarlierHistory = offset > 0;
+    } catch (e) {
+      if (gen === viewGen) ElMessage.error('更早历史读取失败：' + e.message);
+    } finally {
+      if (gen === viewGen) store.historyLoading = false;
     }
   },
 
@@ -414,6 +722,11 @@ export const actions = {
     try {
       await actions.call('POST', '/api/sessions/new', {});
       resetSessionState();
+      await actions.refreshSessions();
+      const runtime = await actions.call('GET', '/api/runtime');
+      applyRuntime(runtime);
+      store.viewedSessionId = runtime.sessionId || null;
+      await actions.syncFromRuntime(runtime, { resetView: true });
     } catch (e) {
       if (e.status === 409) {
         store.guardMode = e.code === 'background_running' ? 'background_running' : 'busy';
@@ -427,11 +740,15 @@ export const actions = {
 
   // ─── 计划模式（plan-decision-frontend-handoff） ───
   async refreshPlan() {
+    if (!getters.viewingActive) return;
     try {
       const r = await actions.call('GET', '/api/plan');
-      if (r && (r.sessionId === store.sessionId || !store.sessionId)) {
+      if (r && (r.sessionId === store.activeSessionId || !store.activeSessionId)) {
         store.planState = r.state || null;
-        if (r.sessionId) store.sessionId = store.sessionId || r.sessionId;
+        if (r.sessionId) {
+          store.activeSessionId = store.activeSessionId || r.sessionId;
+          store.viewedSessionId = store.viewedSessionId || r.sessionId;
+        }
       }
     } catch (e) {
       /* 运行中 409：沿用已有状态与事件，不覆盖 */
@@ -440,14 +757,19 @@ export const actions = {
 
   // 回复计划问题：必须带 decisionId 关联；成功后等 SSE 渲染下一轮，不乐观清问题
   async answerPlanningDecision(answer) {
+    if (!getters.viewingActive) {
+      ElMessage.warning('历史预览为只读，返回当前任务后再回答');
+      return { ok: false, draft: answer };
+    }
     const d = store.planState && store.planState.decision;
     if (!d || !d.awaitingReply) {
       ElMessage.warning('没有等待中的计划问题');
       return { ok: false, draft: answer };
     }
     try {
-      await actions.call('POST', '/api/answer', { sessionId: store.sessionId, decisionId: d.id, answer });
+      await actions.call('POST', '/api/answer', { sessionId: store.activeSessionId, decisionId: d.id, answer });
       store.phase = 'streaming';
+      store.runtime = { ...store.runtime, state: 'running', busy: true, turnActive: true };
       return { ok: true };
     } catch (e) {
       if (e.code === 'decision_mismatch' || e.code === 'session_mismatch') {
@@ -462,8 +784,12 @@ export const actions = {
 
   // 用户直接退出计划模式：只解除阶段限制与待答问题，不批准计划、不代判
   async exitPlanMode() {
+    if (!getters.viewingActive) {
+      ElMessage.warning('历史预览为只读，不能在这里退出当前执行会话的计划模式');
+      return;
+    }
     try {
-      await actions.call('POST', '/api/plan/exit', { sessionId: store.sessionId });
+      await actions.call('POST', '/api/plan/exit', { sessionId: store.activeSessionId });
       await actions.refreshPlan();
       ElMessage.success('已退出计划模式（不改变计划文件内容）');
     } catch (e) {
@@ -518,7 +844,8 @@ export const actions = {
 
   // 工具结果/大内容分页读取：字节 offset，翻页必须用服务端 nextOffset（large-content handoff）。
   async fetchResultPage(ref, offset = 0, limit = 32768) {
-    const sid = store.sessionId ? `&sessionId=${encodeURIComponent(store.sessionId)}` : '';
+    // tool:id 必须按当前记录所属的浏览会话解析，不能一律归到活动执行会话。
+    const sid = store.viewedSessionId ? `&sessionId=${encodeURIComponent(store.viewedSessionId)}` : '';
     return actions.call('GET', `/api/tool-result?ref=${encodeURIComponent(ref)}&offset=${offset}&limit=${limit}${sid}`);
   },
 
@@ -552,10 +879,39 @@ export const actions = {
 // ─── 历史渲染（会话消息 → 与实时一致的时间轴条目） ──────────────
 // 工具卡片先按“状态未知”创建；role=tool 消息带 toolOutcome 时才落定成败；
 // 缺失 toolOutcome（旧记录 / 中断合成消息）保持未知，不得按成功显示（handoff §1）。
-function renderHistory(messages) {
+function historyToolResult(m) {
+  return {
+    content: m.content || '',
+    largeContent: m.largeContent || null,
+    outcome: m.toolOutcome || null
+  };
+}
+
+function applyHistoryToolResult(rec, result) {
+  if (!rec || !result) return;
+  rec.resultFull = result.content;
+  rec.expandedResult = result.content;
+  if (result.largeContent && result.largeContent.content) {
+    rec.lcRef = result.largeContent.content;
+    rec.resultPreview = true;
+  }
+  const out = result.outcome;
+  if (out && typeof out.ok === 'boolean') {
+    rec.status = out.errorCode === 'hard_link_impact_unknown' ? 'hard_link' : out.ok ? 'success' : 'error';
+    rec.summary = out.summary || rec.summary;
+  }
+}
+
+function renderHistory(messages, mode = 'append') {
+  // 先缓存 tool 结果，避免分页恰好切在 assistant tool_call / role=tool 之间时丢失状态。
+  messages.forEach((m) => {
+    if (m.role === 'tool' && m.tool_call_id) store.historyToolResults[m.tool_call_id] = historyToolResult(m);
+  });
+  const items = [];
+  const add = (item) => items.push(item);
   messages.forEach((m) => {
     if (m.role === 'user') {
-      push({ type: 'user', id: nid('hu'), text: m.content || '' });
+      add({ type: 'user', id: nid('hu'), text: m.content || '' });
       return;
     }
     if (m.role === 'assistant') {
@@ -567,11 +923,13 @@ function renderHistory(messages) {
           } catch (e) {
             /* arguments 是 JSON 字符串，解析失败按原样展示 */
           }
-          push({ type: 'tool', id: nid('ht'), toolId: tc.id, name: tc.function.name, args, status: 'unknown', elapsedMs: 0, summary: '', resultFull: '', expandedResult: '', argPreview: !!(m.largeContent && m.largeContent['toolcall-' + i]) });
+          const rec = { type: 'tool', id: nid('ht'), toolId: tc.id, name: tc.function.name, args, status: 'unknown', elapsedMs: 0, summary: '', resultFull: '', expandedResult: '', argPreview: !!(m.largeContent && m.largeContent['toolcall-' + i]) };
+          applyHistoryToolResult(rec, store.historyToolResults[tc.id]);
+          add(rec);
         });
       }
       if (m.content || m.reasoning_content) {
-        push({
+        add({
           type: 'assistant',
           id: nid('ha'),
           text: m.content || '',
@@ -587,22 +945,101 @@ function renderHistory(messages) {
       return;
     }
     if (m.role === 'tool' && m.tool_call_id) {
-      const rec = store.timeline.filter((x) => x.type === 'tool' && x.toolId === m.tool_call_id).pop();
-      if (rec) {
-        rec.resultFull = m.content || '';
-        rec.expandedResult = m.content || '';
-        if (m.largeContent && m.largeContent.content) {
-          rec.lcRef = m.largeContent.content;
-          rec.resultPreview = true;
-        }
-        const out = m.toolOutcome;
-        if (out && typeof out.ok === 'boolean') {
-          rec.status = out.errorCode === 'hard_link_impact_unknown' ? 'hard_link' : out.ok ? 'success' : 'error';
-          rec.summary = out.summary || rec.summary;
-        }
-      }
+      const rec = items.filter((x) => x.type === 'tool' && x.toolId === m.tool_call_id).pop();
+      applyHistoryToolResult(rec, store.historyToolResults[m.tool_call_id]);
     }
   });
+  if (mode === 'replace') store.timeline = items;
+  else if (mode === 'prepend') store.timeline = [...items, ...store.timeline];
+  else store.timeline.push(...items);
+  if (mode !== 'prepend') store.scrollTick++;
+}
+
+function eventSessionId(evt) {
+  const d = (evt && evt.data) || {};
+  return (evt && evt.sessionId) || d.sessionId || store.activeSessionId || null;
+}
+
+// 浏览历史期间仍维护活动执行状态，但绝不把它的事件追加到历史预览时间线。
+function consumeStateOnly(evt) {
+  const d = evt.data || {};
+  switch (evt.type) {
+    case 'turn_started':
+      store.runtime = { ...store.runtime, state: 'running', busy: true, turnActive: true, turnHistoryCount: Number(d.historyCount) || 0 };
+      store.phase = 'waiting_first';
+      store.turnStartedAt = Date.now();
+      break;
+    case 'assistant_delta':
+    case 'assistant_reasoning_delta':
+      if (store.phase === 'waiting_first') store.phase = 'streaming';
+      break;
+    case 'tool_call':
+      store.phase = 'tool_running';
+      break;
+    case 'tool_result':
+      if (store.phase === 'tool_running') store.phase = 'streaming';
+      break;
+    case 'planning_decision':
+      store.planState = { ...(store.planState || {}), active: true, decision: d.decision };
+      store.phase = 'need_answer';
+      store.runtime = { ...store.runtime, state: 'need_answer', busy: false, turnActive: false };
+      break;
+    case 'plan_state':
+      store.planState = d.state || null;
+      break;
+    case 'permission_request':
+      store.pendingPermission = { ...d };
+      break;
+    case 'permission_response':
+      store.pendingPermission = null;
+      break;
+    case 'context_state':
+      store.context = { ...store.context, ...d };
+      break;
+    case 'background_task':
+    case 'process':
+      actions.refreshTasks();
+      break;
+    case 'process_mode':
+      store.overview.mode = d;
+      store.alertRestricted = !!d.restricted && !d.cleanupGuaranteed;
+      actions.refreshTasks();
+      break;
+    case 'process_warning':
+      if (d.kind === 'process_count') {
+        store.overview.count = d.current;
+        store.overview.threshold = d.threshold;
+        store.overview.exceeded = d.current > d.threshold;
+      }
+      break;
+    case 'process_count_error':
+      store.overview.error = d.error || '进程计数失败';
+      break;
+    case 'detached_history':
+      store.detachedHistory = [{ verified: false, notice: d.notice || '' }, ...(store.detachedHistory || [])];
+      break;
+    case 'turn_result':
+      store.phase = d.status === 'need_answer' ? 'need_answer' : 'idle';
+      store.runtime = { ...store.runtime, state: d.status === 'need_answer' ? 'need_answer' : 'idle', busy: false, turnActive: false };
+      store.pendingPermission = null;
+      actions.refreshTasks();
+      actions.refreshSessions();
+      break;
+    default:
+      break;
+  }
+}
+
+function dispatchEvent(evt) {
+  if (!evt || !evt.type) return;
+  const sid = eventSessionId(evt);
+  if (sid && !store.activeSessionId && (evt.type === 'session_init' || evt.type === 'turn_started')) {
+    store.activeSessionId = sid;
+    if (!store.viewedSessionId) store.viewedSessionId = sid;
+  }
+  if (sid && store.activeSessionId && sid !== store.activeSessionId) return;
+  if (!sid || (store.viewedSessionId === sid && getters.viewingActive)) consumeEvent(evt);
+  else consumeStateOnly(evt);
 }
 
 // ─── 事件消费（契约 C1.3 全量映射） ────────────────────────────
@@ -610,7 +1047,8 @@ function consumeEvent(evt) {
   const d = evt.data || {};
   switch (evt.type) {
     case 'session_init':
-      store.sessionId = d.sessionId || store.sessionId;
+      store.activeSessionId = d.sessionId || evt.sessionId || store.activeSessionId;
+      if (!store.viewedSessionId) store.viewedSessionId = store.activeSessionId;
       store.workspace = d.workspace || store.workspace;
       store.context.budget = d.contextBudget || store.context.budget;
       {
@@ -618,6 +1056,17 @@ function consumeEvent(evt) {
         store.skillsAvailable = sk.map((s) => (typeof s === 'string' ? { name: s, source: '' } : s));
       }
       push({ type: 'session_init', id: nid('si'), workspace: d.workspace || store.workspace, budget: d.contextBudget, model: d.model, tools: d.tools, skills: Array.isArray(d.skills) ? d.skills.length : d.skills });
+      break;
+
+    case 'turn_started':
+      store.runtime = { ...store.runtime, state: 'running', busy: true, turnActive: true, turnHistoryCount: Number(d.historyCount) || 0 };
+      store.phase = 'waiting_first';
+      store.turnStartedAt = Date.now();
+      store.turnCommands = [];
+      store.turnOutsideWrites = [];
+      store.turnBgProcesses = [];
+      store.waitedSeconds = 0;
+      actions.pushWaiting('waiting_first');
       break;
 
     case 'assistant_attempt': {
@@ -752,17 +1201,18 @@ function consumeEvent(evt) {
 
     case 'planning_decision': {
       // 模型的计划问题：按 sessionId 隔离，展示完整问题原文；不推断
-      if (d.sessionId === store.sessionId || !store.sessionId) {
+      if (d.sessionId === store.activeSessionId || !store.activeSessionId) {
         store.planState = store.planState || {};
         store.planState = { ...(store.planState||{}), active: true, decision: d.decision };
         store.phase = 'need_answer';
+        store.runtime = { ...store.runtime, state: 'need_answer', busy: false, turnActive: false };
         removeWhere((x) => x.type === 'waiting');
       }
       break;
     }
 
     case 'plan_state': {
-      if (d.sessionId === store.sessionId || !store.sessionId) store.planState = d.state || null;
+      if (d.sessionId === store.activeSessionId || !store.activeSessionId) store.planState = d.state || null;
       break;
     }
 
@@ -844,11 +1294,13 @@ function consumeEvent(evt) {
         bgProcesses: [...store.turnBgProcesses]
       });
       store.phase = d.status === 'need_answer' ? 'need_answer' : 'idle';
+      store.runtime = { ...store.runtime, state: d.status === 'need_answer' ? 'need_answer' : 'idle', busy: false, turnActive: false };
       store.pendingPermission = null;
       store.waitedSeconds = 0;
       actions.refreshTasks();
       actions.loadCheckpoints();
       actions.refreshPlan();
+      actions.refreshSessions();
       break;
     }
 

@@ -42,14 +42,28 @@ async function interruptAndUnlock() {
           <span class="app__guardt">{{
             store.guardMode === 'background_running'
               ? '后台任务仍在运行，停止任务后才能切换工作区或恢复会话'
-              : '当前会话有任务运行中，中断或完成后再切换'
+              : `执行会话 ${store.activeSessionId || '（状态同步中）'} 有任务运行中；历史预览保持只读`
           }}</span>
-          <button v-if="store.guardMode !== 'background_running'" class="app__guardstop" @click="interruptAndUnlock">■ 中断当前任务</button>
-          <button v-else class="app__guardstop" @click="store.busyGuard = false; store.drawerOpen = true">⚙ 查看后台任务</button>
+          <button v-if="store.guardMode !== 'background_running' && store.runtime.turnActive" class="app__guardstop" @click="interruptAndUnlock">■ 中断当前执行任务</button>
+          <button v-else-if="store.guardMode === 'background_running'" class="app__guardstop" @click="store.busyGuard = false; store.drawerOpen = true">⚙ 查看后台任务</button>
           <button class="app__guardx" aria-label="关闭提示" @click="store.busyGuard = false">✕</button>
         </div>
 
-        <PlanDecisionCard v-if="store.planState" />
+        <div v-if="getters.historyPreview" class="app__preview">
+          <div class="app__previewtext">
+            <strong>只读历史预览</strong>
+            <span class="mono">{{ store.viewedSessionId }}</span>
+            <span>浏览不会切换工作区，也不会影响当前任务。</span>
+          </div>
+          <button v-if="store.activeSessionId" class="app__previewback" @click="actions.returnToActive()">
+            ← 返回{{ store.runtime.turnActive ? '正在执行的任务' : '当前执行会话' }}
+          </button>
+          <button class="app__previewresume" :disabled="store.switching" @click="actions.resumeViewedSession()">
+            {{ store.switching ? '恢复中…' : '恢复并继续' }}
+          </button>
+        </div>
+
+        <PlanDecisionCard v-if="store.planState && getters.viewingActive" />
         <div class="app__chat">
           <div class="app__scroll">
             <EmptyState v-if="store.emptyMode" />
@@ -126,6 +140,55 @@ async function interruptAndUnlock() {
 }
 .app__guardx:hover {
   color: var(--g700);
+}
+.app__preview {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 20px;
+  border-bottom: 1px solid var(--blue100);
+  background: var(--blue50);
+  color: var(--g600);
+  font-size: 12px;
+  flex-shrink: 0;
+}
+.app__previewtext {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+.app__previewtext strong {
+  color: var(--blue700);
+  white-space: nowrap;
+}
+.app__previewtext .mono {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--g500);
+}
+.app__previewback,
+.app__previewresume {
+  border: 1px solid var(--blue200);
+  border-radius: var(--radius-sm);
+  padding: 4px 9px;
+  color: var(--blue700);
+  background: #fff;
+  white-space: nowrap;
+}
+.app__previewresume {
+  color: var(--g600);
+  border-color: var(--g200);
+}
+.app__previewback:hover,
+.app__previewresume:hover {
+  border-color: var(--blue400);
+}
+.app__previewresume:disabled {
+  opacity: 0.5;
 }
 .app__chat {
   flex: 1;

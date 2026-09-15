@@ -33,6 +33,11 @@ var apiHistoryIndexes = struct {
 // Index record positions once per file version; never retain all message bodies.
 // Existing malformed/oversize files stay explicit errors, never silently repaired.
 func indexAPIHistory(path string) (*apiHistoryIndex, error) {
+	journalIOMu.RLock()
+	defer journalIOMu.RUnlock()
+	return indexAPIHistoryUnlocked(path)
+}
+func indexAPIHistoryUnlocked(path string) (*apiHistoryIndex, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
@@ -131,7 +136,9 @@ func apiReadSpan(f *os.File, span apiMessageSpan) (json.RawMessage, error) {
 	return b, err
 }
 func apiPagedMessages(path string, offset, limit int) ([]json.RawMessage, int, error) {
-	idx, err := indexAPIHistory(path)
+	journalIOMu.RLock()
+	defer journalIOMu.RUnlock()
+	idx, err := indexAPIHistoryUnlocked(path)
 	if err != nil {
 		return nil, 0, err
 	}

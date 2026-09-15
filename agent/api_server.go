@@ -24,22 +24,30 @@ import (
 )
 
 type apiServer struct {
-	mu            sync.Mutex
-	cfg           *config
-	reg           *Registry
-	messages      []openai.ChatCompletionMessage
-	busy          bool
-	waitingAnswer bool
-	selected      string
-	token         string
-	listener      net.Listener
-	server        *http.Server
-	streamMu      sync.Mutex
-	subscribers   map[chan []byte]struct{}
-	confirmMu     sync.Mutex
-	confirmID     string
-	confirmAnswer chan string
-	nextConfirm   uint64
+	mu               sync.Mutex
+	cfg              *config
+	reg              *Registry
+	messages         []openai.ChatCompletionMessage
+	busy             bool
+	waitingAnswer    bool
+	selected         string
+	token            string
+	listener         net.Listener
+	server           *http.Server
+	streamMu         sync.Mutex
+	subscribers      map[chan []byte]struct{}
+	confirmMu        sync.Mutex
+	confirmID        string
+	confirmAnswer    chan string
+	nextConfirm      uint64
+	streamID         string
+	streamSession    string
+	eventSeq         uint64
+	replay           [][]byte
+	replayBytes      int
+	turnActive       bool
+	turnHistoryCount int
+	turnStartCursor  uint64
 }
 
 func newAPIServer(cfg *config) (*apiServer, error) {
@@ -47,11 +55,15 @@ func newAPIServer(cfg *config) (*apiServer, error) {
 	if _, err := rand.Read(secret[:]); err != nil {
 		return nil, err
 	}
+	streamID, err := newMessageUUID()
+	if err != nil {
+		return nil, err
+	}
 	listener, err := net.Listen("tcp4", "0.0.0.0:0")
 	if err != nil {
 		return nil, err
 	}
-	a := &apiServer{cfg: cfg, token: hex.EncodeToString(secret[:]), listener: listener, subscribers: map[chan []byte]struct{}{}}
+	a := &apiServer{cfg: cfg, token: hex.EncodeToString(secret[:]), streamID: streamID, listener: listener, subscribers: map[chan []byte]struct{}{}}
 	a.server = &http.Server{Handler: a}
 	return a, nil
 }
@@ -80,18 +92,39 @@ func (a *apiServer) Close() {
 }
 
 func (a *apiServer) publish(event runtimeEvent) {
-	b, err := json.Marshal(event)
+	a.streamMu.Lock()
+	defer a.streamMu.Unlock()
+	if event.Type == "session_init" {
+		raw, _ := json.Marshal(event.Data)
+		var init struct {
+			SessionID string `json:"sessionId"`
+		}
+		if json.Unmarshal(raw, &init) == nil {
+			a.streamSession = init.SessionID
+		}
+	}
+	a.eventSeq++
+	b, err := json.Marshal(struct {
+		Type      string      `json:"type"`
+		Data      interface{} `json:"data"`
+		SessionID string      `json:"sessionId"`
+		StreamID  string      `json:"streamId"`
+		Seq       uint64      `json:"seq"`
+	}{event.Type, event.Data, a.streamSession, a.streamID, a.eventSeq})
 	if err != nil {
 		panic(err)
 	}
-	a.streamMu.Lock()
-	defer a.streamMu.Unlock()
+	a.replay = append(a.replay, b)
+	a.replayBytes += len(b)
+	for len(a.replay) > 2048 || a.replayBytes > 4*1024*1024 {
+		a.replayBytes -= len(a.replay[0])
+		a.replay[0] = nil
+		a.replay = a.replay[1:]
+	}
 	for ch := range a.subscribers {
 		select {
 		case ch <- b:
 		default:
-			// A disconnected/slow consumer is closed visibly, never silently fed an
-			// incomplete stream. There is no replay queue or execution retry.
 			close(ch)
 			delete(a.subscribers, ch)
 		}
@@ -190,6 +223,8 @@ func (a *apiServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	switch r.Method + " " + r.URL.Path {
+	case "GET /api/runtime":
+		a.runtimeView(w, r)
 	case "GET /api/plan":
 		a.planView(w, r)
 	case "POST /api/plan/exit":
@@ -246,6 +281,12 @@ func (a *apiServer) events(w http.ResponseWriter, r *http.Request) {
 	}
 	ch := make(chan []byte, 256)
 	a.streamMu.Lock()
+	replay, err := a.replayAfter(r)
+	if err != nil {
+		a.streamMu.Unlock()
+		apiError(w, 409, "event_cursor_expired", err.Error())
+		return
+	}
 	a.subscribers[ch] = struct{}{}
 	a.streamMu.Unlock()
 	defer func() {
@@ -260,6 +301,11 @@ func (a *apiServer) events(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(200)
 	flusher.Flush()
+	for _, b := range replay {
+		if !writeAPIEvent(w, flusher, b) {
+			return
+		}
+	}
 	for {
 		select {
 		case <-r.Context().Done():
@@ -268,14 +314,9 @@ func (a *apiServer) events(w http.ResponseWriter, r *http.Request) {
 			if !ok {
 				return
 			}
-			var envelope runtimeEvent
-			if err := json.Unmarshal(b, &envelope); err != nil {
+			if !writeAPIEvent(w, flusher, b) {
 				return
 			}
-			if _, err := fmt.Fprintf(w, "event: %s\ndata: %s\n\n", envelope.Type, b); err != nil {
-				return
-			}
-			flusher.Flush()
 		}
 	}
 }

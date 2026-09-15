@@ -464,5 +464,37 @@
       "decision-full-final-summary.log": "f1951aeb9f98341d9b38988aa6a144582d9362f437aadca69b508ff10dc46967",
       "decision-h2-isolated-summary.log": "5c16af2730cbe79adf99779c9fe31c784c4632a6cfe2d5f036917ae1ce551c15"
     }
+  },
+  "session_reconnect": {
+    "build": "reconnect-build.json",
+    "binaries": {
+      "reconnect-final.exe": "fc3edc73aedc0f969ca824a84df4a67b3823a1f02895d5e21caf601e2962272d",
+      "reconnect-final.test.exe": "8a22764bbbfc28ccf50818347422c285eb424ed11ca0d51cea17e370540516a7",
+      "reconnect.exe": "29fb4bbcf4cb803a232f35cf16e99be9782010685aee3968ba460c536408189f",
+      "reconnect.test.exe": "9643714f83b6fe69a4680a1bf7b7bb60587c31cbabf2359d6c1739ee5f5d226f"
+    },
+    "evidence": {
+      "reconnect-build.json": "d54ab794a93a134780d2b623a5263f5a2389cfc25f270a1583cf8350149f73c7",
+      "reconnect-source.zip": "20bfd56c3789cb8282abbcde8fde55cc1c29ef2881f926ae932d6e991f9e73db",
+      "reconnect-focused.log": "62616def86137b3153eb16b6c881a901e07c3099496d65b9d57b23e2c01d04e8",
+      "reconnect-full.log": "8b64b9a0f843beca10677c14934fdccbcbd00daad22b3f11dba78ccc37475e88",
+      "reconnect-full-final.log": "b5277d04c0d84fe13fa7a8fcaca664cb915014b21f3987f97f81be165a2b6473",
+      "reconnect-runtime.log": "c02782f1eaf2e5406b10a10af98e28b2ba133119728b91342e53f98e786f3d07",
+      "reconnect-runtime-final.log": "3b9645411267fe2bbeac63294ba8da2e421a7b65ada026a94cdb2cb962165d5f",
+      "reconnect-captured/index.json": "255c2c5da1cb6ca1cd27f91a444193c60dfe55aafdb670d663fd5d01a95f0edb"
+    },
+    "first_full": {
+      "passed": 195,
+      "failed": [
+        "TestAPISSESameEnvelopeAndListenerRelease"
+      ],
+      "exit": 1
+    },
+    "final_full": {
+      "passed": 196,
+      "failed": [],
+      "exit": 0
+    },
+    "http": "reconnect-runtime-final.log"
   }
 }

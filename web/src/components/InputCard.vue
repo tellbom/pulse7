@@ -29,13 +29,16 @@ const attachment = ref(null); // { name, sizeText, ext, content }
 const ta = ref(null);
 const modelOpen = ref(false);
 
-const busy = computed(() => getters.busy || store.switching);
-const needAnswer = computed(() => store.phase === 'need_answer');
+const historyPreview = computed(() => getters.historyPreview);
+const needAnswer = computed(() => getters.viewingActive && store.phase === 'need_answer');
+const busy = computed(() => getters.busy || store.switching || store.connectionState !== 'connected' || historyPreview.value);
 const ctxLevel = computed(() => getters.contextLevel);
 const barCls = computed(() => ({ normal: 'ic__bar--n', warning: 'ic__bar--w', critical: 'ic__bar--c' })[ctxLevel.value]);
 const ctxCls = computed(() => ({ normal: 'ic__ctx--n', warning: 'ic__ctx--w', critical: 'ic__ctx--c' })[ctxLevel.value]);
 const placeholder = computed(() => {
-  if (busy.value) return '任务进行中，中断后可继续输入…';
+  if (historyPreview.value) return '当前为只读历史预览；返回当前任务或“恢复并继续”后可输入…';
+  if (store.connectionState !== 'connected') return '事件流正在重新同步，暂不可发送…';
+  if (getters.busy || store.switching) return '任务进行中，中断后可继续输入…';
   if (needAnswer.value) return '输入回答，Enter 发送…';
   return '输入任务，或 @ 引用文件…';
 });
@@ -113,12 +116,26 @@ function moreHint() {
 
       <div v-if="busy || needAnswer" class="ic__busy">
         <div class="ic__busyl">
-          <span class="ic__busydot pulse-dot" :class="needAnswer ? 'ic__busydot--ans' : ''" />
+          <span v-if="!historyPreview" class="ic__busydot pulse-dot" :class="needAnswer ? 'ic__busydot--ans' : ''" />
           <span class="ic__busyt">
-            {{ needAnswer ? '模型在等待你的回答' : store.phase === 'streaming' ? '模型输出中' : store.phase === 'tool_running' ? '工具执行中' : '等待模型响应' }}<span v-if="busyElapsed" class="mono ic__elapsed">{{ busyElapsed }}</span>
+            {{
+              historyPreview
+                ? '只读历史预览，输入、回答和计划操作已禁用'
+                : store.connectionState !== 'connected'
+                  ? '事件流正在重新同步'
+                  : store.runtime.busy && !store.runtime.turnActive
+                    ? '本地操作进行中，暂不可发送或切换'
+                  : needAnswer
+                    ? '模型在等待你的回答'
+                    : store.phase === 'streaming'
+                      ? '模型输出中'
+                      : store.phase === 'tool_running'
+                        ? '工具执行中'
+                        : '等待模型响应'
+            }}<span v-if="busyElapsed && !historyPreview" class="mono ic__elapsed">{{ busyElapsed }}</span>
           </span>
         </div>
-        <button v-if="busy" class="ic__stop" @click="actions.interrupt()">■ 中断</button>
+        <button v-if="getters.viewingActive && store.runtime.turnActive" class="ic__stop" @click="actions.interrupt()">■ 中断当前执行任务</button>
       </div>
 
       <div v-if="attachment" class="ic__att">
@@ -142,7 +159,7 @@ function moreHint() {
 
       <div class="ic__tools">
         <div class="ic__model">
-          <button class="ic__modelbtn" @click="modelOpen = !modelOpen">
+          <button class="ic__modelbtn" :disabled="historyPreview" @click="modelOpen = !modelOpen">
             <span class="ic__modeldot" />
             {{ store.config.model || '（未配置模型）' }}
             <span class="ic__modelcaret">▾</span>

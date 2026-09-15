@@ -79,9 +79,18 @@ const dirtyCount = computed(() => {
 
     <div class="tb-right">
       <div class="tb-conn mono">
-        <span class="tb-conn__dot" :class="store.connected ? 'tb-conn__dot--on' : 'tb-conn__dot--off'" />
-        <span :class="store.connected ? 'tb-conn__ok' : 'tb-conn__bad'">
-          {{ store.connected ? `${store.listener.address}${store.listener.port ? ':' + store.listener.port : ''} · 已连接` : '事件流已断开' }}
+        <span
+          class="tb-conn__dot"
+          :class="store.connectionState === 'connected' ? 'tb-conn__dot--on' : store.connectionState === 'syncing' ? 'tb-conn__dot--wait' : 'tb-conn__dot--off'"
+        />
+        <span :class="store.connectionState === 'connected' ? 'tb-conn__ok' : store.connectionState === 'syncing' ? 'tb-conn__wait' : 'tb-conn__bad'">
+          {{
+            store.connectionState === 'connected'
+              ? `${store.listener.address}${store.listener.port ? ':' + store.listener.port : ''} · 已连接`
+              : store.connectionState === 'syncing'
+                ? '正在同步事件流'
+                : '事件流已断开'
+          }}
         </span>
       </div>
       <div class="tb-sep" />
@@ -280,11 +289,17 @@ const dirtyCount = computed(() => {
 .tb-conn__dot--off {
   background: var(--red400);
 }
+.tb-conn__dot--wait {
+  background: var(--amber400);
+}
 .tb-conn__ok {
   color: var(--bar-fg-dim);
 }
 .tb-conn__bad {
   color: var(--red400);
+}
+.tb-conn__wait {
+  color: var(--amber500);
 }
 .tb-sep {
   width: 1px;
