@@ -13,6 +13,7 @@ import TaskDrawer from './components/TaskDrawer.vue';
 import SettingsDialog from './components/SettingsDialog.vue';
 import FirstRunWizard from './components/FirstRunWizard.vue';
 import RollbackDialog from './components/RollbackDialog.vue';
+import PlanDecisionCard from './components/PlanDecisionCard.vue';
 
 onMounted(() => {
   actions.boot();
@@ -48,6 +49,7 @@ async function interruptAndUnlock() {
           <button class="app__guardx" aria-label="关闭提示" @click="store.busyGuard = false">✕</button>
         </div>
 
+        <PlanDecisionCard v-if="store.planState" />
         <div class="app__chat">
           <div class="app__scroll">
             <EmptyState v-if="store.emptyMode" />

@@ -258,6 +258,12 @@ func toolOutcomeFor(call openai.ToolCall, result string) *toolOutcome {
 	if strings.HasPrefix(result, "error: hard_link_impact_unknown:") {
 		code = "hard_link_impact_unknown"
 	}
+	if strings.HasPrefix(result, "error: plan_mode:") {
+		code = "plan_mode"
+	}
+	if strings.HasPrefix(result, "error: plan_mode_state:") {
+		code = "plan_mode_state"
+	}
 	return &toolOutcome{OK: !failed, Summary: summary, ErrorCode: code}
 }
 

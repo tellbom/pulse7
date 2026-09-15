@@ -190,6 +190,10 @@ func (a *apiServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	switch r.Method + " " + r.URL.Path {
+	case "GET /api/plan":
+		a.planView(w, r)
+	case "POST /api/plan/exit":
+		a.exitPlan(w, r)
 	case "GET /api/listener":
 		apiJSON(w, 200, map[string]interface{}{"address": a.listener.Addr().(*net.TCPAddr).IP.String(), "port": a.listener.Addr().(*net.TCPAddr).Port, "listening": true, "tokenValid": a.token != ""})
 	case "GET /api/config":
@@ -202,6 +206,8 @@ func (a *apiServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		a.sessions(w, r)
 	case "POST /api/sessions/resume":
 		a.resume(w, r)
+	case "POST /api/sessions/new":
+		a.newSession(w, r)
 	case "PUT /api/workspace":
 		a.workspace(w, r)
 	case "POST /api/turns", "POST /api/answer":

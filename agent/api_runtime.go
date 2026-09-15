@@ -35,6 +35,25 @@ func (a *apiServer) closeSession() {
 	curRegistry = nil
 	curRunner = nil
 }
+
+// POST /api/sessions/new —— 真正关闭当前会话：下一条消息创建新 sessionId。
+// 前端新建会话必须先调用本接口，成功后才清屏；失败保留页面（session-new-context 诊断）。
+func (a *apiServer) newSession(w http.ResponseWriter, r *http.Request) {
+	if !a.idle(w) {
+		return
+	}
+	if a.hasRunningTasks() {
+		apiError(w, 409, "background_running", "stop background tasks before changing session")
+		return
+	}
+	a.closeSession()
+	a.cfg.sessionPath = ""
+	a.cfg.migrateResumeWorkspace = false
+	a.selected = ""
+	a.waitingAnswer = false
+	apiJSON(w, 200, map[string]interface{}{"ok": true})
+}
+
 func (a *apiServer) resume(w http.ResponseWriter, r *http.Request) {
 	if !a.idle(w) {
 		return
@@ -193,9 +212,10 @@ func (a *apiServer) startTurn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var input struct {
-		Prompt    string `json:"prompt"`
-		Answer    string `json:"answer"`
-		SessionID string `json:"sessionId"`
+		Prompt     string `json:"prompt"`
+		Answer     string `json:"answer"`
+		DecisionID string `json:"decisionId"`
+		SessionID  string `json:"sessionId"`
 	}
 	if err := decodeAPIJSON(r.Body, &input); err != nil {
 		apiBad(w, err)
@@ -217,10 +237,31 @@ func (a *apiServer) startTurn(w http.ResponseWriter, r *http.Request) {
 		apiError(w, 500, "session_error", a.safeError(err))
 		return
 	}
+	pending, err := a.reg.pendingPlanningDecision()
+	if err != nil {
+		apiError(w, 500, "plan_mode_state", a.safeError(err))
+		return
+	}
+	if pending != nil || input.DecisionID != "" {
+		if r.URL.Path != "/api/answer" {
+			apiError(w, 409, "plan_decision_pending", "reply using /api/answer with sessionId and decisionId")
+			return
+		}
+		if err := a.reg.validateDecisionAnswer(input.DecisionID); err != nil {
+			apiError(w, 409, "decision_mismatch", err.Error())
+			return
+		}
+	}
 	resetInterrupt()
 	if err := pushMsg(&a.messages, openai.ChatCompletionMessage{Role: "user", Content: prompt}); err != nil {
 		apiError(w, 500, "storage_error", a.safeError(err))
 		return
+	}
+	if input.DecisionID != "" {
+		if err := a.reg.recordDecisionAnswer(input.DecisionID, sess.lastUUID, prompt); err != nil {
+			apiError(w, 500, "storage_error", a.safeError(err))
+			return
+		}
 	}
 	a.busy = true
 	a.waitingAnswer = false
@@ -256,6 +297,9 @@ func (a *apiServer) runTurn() {
 			turnErr = e
 			status = "error"
 		}
+	} else if errors.Is(err, errPlanningDecision) {
+		status = "need_answer"
+		turnErr = nil
 	} else if errors.Is(err, errMaxRounds) {
 		status = "max_rounds"
 	} else if err != nil {

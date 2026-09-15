@@ -192,3 +192,23 @@ compaction.method 新增 micro，表示纯本地工具结果投影，不是模�
 按用户裁决，serve 默认绑定 tcp4 / 0.0.0.0:0，保留随机端口和每进程 token。GET /api/listener.address 返回实际绑定地址 0.0.0.0。本机通过 127.0.0.1、远端通过服务器实际 IPv4 地址访问，0.0.0.0 是绑定地址而不是客户端目标。
 
 现有页面自动注入 token、没有独立登录门槛的行为保留。因此能访问该端口页面的客户端可取得 API 操作权限，不能把 Bearer 校验宣称为远程用户隔离。程序不修改防火墙，不添加 TLS 或新认证机制。此项用户裁决覆盖前文仅回环监听限制。
+
+
+## 2026-09-14 修正令增补：可选计划工具与历史页回拉
+
+本项后端候选已在 Win7 amd64 完成专项、全量及 HTTP/SSE 模拟端点验证；真实模型效果与 GUI 操作仍未验证，详见 `plan-recall-report.md`。
+
+- 新增模型工具 `enter_plan_mode({"plan_path":"PLAN.md"})`（路径可省略）及 `exit_plan_mode({})`。默认不进入；用户可在消息中要求模型调用。未新增 HTTP 端点或直接用户开关。
+- 计划模式中 write/edit 仅可修改指定文件，shell/rollback 不可用；专用读取工具不受阶段限制。已有进程不被终止；这是工具层约束而非 OS 沙盒。退出确认计划文件已存在，不判断内容质量，不新增人工审批，不解除全局只读。
+- 阶段拒绝的 `tool_result.errorCode` / 历史 `toolOutcome.errorCode` 为 `plan_mode`；模式记录损坏为 `plan_mode_state`。沿用现有失败展示，不应显示为一般成功，也不要把它描述为账号权限不足。
+- 本轮未新增模式状态查询接口。前端可展示工具结果；历史中一次成功 enter 不能作为“当前仍在计划模式”的依据。
+- `read` 的 `content_ref` 与 `path`/行 `offset`/行 `limit` 互斥，显式传 0 也拒绝。ref 模式使用 `byte_offset`/`byte_limit`，默认 32768、最大 262144 字节。使用返回的 `next_byte_offset` 继续。
+- micro 占位符和历史恢复索引新增可空 `recall_page`，包含 `byte_offset`、`byte_limit`、`next_byte_offset`。存在时与同条的原始 `content_ref` 一起使用，不对快照当前性作保证。
+- 新增审计事件 `read_observation`，不是新增 SSE 事件；用于离线重复读取对账。无前端代码变更要求。
+
+
+## 2026-09-15：计划问题与用户退出增量
+
+新增工具 ask_planning_decision、SSE planning_decision、GET /api/plan、POST /api/plan/exit。POST /api/answer 为计划问题新增 decisionId，必须与 sessionId 及持久化待答问题同时匹配。收到回复不等于批准或解决；问题后暂停本轮，返回 need_answer，同批未执行工具仍回填失败消息。用户退出不会启动模型请求或关闭全局只读，沿用计划文件存在与路径校验。
+
+完整请求、状态、错误和恢复/前端接入要求见 [plan-decision-frontend-handoff.md](plan-decision-frontend-handoff.md)。运行时事实附件按请求重新生成，不改写用户原文，不依赖摘要保存阶段状态。既有本地估算阈值、压缩顺序、轮数预算与 usage 无依赖规则保持不变。

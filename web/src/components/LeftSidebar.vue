@@ -157,7 +157,7 @@ function select(s) {
   width: 252px;
   flex-shrink: 0;
   border-right: 1px solid var(--bar-line);
-  /* Manus 实测：浅灰侧栏 */
+  /* 侧栏与顶栏同色 #F8F8F7 */
   background: var(--side-bg);
   display: flex;
   flex-direction: column;
@@ -270,10 +270,10 @@ function select(s) {
   color: var(--g900);
 }
 .sb-item--cur {
-  background: var(--g100);
-  color: var(--g900);
-  font-weight: 500;
-  box-shadow: inset 3px 0 0 var(--accent);
+  background: transparent;
+  color: var(--ink);
+  font-weight: 600;
+  box-shadow: inset 3px 0 0 #17171c;
 }
 .sb-item__txt {
   flex: 1;
@@ -285,7 +285,10 @@ function select(s) {
 }
 .sb-item__cur {
   font-size: 10px;
-  color: var(--ink);
+  color: #ffffff;
+  background: #17171c;
+  border-radius: 999px;
+  padding: 1px 7px;
   font-weight: 600;
   font-weight: 500;
   flex-shrink: 0;

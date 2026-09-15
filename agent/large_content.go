@@ -370,6 +370,9 @@ func (r *Registry) readContentRef(ref string, offset *int64, limit int) (string,
 	if err != nil {
 		return "", err
 	}
+	if err := r.observeRead("lc1", ref, ref, start, next, text); err != nil {
+		return "", fmt.Errorf("read observation persistence failed: %w", err)
+	}
 	return fmt.Sprintf("[content_ref=%s byte_offset=%d next_byte_offset=%d total_bytes=%d complete=%v; UTF-8 bytes]\n%s", ref, start, next, total, next == total, text), nil
 }
 

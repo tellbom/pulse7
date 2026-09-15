@@ -51,6 +51,8 @@ export const store = reactive({
   turnCommands: [],
   turnOutsideWrites: [],
   turnBgProcesses: [],
+  // 计划模式：{active,path,decision?}——decision={id,question,awaitingReply,replyUuid?,replyPreview?,cancelled?}
+  planState: null,
 
   // 常驻状态
   context: { usedTokens: 0, budget: 0, percentLeft: 100, warningLevel: 'normal' },
@@ -151,6 +153,7 @@ export const actions = {
       ElMessage.error('初始化失败：' + e.message);
     }
     actions.connectStream();
+    actions.refreshPlan();
     if (!store.config.base_url || !store.config.model) store.wizardOpen = true;
   },
 
@@ -245,7 +248,13 @@ export const actions = {
       store.phase = 'waiting_first';
       actions.pushWaiting('waiting_first');
     } catch (e) {
-      ElMessage.error(e.message);
+      if (e.code === 'plan_decision_pending') {
+        // 存在待答计划问题：普通输入不猜成回答，提示用关联入口
+        await actions.refreshPlan();
+        ElMessage.warning('模型在等待计划问题的回复，请在问题卡片中作答');
+      } else {
+        ElMessage.error(e.message);
+      }
     }
   },
 
@@ -347,7 +356,7 @@ export const actions = {
       store.workspace = r.cwd || store.workspace;
       store.emptyMode = false;
       await actions.loadHistory();
-      await Promise.all([actions.loadCheckpoints(), actions.refreshTasks()]);
+      await Promise.all([actions.loadCheckpoints(), actions.refreshTasks(), actions.refreshPlan()]);
       ElMessage.success('会话已恢复，历史已载入');
     } catch (e) {
       if (gen !== switchGen) return;
@@ -365,7 +374,7 @@ export const actions = {
           store.workspace = r.cwd || cwd;
           store.emptyMode = false;
           await actions.loadHistory();
-          await Promise.all([actions.loadCheckpoints(), actions.refreshTasks()]);
+          await Promise.all([actions.loadCheckpoints(), actions.refreshTasks(), actions.refreshPlan()]);
           ElMessage.success('已切回原工作区并恢复会话');
           return;
         } catch (e2) {
@@ -399,8 +408,73 @@ export const actions = {
     }
   },
 
-  newSession() {
-    resetSessionState();
+  // 新建会话：先通知后端真正关闭当前会话（创建新 sessionId 的前提），成功后才清屏。
+  async newSession() {
+    if (store.switching) return;
+    try {
+      await actions.call('POST', '/api/sessions/new', {});
+      resetSessionState();
+    } catch (e) {
+      if (e.status === 409) {
+        store.guardMode = e.code === 'background_running' ? 'background_running' : 'busy';
+        store.busyGuard = true;
+        ElMessage.warning(e.code === 'background_running' ? '后台任务运行中，先停止任务再新建' : '当前任务运行中，中断或完成后再新建');
+      } else {
+        ElMessage.error('新建会话失败：' + e.message);
+      }
+    }
+  },
+
+  // ─── 计划模式（plan-decision-frontend-handoff） ───
+  async refreshPlan() {
+    try {
+      const r = await actions.call('GET', '/api/plan');
+      if (r && (r.sessionId === store.sessionId || !store.sessionId)) {
+        store.planState = r.state || null;
+        if (r.sessionId) store.sessionId = store.sessionId || r.sessionId;
+      }
+    } catch (e) {
+      /* 运行中 409：沿用已有状态与事件，不覆盖 */
+    }
+  },
+
+  // 回复计划问题：必须带 decisionId 关联；成功后等 SSE 渲染下一轮，不乐观清问题
+  async answerPlanningDecision(answer) {
+    const d = store.planState && store.planState.decision;
+    if (!d || !d.awaitingReply) {
+      ElMessage.warning('没有等待中的计划问题');
+      return { ok: false, draft: answer };
+    }
+    try {
+      await actions.call('POST', '/api/answer', { sessionId: store.sessionId, decisionId: d.id, answer });
+      store.phase = 'streaming';
+      return { ok: true };
+    } catch (e) {
+      if (e.code === 'decision_mismatch' || e.code === 'session_mismatch') {
+        await actions.refreshPlan();
+        ElMessage.warning('该问题已不再等待回复，状态已刷新');
+      } else {
+        ElMessage.error('回复失败：' + e.message + '（草稿已保留）');
+      }
+      return { ok: false, draft: answer };
+    }
+  },
+
+  // 用户直接退出计划模式：只解除阶段限制与待答问题，不批准计划、不代判
+  async exitPlanMode() {
+    try {
+      await actions.call('POST', '/api/plan/exit', { sessionId: store.sessionId });
+      await actions.refreshPlan();
+      ElMessage.success('已退出计划模式（不改变计划文件内容）');
+    } catch (e) {
+      if (e.code === 'plan_mode') {
+        ElMessage.warning('退出未生效：' + e.message);
+      } else if (e.status === 409) {
+        ElMessage.warning('任务运行中，请先中断本轮再退出计划模式');
+      } else {
+        ElMessage.error(e.message);
+      }
+    }
   },
 
   // ─── 后台任务 ───
@@ -605,6 +679,8 @@ function consumeEvent(evt) {
 
     case 'tool_call': {
       store.phase = 'tool_running';
+      // API 直发/外部下发时页面可能仍停在空态：首个工具事件自动进入会话视图
+      if (store.emptyMode) store.emptyMode = false;
       removeWhere((x) => x.type === 'waiting');
       const item = {
         type: 'tool',
@@ -673,6 +749,22 @@ function consumeEvent(evt) {
         discardedToolCallIds: d.discardedToolCallIds || []
       });
       break;
+
+    case 'planning_decision': {
+      // 模型的计划问题：按 sessionId 隔离，展示完整问题原文；不推断
+      if (d.sessionId === store.sessionId || !store.sessionId) {
+        store.planState = store.planState || {};
+        store.planState = { ...(store.planState||{}), active: true, decision: d.decision };
+        store.phase = 'need_answer';
+        removeWhere((x) => x.type === 'waiting');
+      }
+      break;
+    }
+
+    case 'plan_state': {
+      if (d.sessionId === store.sessionId || !store.sessionId) store.planState = d.state || null;
+      break;
+    }
 
     case 'skill_loaded':
       if (!store.skillsUsed.includes(d.name)) store.skillsUsed.push(d.name);
@@ -756,6 +848,7 @@ function consumeEvent(evt) {
       store.waitedSeconds = 0;
       actions.refreshTasks();
       actions.loadCheckpoints();
+      actions.refreshPlan();
       break;
     }
 

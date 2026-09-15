@@ -60,13 +60,13 @@ const procAct = computed(() => {
   <div v-else-if="it.type === 'compaction'" class="ir-cp">
     <button class="ir-cp__row" @click="cpOpen = !cpOpen">
       <span class="ir-cp__ico">◇</span>
-      <span class="ir-cp__t">{{ it.method === 'truncate' ? '上下文截断' : '上下文压缩' }}{{ it.emergency ? '（紧急）' : '' }}</span>
+      <span class="ir-cp__t">{{ it.method === 'micro' ? '本地微压缩' : it.method === 'truncate' ? '上下文截断' : '上下文压缩' }}{{ it.emergency ? '（紧急）' : '' }}</span>
       <span class="mono ir-cp__num">{{ it.beforeTokens?.toLocaleString() }} → {{ it.afterTokens?.toLocaleString() }} token</span>
       <span v-if="it.method === 'truncate' && it.discardedBytes" class="ir-cp__disc">丢弃 {{ formatBytes(it.discardedBytes) }}</span>
       <span class="ir-cp__caret">{{ cpOpen ? '▲' : '▼' }}</span>
     </button>
     <div v-if="cpOpen" class="ir-cp__detail">
-      <div>部分历史消息已从上下文移除，已丢弃内容无法恢复。token 数为估算值（序列化字节 ÷4）。</div>
+      <div>{{ it.method === 'micro' ? '旧工具结果已外置保存（lc1 引用可按需取回），近期结果与调用结构保留在上下文中。' : '部分历史消息已从上下文移除；已外置内容可经引用取回，未外置部分不可恢复。' }}token 数为估算值（序列化字节 ÷4）。</div>
       <div v-if="it.summary" class="mono ir-cp__summary">{{ it.summary }}</div>
       <div v-if="it.discardedToolCallIds && it.discardedToolCallIds.length" class="ir-cp__ids">
         丢弃的工具调用：<span class="mono">{{ it.discardedToolCallIds.join('、') }}</span>

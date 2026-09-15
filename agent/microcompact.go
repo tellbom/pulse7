@@ -92,13 +92,7 @@ func microCompact(original []openai.ChatCompletionMessage, keep int) ([]openai.C
 			out("[micro 跳过：无法读取历史结果 id=%s]\n", m.ToolCallID)
 			continue
 		}
-		ref := record.LargeContent["content"]
-		var err error
-		if ref == "" {
-			ref, err = compactAttachment(record.Content)
-		} else {
-			_, _, err = verifyLargeContent(sess.path, ref)
-		}
+		ref, page, err := compactResultReference(record, c)
 		if err != nil {
 			out("[micro 跳过：原文保存或校验失败 id=%s]\n", m.ToolCallID)
 			continue
@@ -114,8 +108,8 @@ func microCompact(original []openai.ChatCompletionMessage, keep int) ([]openai.C
 				}
 			}
 		}
-		facts, _ := json.Marshal(map[string]interface{}{"tool": c.Function.Name, "tool_call_id": m.ToolCallID, "arguments": location, "toolOutcome": record.ToolOutcome, "content_ref": ref})
-		placeholder := microMarker + "\n" + string(facts) + "\n需要核实历史输出时可用 read(content_ref) 分页读取；检查文件当前内容时可按路径分页读取。"
+		facts, _ := json.Marshal(map[string]interface{}{"tool": c.Function.Name, "tool_call_id": m.ToolCallID, "arguments": location, "toolOutcome": record.ToolOutcome, "content_ref": ref, "recall_page": page})
+		placeholder := microMarker + "\n" + string(facts) + "\n这是历史输出，不表示当前文件内容或任务完成。回拉示例：read({\"content_ref\":\"" + ref + "\",\"byte_offset\":0,\"byte_limit\":32768})；若有 recall_page，优先使用该页的 byte_offset/byte_limit；下一页使用返回的 next_byte_offset。按路径 read 检查当前文件。"
 		if len(placeholder) >= len(m.Content) {
 			continue
 		}
@@ -188,19 +182,15 @@ func compactRecoveryIndex(messages []openai.ChatCompletionMessage) (string, erro
 			if !ok {
 				continue
 			}
-			ref := record.LargeContent["content"]
-			if ref == "" {
-				ref, err = compactAttachment(record.Content)
-			} else {
-				_, _, err = verifyLargeContent(sess.path, ref)
-			}
+			c := calls[m.ToolCallID]
+			ref, page, refErr := compactResultReference(record, c)
+			err = refErr
 			if err != nil {
 				return "", err
 			}
-			c := calls[m.ToolCallID]
 			var args map[string]interface{}
 			json.Unmarshal([]byte(c.Function.Arguments), &args)
-			facts := map[string]interface{}{"tool": c.Function.Name, "tool_call_id": m.ToolCallID, "content_ref": ref, "toolOutcome": record.ToolOutcome}
+			facts := map[string]interface{}{"tool": c.Function.Name, "tool_call_id": m.ToolCallID, "content_ref": ref, "toolOutcome": record.ToolOutcome, "recall_page": page}
 			for _, key := range []string{"path", "content_ref", "offset", "limit", "byte_offset", "byte_limit"} {
 				if v, ok := args[key]; ok {
 					encoded, _ := json.Marshal(v)

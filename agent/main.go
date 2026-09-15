@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -612,20 +613,7 @@ func newTaskID() string {
 	return fmt.Sprintf("t%s-%03d", now.Format("0102-150405"), now.Nanosecond()/1e6)
 }
 
-// loadAgentMd reads workspace AGENT.md as project conventions for the system
-// prompt (M4-T3). Hard cap 8KB with an explicit truncation warning.
-// baseSystemPrompt is the always-on behavior prompt (prompt-tune round):
-// vague requirements -> inspect first, then ask the user ONE concrete
-// question instead of inferring scope; write/edit touch only what was asked.
-func baseSystemPrompt() string {
-	return "你是运行在用户工作区里的编程助手。行为准则：\n" +
-		"1. 如果任务描述不明确（范围、目标或验收标准看不清），先用只读工具（read / ls / grep）了解现状，" +
-		"然后向用户提一个具体的问题，等回答后再动手；不要自行推断需求范围。\n" +
-		"2. 只做用户明确要求的改动；没有要求的事情（重构、重命名、移动文件、建目录）即使看起来更好也不要做。\n" +
-		"3. 工具会在首次修改前自动建立 checkpoint；仅在用户明确要求额外快照时手动 checkpoint。最后简要说明改了什么。" +
-		"改动后如需验证，运行程序或测试（例如 python x.py）。" +
-		"不要用 type / more / findstr 等命令回读文件来确认内容——工具返回的 diff 已经是准确的。"
-}
+// loadAgentMd reads workspace AGENT.md with an explicit 8 KiB limit.
 func loadAgentMd(ws string) string {
 	b, err := os.ReadFile(filepath.Join(ws, "AGENT.md"))
 	if err != nil || len(b) == 0 {
@@ -719,6 +707,11 @@ func runExec(cfg *config, prompt string) {
 	var stats turnStats
 	_, err = streamTurn(client, reg, cfg, &msgs, &stats)
 	endSt := taskEndState{rounds: stats.rounds, elapsed: time.Since(taskStart)}
+	if errors.Is(err, errPlanningDecision) {
+		emitTurnResult("need_answer", nil)
+		printTaskEnd(reg, false, taskEndState{status: "need_answer", rounds: stats.rounds})
+		exitWith(2, "AWAIT-USER-ANSWER", err.Error())
+	}
 	if errors.Is(err, errInterrupted) {
 		emitTurnResult("interrupted", err)
 		if finalErr := finalizeInterrupted(&msgs, reg, endSt); finalErr != nil {
@@ -828,7 +821,40 @@ func runRepl(cfg *config) {
 		if readErr != nil {
 			exitWith(1, "INPUT-ERROR", readErr.Error())
 		}
+		planningAnswerID := ""
 		switch {
+		case line == "/plan":
+			state, err := reg.loadPlanMode()
+			if err != nil {
+				outln("ERROR:", err)
+			} else {
+				b, _ := json.Marshal(state)
+				outln(string(b))
+			}
+			continue
+		case line == "/plan-exit":
+			result, err := reg.toolExitPlanMode("{}")
+			if err != nil {
+				outln("ERROR:", err)
+			} else {
+				outln(result)
+				if err := reg.audit("exit_plan_mode", "{}", result); err != nil {
+					outln("ERROR:", err)
+				}
+			}
+			continue
+		case strings.HasPrefix(line, "/plan-answer "):
+			parts := strings.SplitN(strings.TrimPrefix(line, "/plan-answer "), " ", 2)
+			if len(parts) != 2 || strings.TrimSpace(parts[1]) == "" {
+				outln("Usage: /plan-answer <decision-id> <reply>")
+				continue
+			}
+			if err := reg.validateDecisionAnswer(parts[0]); err != nil {
+				outln("ERROR:", err)
+				continue
+			}
+			planningAnswerID = parts[0]
+			line = parts[1]
 		case line == "":
 			continue
 		case line == "/exit" || line == "/quit":
@@ -845,6 +871,7 @@ func runRepl(cfg *config) {
 		case line == "/help":
 			outln("可用命令：")
 			outln("  /help  显示本帮助")
+			outln("  /plan status; /plan-exit leave planning; /plan-answer <decision-id> <reply>")
 			outln("  /list  列出历史会话")
 			outln("  /skills 列出当前可用 skills")
 			outln("  /tasks 列出本会话后台任务")
@@ -878,14 +905,32 @@ func runRepl(cfg *config) {
 			outln("[未知命令 " + line + "——/help 查看可用命令；如需作为任务发送请去掉开头的 /]")
 			continue
 		}
+		if pending, err := reg.pendingPlanningDecision(); err != nil {
+			outln("ERROR:", err)
+			continue
+		} else if pending != nil && planningAnswerID == "" {
+			out("Use /plan-answer %s <reply>, or /plan-exit.\n", pending.ID)
+			continue
+		}
 		resetInterrupt()
 		if err := pushMsg(&msgs, openai.ChatCompletionMessage{Role: openai.ChatMessageRoleUser, Content: line}); err != nil {
 			exitWith(1, "STORAGE-ERROR", err.Error())
+		}
+		if planningAnswerID != "" {
+			if err := reg.recordDecisionAnswer(planningAnswerID, sess.lastUUID, line); err != nil {
+				outln("ERROR: reply stored but association failed:", err)
+				continue
+			}
 		}
 		turnStart := time.Now()
 		var stats turnStats
 		_, stErr := streamTurn(client, reg, cfg, &msgs, &stats)
 		endSt := taskEndState{rounds: stats.rounds, elapsed: time.Since(turnStart)}
+		if errors.Is(stErr, errPlanningDecision) {
+			emitTurnResult("need_answer", nil)
+			printTaskEnd(reg, false, taskEndState{status: "need_answer", rounds: stats.rounds})
+			continue
+		}
 		if errors.Is(stErr, errInterrupted) {
 			emitTurnResult("interrupted", stErr)
 			if finalErr := finalizeInterrupted(&msgs, reg, endSt); finalErr != nil {
@@ -959,6 +1004,14 @@ func streamTurn(client *openai.Client, reg *Registry, cfg *config, msgs *[]opena
 	for round := 0; round < cfg.maxRounds; round++ {
 		if interrupted() {
 			return "", errInterrupted
+		}
+		if pending, err := reg.pendingPlanningDecision(); err != nil {
+			return "", err
+		} else if pending != nil {
+			return "", errPlanningDecision
+		}
+		if err := reg.projectPlanContext(msgs); err != nil {
+			return "", err
 		}
 		roundStart := time.Now()
 		if stats != nil {
@@ -1047,6 +1100,11 @@ func streamTurn(client *openai.Client, reg *Registry, cfg *config, msgs *[]opena
 			}
 		}
 		out("[第 %d 轮完成，耗时 %v]\n", round+1, time.Since(roundStart).Round(time.Second))
+	}
+	if pending, err := reg.pendingPlanningDecision(); err != nil {
+		return "", err
+	} else if pending != nil {
+		return "", errPlanningDecision
 	}
 	return "", maxRoundsError(cfg.maxRounds)
 }

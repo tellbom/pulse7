@@ -64,6 +64,7 @@ func NewRegistry(policy *Policy, runner sandboxRunner, auditPath, manPath string
 		stdin: stdin, input: newLineInput(stdin), exeDir: exeDir, workspace: workspace, taskID: taskID, permissions: permissions,
 		readFiles: map[string]fileReadState{}, man: &manifest{path: manPath},
 	}
+	r.registerPlanTools()
 	r.tasks = newBackgroundTaskManager(runner, filepath.Join(exeDir, "data", "tasks"), workspace)
 	r.register(openai.Tool{
 		Type: openai.ToolTypeFunction,
@@ -75,7 +76,7 @@ func NewRegistry(policy *Policy, runner sandboxRunner, auditPath, manPath string
 				"limit":       map[string]interface{}{"type": "integer", "description": "number of lines to read; also bounded by byte_limit (default 32KiB)"},
 				"byte_offset": map[string]interface{}{"type": "integer", "description": "raw file byte continuation returned by a previous page; overrides line offset"},
 				"byte_limit":  map[string]interface{}{"type": "integer", "description": "maximum source bytes, default 32768, maximum 262144"},
-				"content_ref": map[string]interface{}{"type": "string", "description": "opaque large result reference from session history"},
+				"content_ref": map[string]interface{}{"type": "string", "description": "historical snapshot, not current file contents. Use read({content_ref: REF, byte_offset: 0, byte_limit: 32768}); continue with returned next_byte_offset. Do not combine with path, offset or limit."},
 			}},
 		},
 	}, r.toolRead)
@@ -218,7 +219,9 @@ func (r *Registry) Execute(name, argsJSON string) string {
 	if !ok {
 		res = "error: unknown tool " + name
 	} else {
-		if err := r.authorize(name, argsJSON); err != nil {
+		if err := r.checkPlanTool(name, argsJSON); err != nil {
+			res = "error: " + err.Error()
+		} else if err := r.authorize(name, argsJSON); err != nil {
 			res = "error: " + err.Error()
 		} else if err := r.ensureToolCheckpoint(name, argsJSON); err != nil {
 			res = "error: " + err.Error()
@@ -473,6 +476,13 @@ func (r *Registry) toolRead(argsJSON string) (string, error) {
 		return "", err
 	}
 	if a.ContentRef != "" {
+		var fields map[string]json.RawMessage
+		json.Unmarshal([]byte(argsJSON), &fields)
+		for _, key := range []string{"path", "offset", "limit"} {
+			if _, exists := fields[key]; exists {
+				return "", fmt.Errorf("content_ref cannot be combined with %s; use byte_offset/byte_limit", key)
+			}
+		}
 		return r.readContentRef(a.ContentRef, a.ByteOffset, a.ByteLimit)
 	}
 	if a.Path == "" {
@@ -547,6 +557,9 @@ func (r *Registry) toolGetTime(string) (string, error) {
 }
 
 func (r *Registry) toolShell(argsJSON string) (string, error) {
+	if err := r.checkPlanTool("shell", argsJSON); err != nil {
+		return "", err
+	}
 	if err := r.ensureMutable("shell"); err != nil {
 		return "", err
 	}
@@ -637,6 +650,9 @@ func diffSummary(oldS, newS string, cap int) string {
 }
 
 func (r *Registry) toolWrite(argsJSON string) (string, error) {
+	if err := r.checkPlanTool("write", argsJSON); err != nil {
+		return "", err
+	}
 	if err := r.ensureMutable("write"); err != nil {
 		return "", err
 	}
@@ -732,6 +748,9 @@ func (r *Registry) toolWrite(argsJSON string) (string, error) {
 }
 
 func (r *Registry) toolEdit(argsJSON string) (string, error) {
+	if err := r.checkPlanTool("edit", argsJSON); err != nil {
+		return "", err
+	}
 	if err := r.ensureMutable("edit"); err != nil {
 		return "", err
 	}
@@ -956,6 +975,9 @@ func (r *Registry) toolCheckpoint(string) (string, error) {
 }
 
 func (r *Registry) toolRollback(argsJSON string) (string, error) {
+	if err := r.checkPlanTool("rollback", argsJSON); err != nil {
+		return "", err
+	}
 	if err := r.ensureMutable("rollback"); err != nil {
 		return "", err
 	}

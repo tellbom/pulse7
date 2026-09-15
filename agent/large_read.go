@@ -288,6 +288,10 @@ func (r *Registry) readFilePage(path string, lineOffset, lineLimit int, byteOffs
 	if err != nil || !unchangedFile(info, after) {
 		return "", fmt.Errorf("file changed during page read; read again")
 	}
+	version := fmt.Sprintf("size=%d;mtime_ns=%d", info.Size(), info.ModTime().UnixNano())
+	if err := r.observeRead("file", path, version, start, next, content); err != nil {
+		return "", fmt.Errorf("read observation persistence failed: %w", err)
+	}
 	if byteOffset != nil {
 		return fmt.Sprintf("[byte_offset=%d next_byte_offset=%d total_bytes=%d complete=%v encoding=%s；源文件字节偏移，继续读取请传 byte_offset=%d]\n%s", start, next, info.Size(), next == info.Size(), textEncodingName(encoding), next, content), nil
 	}

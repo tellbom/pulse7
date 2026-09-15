@@ -27,6 +27,8 @@ const WORKSPACES = [
 ];
 
 const S_ = {
+  planState: null,
+  _evt: null,
   config: {
     base_url: 'http://192.168.1.100:8080/v1',
     model: 'gpt-4o-internal',
@@ -237,6 +239,13 @@ export function createMockBackend() {
 
     emit('assistant_attempt', { attempt: 1, status: 'start' });
     await streamDeltas(s, 1, '好的，我先读取 handler.go 看看当前的 JWT 验证实现，分析是否有问题，再在 middleware.go 里添加限流中间件。');
+    // 计划问题演示（plan-decision UI 验证）：进入计划模式并提出一个方向性问题
+    S_.planState = { active: true, path: 'E:\projects\auth-service\PLAN.md', decision: null };
+    const dId = 'pd-demo-' + Date.now();
+    S_.planState.decision = { id: dId, question: '限流配额按什么维度统计？A. 按 IP 维度（每 IP 每分钟 60 次） B. 按登录用户维度 C. 两者都要（IP 粗限+用户细限）', awaitingReply: true };
+    emit('planning_decision', { sessionId, decision: S_.planState.decision });
+    emit('turn_result', { status: 'need_answer' });
+    return;
     emit('assistant_attempt', { attempt: 1, status: 'complete' });
     await s.wait(220);
 
@@ -434,6 +443,15 @@ export function createMockBackend() {
       if (!baseUrl || !/^https?:\/\//.test(baseUrl)) return err(502, 'endpoint_unreachable', '连接失败：端点地址无效');
       return { ok: true, model, elapsedMs: 412 };
     }
+    if (method === 'GET' && rest[0] === 'plan') {
+      return { sessionId: S_.currentSessionId || '', initialized: true, state: S_.planState };
+    }
+    if (method === 'POST' && rest[0] === 'plan' && rest[1] === 'exit') {
+      if (busy()) return err(409, 'busy', '任务运行中，请先中断本轮再退出');
+      if (!S_.planState || !S_.planState.active) return err(409, 'plan_mode', '当前不在计划模式');
+      S_.planState = { active: false, path: S_.planState.path || '', decision: S_.planState.decision && S_.planState.decision.awaitingReply ? { ...S_.planState.decision, awaitingReply: false, cancelled: true } : S_.planState.decision };
+      return { sessionId: S_.currentSessionId, state: S_.planState };
+    }
     if (method === 'GET' && rest[0] === 'listener') return { ...S_.listener };
     if (method === 'PUT' && rest[0] === 'workspace') {
       if (S_.tasks.some((t) => t.status === 'running' || t.status === 'output_truncated')) return err(409, 'background_running', '后台任务仍在运行，先停止任务再切换工作区');
@@ -497,6 +515,8 @@ export function createMockBackend() {
       return { sessionId: s.sessionId, cwd: s.cwd };
     }
     if (method === 'POST' && rest[0] === 'turns') {
+      const pd = S_.planState && S_.planState.decision;
+      if (pd && pd.awaitingReply) return err(409, 'plan_decision_pending', '模型在等待计划问题的回复，请在问题卡片中作答');
       if (busy()) return err(409, 'busy', '同一时刻仅一个执行上下文');
       if (!body || !body.prompt || !body.prompt.trim()) return err(400, 'invalid', '空 prompt');
       const sid = S_.currentSessionId || nextSessionId;
@@ -505,6 +525,16 @@ export function createMockBackend() {
       return { sessionId: sid };
     }
     if (method === 'POST' && rest[0] === 'answer') {
+      if (body && body.decisionId) {
+        const pd = S_.planState && S_.planState.decision;
+        if (!S_.planState || S_.planState.active === undefined) return err(409, 'decision_mismatch', '无计划状态');
+        if (!pd || pd.id !== body.decisionId) return err(409, 'decision_mismatch', '问题 ID 不匹配或已过期');
+        if (!pd.awaitingReply) return err(409, 'decision_mismatch', pd.cancelled ? '等待已取消' : '该问题已回复');
+        S_.planState.decision = { ...pd, awaitingReply: false, replyUuid: 'u-' + Date.now(), replyPreview: String(body.answer || '').slice(0, 2048) };
+        emit('plan_state', { sessionId: S_.currentSessionId, state: JSON.parse(JSON.stringify(S_.planState)), source: 'user' });
+        startTurn(body.answer, true);
+        return { sessionId: body.sessionId || S_.currentSessionId };
+      }
       if (busy()) return err(409, 'busy', '当前有任务执行中');
       if (!body || !body.answer || !body.answer.trim()) return err(400, 'invalid', '空回答');
       startTurn(body.answer, true);
@@ -538,6 +568,7 @@ export function createMockBackend() {
   };
 
   const connect = (cb) => {
+    S_._evt = cb;
     listeners.add(cb);
     // 初始常驻状态：受限模式横幅 + 历史遗留 detached 清单 + 首个 context_state。
     delay(200).then(() => {
