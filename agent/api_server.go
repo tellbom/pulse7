@@ -77,6 +77,13 @@ func runServe(cfg *config) error {
 	// Only this mode replaces the runtime composition; CLI setup is untouched.
 	runtimeEvents = &eventBus{consumers: []eventConsumer{{emit: a.publish}}}
 	out("HTTP listening: http://%s (all IPv4 interfaces; token enabled)\n", a.listener.Addr())
+	if cfg.openWeb {
+		url := fmt.Sprintf("http://127.0.0.1:%d/", a.listener.Addr().(*net.TCPAddr).Port)
+		if err := openWebBrowser(url); err != nil {
+			out("Could not open browser: %v; open %s manually\n", err, url)
+			showStartupError("浏览器未能打开，请手工访问：" + url)
+		}
+	}
 	return a.server.Serve(a.listener)
 }
 

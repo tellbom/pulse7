@@ -40,6 +40,8 @@ type config struct {
 	llmMaxRetries                     int
 	llmCompressTimeout                time.Duration
 	execMode                          bool
+	cliMode                           bool
+	openWeb                           bool
 	sessionPath, resumePath           string
 	manifestPath                      string
 	migrateResumeWorkspace            bool
@@ -263,6 +265,7 @@ func main() {
 	flag.IntVar(&cfg.memLimitMB, "memory-limit-mb", 2048, "JobObject memory cap in MB")
 	flag.BoolVar(&cfg.cleanupOnExit, "cleanup-on-exit", true, "terminate + clear agent sandbox box on exit")
 	flag.StringVar(&cfg.outputFormat, "output-format", outputFormatText, "text | stream-json")
+	flag.BoolVar(&cfg.cliMode, "cli", false, "start terminal conversation instead of the default Web interface")
 	flag.Parse()
 	if err := configureEventOutput(cfg.outputFormat); err != nil {
 		exitWith(2, "USAGE", err.Error())
@@ -308,9 +311,13 @@ func main() {
 		return
 	}
 
-	sub := "repl"
-	if len(args) > 0 {
-		sub = args[0]
+	sub, openWeb, modeErr := resolveStartupMode(args, cfg.cliMode)
+	if modeErr != nil {
+		exitWith(2, "USAGE", modeErr.Error())
+	}
+	cfg.openWeb = openWeb
+	if openWeb {
+		detachOwnedConsole()
 	}
 	if cfg.outputFormat == outputFormatStreamJSON && sub != "exec" {
 		exitWith(2, "USAGE", "--output-format stream-json is only supported by exec")
@@ -320,12 +327,15 @@ func main() {
 	// spawning sandboxed shell children can corrupt the Go process's console
 	// handles, making subsequent fmt.Print output vanish from `>>` redirects.
 	// The log file is unaffected and is the durable record.
-	if sub == "exec" || sub == "repl" {
+	if sub == "exec" || sub == "repl" || sub == "serve" {
 		logDir := filepath.Join(cfg.exeDirStore(), "data", "logs")
 		os.MkdirAll(logDir, 0o755)
 		if lf, err := os.OpenFile(filepath.Join(logDir, "agent.log"),
 			os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644); err == nil {
 			humanConsole := io.Writer(newConsoleWriter())
+			if cfg.openWeb {
+				humanConsole = io.Discard
+			}
 			if cfg.outputFormat == outputFormatStreamJSON {
 				humanConsole = newConsoleErrorWriter()
 			}

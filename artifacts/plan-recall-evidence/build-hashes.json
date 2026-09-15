@@ -496,5 +496,40 @@
       "exit": 0
     },
     "http": "reconnect-runtime-final.log"
+  },
+  "web_default_startup": {
+    "head": "ab2c7e01449fbf197bd0b1c3f0e832232202f615",
+    "tree": "E:\\codex-worktrees\\win7-agent\\pre-phase3",
+    "build_command": "CGO_ENABLED=0 GOOS=windows GOARCH=amd64 E:/win7-agent/tools/go/bin/go.exe build -mod=vendor -o ../dist/pulse7.exe .",
+    "build_cwd": "E:\\codex-worktrees\\win7-agent\\pre-phase3\\agent",
+    "sha256": "a0aed5a0bf1805c3ac4fe43e94f65b4cae7c51a18687d815eb0471d460a99a40",
+    "git_runtime_files_hash_matched": 344,
+    "cleanup": {
+      "root_old_exes": 4,
+      "evidence_exes": 76,
+      "old_dist_product_exes": 8,
+      "poc_test_exes": 2,
+      "logs_and_reports": "retained",
+      "old_idle_service_pid_stopped": 25908
+    },
+    "source_state": "working tree with default-Web startup changes",
+    "test_sha256": "96b9b054152d241ac9eb5548f19b4da7ed391f7d0ee9fcb0615bc38e43169546",
+    "win7_full": {
+      "passed": 197,
+      "failed": 0,
+      "exit": 0
+    },
+    "runtime_evidence": "artifacts/plan-recall-evidence/web-default-runtime.log",
+    "startup": {
+      "default": "Web + browser",
+      "cli": "--cli or repl",
+      "serve": "explicit foreground server, no automatic browser"
+    },
+    "source_hashes": {
+      "agent\\main.go": "63622d40e749d69058ce7e4ae0bfaafeca020eea62f982d5609332866b824e82",
+      "agent\\api_server.go": "e8c14d9e0617d365dac208be50cc18d29d56f213dc54a2aa4da21c607384c461",
+      "agent\\startup_windows.go": "be389d4f3a1a3baccb0c8f5a1dfd5d65715094fcd4ca4430448a0eb7346f613e",
+      "agent\\startup_test.go": "afd8f1ff09d1c8e3b9dda3e6444bfdc0189affeb682d0244a52e3b6709d0b23c"
+    }
   }
 }

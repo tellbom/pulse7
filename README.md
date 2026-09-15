@@ -65,3 +65,8 @@ npm run build
 | [第三方说明](THIRD_PARTY_NOTICES.md) | 依赖许可与运行时分发注意事项 |
 
 测试必须按项目纪律在 Win7 端侧运行。本机可编译测试二进制，但不能用较新 Windows 的执行结果替代 Win7 验收。R1/R2 延期到原测试环境；386 与 Sandboxie 实测延期，详情见报告。
+
+
+### 默认打开 Web（2026-09-15）
+
+双击 `dist/pulse7.exe` 或执行 `pulse7.exe --workspace E:\Temp` 默认启动 Web 并打开浏览器。终端对话使用 `pulse7.exe --cli --workspace E:\Temp`；原 `repl`、`exec`、`task-worker` 兼容。显式 `serve` 保持前台终端服务、不自动打开浏览器。独占控制台会释放，父级 CMD/PowerShell 不隐藏；exe 仍保留 console subsystem 以兼容脚本和管道。关闭页面不会停止服务，停止本目录服务可使用 `dist/stop-web.cmd`（会中断当前任务）。
