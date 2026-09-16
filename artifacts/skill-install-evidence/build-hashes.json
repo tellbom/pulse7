@@ -1,0 +1,20 @@
+{
+  "tree": "E:/codex-worktrees/win7-agent/pre-phase3",
+  "base_head": "f5e5d7e",
+  "source_state": "uncommitted working tree including existing frontend/icon resources; not a clean HEAD build",
+  "toolchain": "E:/win7-agent/tools/go/bin/go.exe, go1.20.14",
+  "environment": {"GOOS": "windows", "CGO_ENABLED": "0"},
+  "cwd": "E:/codex-worktrees/win7-agent/pre-phase3/agent",
+  "commands": [
+    {"GOARCH": "amd64", "command": "go test -c -o ../artifacts/skill-install-evidence/skill-catalog-amd64.test.exe", "exit": 0},
+    {"GOARCH": "amd64", "command": "go build -o ../artifacts/skill-install-evidence/pulse7-amd64.exe", "exit": 0},
+    {"GOARCH": "amd64", "command": "go vet ./...", "exit": 0},
+    {"GOARCH": "386", "command": "go build -o ../artifacts/skill-install-evidence/pulse7-386.exe", "exit": 0}
+  ],
+  "sha256": {
+    "pulse7-amd64.exe": "aae2c91086ea6b2f74f371a8bfc76e2e3e0cfd8e380f807439735df542ff14d2",
+    "pulse7-386.exe": "e660a9ecdeea9887f2f06d420bbfe5f35009df24004da12c120e1e76e1fa3161",
+    "skill-catalog-amd64.test.exe": "bdb884e6d7452af0d3ba802683fb9367e8b07943775d3c3dfd452ec4ac35c2c2"
+  },
+  "win7_evidence": "run-20260916-203738.json"
+}

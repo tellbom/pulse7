@@ -25,6 +25,21 @@ type skillCatalog struct {
 	Warnings []string
 }
 
+type skillRoot struct {
+	Path  string `json:"path"`
+	Scope string `json:"scope"`
+}
+
+// One source of truth for discovery and the model's installation instructions.
+// Directory names belong to the publisher; only the two roots and SKILL.md
+// layout are pulse7's contract.
+func skillRoots(workspace, home string) []skillRoot {
+	return []skillRoot{
+		{Path: filepath.Join(workspace, ".pulse7", "skills"), Scope: "workspace"},
+		{Path: filepath.Join(home, ".pulse7", "skills"), Scope: "global"},
+	}
+}
+
 func discoverSkills(workspace string) skillCatalog {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -35,28 +50,22 @@ func discoverSkills(workspace string) skillCatalog {
 
 func scanSkills(workspace, home string) skillCatalog {
 	var catalog skillCatalog
-	dirs := []struct {
-		root    string
-		project bool
-	}{
-		{root: filepath.Join(workspace, ".pulse7", "skills"), project: true},
-		{root: filepath.Join(home, ".pulse7", "skills")},
-	}
+	dirs := skillRoots(workspace, home)
 	seen := map[string]bool{}
 	for _, source := range dirs {
-		entries, err := os.ReadDir(source.root)
+		entries, err := os.ReadDir(source.Path)
 		if os.IsNotExist(err) {
 			continue
 		}
 		if err != nil {
-			catalog.Warnings = append(catalog.Warnings, fmt.Sprintf("无法扫描 skills 目录 %s：%v", source.root, err))
+			catalog.Warnings = append(catalog.Warnings, fmt.Sprintf("无法扫描 skills 目录 %s：%v", source.Path, err))
 			continue
 		}
 		for _, entry := range entries {
 			if !entry.IsDir() {
 				continue
 			}
-			path := filepath.Join(source.root, entry.Name(), skillMarkdownFileName)
+			path := filepath.Join(source.Path, entry.Name(), skillMarkdownFileName)
 			b, err := os.ReadFile(path)
 			if os.IsNotExist(err) {
 				continue
@@ -75,19 +84,15 @@ func scanSkills(workspace, home string) skillCatalog {
 				continue
 			}
 			seen[name] = true
-			scope := "global"
-			if source.project {
-				scope = "workspace"
-			}
 			displayPath := path
-			if source.project {
+			if source.Scope == "workspace" {
 				displayPath, err = filepath.Rel(workspace, path)
 				if err != nil {
 					catalog.Warnings = append(catalog.Warnings, fmt.Sprintf("无法生成 skill 相对路径 %s：%v", path, err))
 					continue
 				}
 			}
-			catalog.Skills = append(catalog.Skills, skillInfo{Name: name, Description: description, Path: displayPath, Scope: scope})
+			catalog.Skills = append(catalog.Skills, skillInfo{Name: name, Description: description, Path: displayPath, Scope: source.Scope})
 		}
 	}
 	return catalog

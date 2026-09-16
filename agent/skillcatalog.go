@@ -13,7 +13,30 @@ import (
 )
 
 const skillCatalogMarker = "[pulse7:skill-catalog:v1]\n"
+const skillInstallMarker = "[pulse7:skill-installation:v1]\n"
 const legacySkillHeading = "可用技能（相关时用 read 工具读取完整内容）：\n"
+
+func skillInstallationInstructions(workspace string) (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("skill installation user directory: %w", err)
+	}
+	absWorkspace, err := filepath.Abs(workspace)
+	if err != nil {
+		return "", fmt.Errorf("skill installation workspace: %w", err)
+	}
+	roots, err := json.Marshal(skillRoots(absWorkspace, home))
+	if err != nil {
+		return "", err
+	}
+	return skillInstallMarker + string(roots) + `
+These are pulse7's only skill installation roots, including when no skills are installed. Global means the OS user running pulse7; there is no session-only scope. Use the user's requested scope; when unspecified, install to this workspace and state that scope.
+This contract is independent of download tools, registries and package names. Each complete skill package must be a direct child directory of a root, with SKILL.md at that package's top level. Keep the publisher's directory name and relative scripts/references/assets intact; identify the skill by SKILL.md name and description.
+When asked to install, inspect the chosen tool's supported destination option rather than inventing flags. If it cannot choose a destination, download separately then copy the complete package into the chosen root. Do not overwrite an existing package without resolving the conflict with the user's intent.
+Before reporting installation complete, verify the actual destination and read SKILL.md: frontmatter must begin/end with --- and contain nonempty single-line name and description accepted by pulse7. Check referenced resources were retained. A download outside these roots is only downloaded, not installed in pulse7. A malformed package is not discoverable: report the problem rather than silently rewriting the publisher's instructions. Check same-name conflicts; workspace entries shadow global entries, and a shadowed package is not the active skill.
+Discovery refreshes at the next user-task boundary, not midway through this task. Report installed and verified separately from discovered and used; do not claim a refreshed catalog or successful use without evidence. If needed now, read the verified SKILL.md directly using existing tools. Reading a file outside these roots does not register it as an installed skill. Only load full skill instructions when needed, not merely to populate the model catalog.
+`, nil
+}
 
 type skillCatalogState struct {
 	Version      string   `json:"version"`
@@ -166,6 +189,10 @@ func writeSkillIndex(path, content string) error {
 // projection: persisted historical messages/tool results are not rewritten.
 // Resume reconstructs the current directory again at this same boundary.
 func refreshSkillCatalog(cfg *config, msgs *[]openai.ChatCompletionMessage) error {
+	installation, err := skillInstallationInstructions(cfg.workspace)
+	if err != nil {
+		return err
+	}
 	catalog := discoverSkills(cfg.workspace)
 	listing, state, err := buildSkillListing(cfg, catalog)
 	if err != nil {
@@ -174,7 +201,7 @@ func refreshSkillCatalog(cfg *config, msgs *[]openai.ChatCompletionMessage) erro
 	updated := make([]openai.ChatCompletionMessage, 0, len(*msgs)+1)
 	for _, m := range *msgs {
 		if m.Role == "system" {
-			if strings.HasPrefix(m.Content, skillCatalogMarker) {
+			if strings.HasPrefix(m.Content, skillCatalogMarker) || strings.HasPrefix(m.Content, skillInstallMarker) {
 				continue
 			}
 			// Older releases appended this generated suffix to the base system.
@@ -205,6 +232,15 @@ func refreshSkillCatalog(cfg *config, msgs *[]openai.ChatCompletionMessage) erro
 		copy(updated[at+1:], updated[at:])
 		updated[at] = openai.ChatCompletionMessage{Role: "system", Content: listing}
 	}
+	// Installation policy is always present, even for an empty catalog. It is
+	// fixed runtime guidance, counted by the existing overall context budget.
+	at := 0
+	for at < len(updated) && updated[at].Role == "system" {
+		at++
+	}
+	updated = append(updated, openai.ChatCompletionMessage{})
+	copy(updated[at+1:], updated[at:])
+	updated[at] = openai.ChatCompletionMessage{Role: "system", Content: installation}
 	*msgs = updated
 	printSkillWarnings(catalog)
 	emitRuntimeEvent("skill_catalog", state)

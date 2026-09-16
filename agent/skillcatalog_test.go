@@ -79,7 +79,7 @@ func TestSkillCatalogRefreshReplacesAndRemovesWithoutTouchingHistory(t *testing.
 	if err := refreshSkillCatalog(cfg, &msgs); err != nil {
 		t.Fatal(err)
 	}
-	if len(msgs) != 4 || msgs[0].Content != base || !strings.Contains(msgs[1].Content, "new purpose") || strings.Contains(msgs[1].Content, "PRIVATE_BODY") || msgs[3].Content != "historical evidence" {
+	if len(msgs) != 5 || msgs[0].Content != base || !strings.Contains(msgs[1].Content, "new purpose") || strings.Contains(msgs[1].Content, "PRIVATE_BODY") || msgs[4].Content != "historical evidence" || !strings.HasPrefix(msgs[2].Content, skillInstallMarker) {
 		t.Fatalf("refresh=%+v", msgs)
 	}
 	if err := os.Remove(path); err != nil {
@@ -88,7 +88,7 @@ func TestSkillCatalogRefreshReplacesAndRemovesWithoutTouchingHistory(t *testing.
 	if err := refreshSkillCatalog(cfg, &msgs); err != nil {
 		t.Fatal(err)
 	}
-	if len(msgs) != 3 || msgs[0].Content != base || msgs[2].Content != "historical evidence" {
+	if len(msgs) != 4 || msgs[0].Content != base || msgs[3].Content != "historical evidence" || !strings.HasPrefix(msgs[1].Content, skillInstallMarker) {
 		t.Fatalf("delete=%+v", msgs)
 	}
 	// Another workspace must not inherit the previous workspace's catalog.

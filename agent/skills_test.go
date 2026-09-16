@@ -53,7 +53,7 @@ func TestSkillsMetadataIsInjectedWithoutBody(t *testing.T) {
 	if err := refreshSkillCatalog(cfg, &msgs); err != nil {
 		t.Fatal(err)
 	}
-	if len(msgs) != 2 || !strings.Contains(msgs[1].Content, "发布流程") || strings.Contains(msgs[1].Content, "PROJECT_BODY_SECRET") || strings.Contains(msgs[1].Content, "PERSONAL_BODY_SECRET") {
+	if len(msgs) != 3 || !strings.Contains(msgs[1].Content, "发布流程") || strings.Contains(msgs[1].Content, "PROJECT_BODY_SECRET") || strings.Contains(msgs[1].Content, "PERSONAL_BODY_SECRET") || !strings.HasPrefix(msgs[2].Content, skillInstallMarker) {
 		t.Fatalf("metadata-only projection failed: %#v", msgs)
 	}
 	if filepath.IsAbs(catalog.Skills[0].Path) || catalog.Skills[0].Path == projectPath {
