@@ -223,3 +223,10 @@ HTTP SSE envelope 增加 sessionId、streamId、seq；帧增加 id: streamId:seq
 GET /api/sessions/{id}/messages 可在任务进行中只读浏览；POST resume/new、PUT workspace 的既有 busy/background_running 约束不变。页读取与本进程 JSONL 写入同步，避免半行与页内变化；外部修改仍报错。
 
 前端按 [session-reconnect-frontend-handoff.md](session-reconnect-frontend-handoff.md) 执行启动/重连同步、历史与事件分界、会话归属和按需分页，不能通过解除 busy 来解决浏览问题。
+
+
+## 2026-09-16 技能目录预算与刷新补充
+
+GET/PUT /api/config 增加 skill_catalog_budget_bytes（整数，默认 8192，范围 1024–1048576）。保存用户全局层，空闲时应用于下一次任务，无需重启；活动任务中仍返回 409。目录预算按 system 消息序列化 UTF-8 字节计量，不改变 max_ctx，不依赖 usage。
+
+技能仅有工作区与当前用户全局两层；发现阶段保留完整元数据，模型目录按预算逐级降级，正文按需 read。CLI/HTTP 在用户任务边界刷新独立目录投影，恢复会话亦同，不改写历史工具结果。新增 skill_catalog SSE，字段 version/mode/count/budgetBytes/listingBytes/indexPath?/warnings；mode 为 full/shortened/names/index/empty。完整契约与前端说明见 [skill-catalog-frontend-handoff.md](skill-catalog-frontend-handoff.md)。未新增技能上传管理接口。

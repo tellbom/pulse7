@@ -21,7 +21,16 @@ const saving = ref(false);
 const FIELDS = [
   { group: '任务与上下文', items: [
     { key: 'max_ctx', label: '上下文上限（字节）', def: 256000, min: 16000, max: 32000000, hint: '约 /4 = 估算 token；默认 256000 ≈ 6.4 万 token' },
-    { key: 'max_rounds', label: '单任务最大轮次', def: 100, min: 1, max: 10000, hint: '触顶即中止，仍可中断' }
+    { key: 'max_rounds', label: '单任务最大轮次', def: 100, min: 1, max: 10000, hint: '触顶即中止，仍可中断' },
+    {
+      key: 'skill_catalog_budget_bytes',
+      label: '技能目录预算（KiB）',
+      def: 8192,
+      min: 1,
+      max: 1024,
+      unit: 'kib',
+      hint: '控制技能名称、简介与定位信息占用的上下文。默认 8 KiB；超限按 full → shortened → names → index 降级。技能正文仅在模型读取时进入上下文；此值不扩大总上下文窗口。'
+    }
   ] },
   { group: '模型请求（超时与重试）', items: [
     { key: 'llm_first_chunk_timeout_sec', label: '首块超时（秒）', def: 300, min: 5, max: 3600, hint: '等待模型第一段的时长，内网慢端点可调大' },
@@ -49,11 +58,23 @@ const FIELD_KEYS = FIELDS.flatMap((g) => g.items.map((i) => i.key));
 const FIELD_DEF = Object.fromEntries(FIELDS.flatMap((g) => g.items.map((i) => [i.key, i])));
 
 const form = reactive({});
+const toFormValue = (field, value) => (field.unit === 'kib' ? Number(value) / 1024 : value);
+const toApiValue = (field, value) => (field.unit === 'kib' ? Number(value) * 1024 : value);
+const formatKiB = (bytes) => {
+  const value = Math.max(0, Number(bytes) || 0) / 1024;
+  return `${Number.isInteger(value) ? value : value.toFixed(1)} KiB`;
+};
+const fieldCurrentText = (field) => {
+  const value = store.config[field.key];
+  if (value === undefined) return '—';
+  return field.unit === 'kib' ? formatKiB(value) : value;
+};
+const fieldDefaultText = (field) => (field.unit === 'kib' ? formatKiB(field.def) : field.def);
 const isDirty = (key) => {
   const d = FIELD_DEF[key];
   const cur = store.config[key];
   if (d.type === 'enum' || d.type === 'bool') return String(form[key]) !== String(cur);
-  return form[key] !== undefined && form[key] !== '' && Number(form[key]) !== Number(cur);
+  return form[key] !== undefined && form[key] !== '' && Number(toApiValue(d, form[key])) !== Number(cur);
 };
 
 onMounted(() => {
@@ -63,12 +84,27 @@ onMounted(() => {
   FIELD_KEYS.forEach((k) => {
     const d = FIELD_DEF[k];
     const cur = store.config[k];
-    form[k] = cur !== undefined ? cur : d.def;
+    form[k] = toFormValue(d, cur !== undefined ? cur : d.def);
   });
 });
 
 const skills = computed(() => store.skillsAvailable);
 const usedSkills = computed(() => store.skillsUsed);
+const catalogModeText = computed(() => {
+  const mode = store.skillCatalog && store.skillCatalog.mode;
+  return {
+    full: '完整元数据',
+    shortened: '描述已缩短',
+    names: '描述已省略',
+    index: '按需查阅完整目录',
+    empty: '未发现技能'
+  }[mode] || mode || '';
+});
+const catalogUsageText = computed(() => {
+  const catalog = store.skillCatalog;
+  if (!catalog) return '';
+  return `${formatKiB(catalog.listingBytes)} / ${formatKiB(catalog.budgetBytes)}`;
+});
 const recentWorkspaces = computed(() => {
   const set = new Set(store.sessions.map((s) => s.cwd).filter(Boolean));
   set.delete(store.workspace);
@@ -103,7 +139,13 @@ async function save() {
     if (modelName.value !== (store.config.model || '')) fields.model = modelName.value;
     if (apiKey.value) fields.api_key = apiKey.value;
     FIELD_KEYS.forEach((k) => {
-      if (isDirty(k)) fields[k] = form[k];
+      if (!isDirty(k)) return;
+      const d = FIELD_DEF[k];
+      const value = Number(form[k]);
+      if (!['enum', 'bool'].includes(d.type || '') && (!Number.isFinite(value) || !Number.isInteger(value) || value < d.min || value > d.max)) {
+        throw new Error(`${d.label}必须是 ${d.min}–${d.max} 之间的整数`);
+      }
+      fields[k] = toApiValue(d, form[k]);
     });
     if (!Object.keys(fields).length) {
       close();
@@ -112,16 +154,25 @@ async function save() {
     const r = await actions.saveConfig(fields);
     apiKey.value = '';
     const restart = (r.restartRequiredFields || []).filter((f) => FIELD_DEF[f]);
+    const catalogChanged = fields.skill_catalog_budget_bytes !== undefined;
     if (restart.length) {
-      savedNotice.value = '已保存到用户全局配置；以下项需重启 pulse7 后生效：' + restart.map((f) => FIELD_DEF[f].label).join('、');
+      savedNotice.value =
+        '已保存到用户全局配置；' +
+        (catalogChanged ? '技能目录预算从下一次任务开始生效；' : '') +
+        '以下项需重启 pulse7 后生效：' +
+        restart.map((f) => FIELD_DEF[f].label).join('、');
       ElMessage.warning('部分配置重启后生效');
+    } else if (catalogChanged) {
+      savedNotice.value = '已保存到用户全局配置；技能目录预算从下一次任务开始生效，无需重启。';
+      ElMessage.success('技能目录预算已保存，将在下一次任务生效');
     } else {
       savedNotice.value = '已保存到用户全局配置并即时生效（不写项目层）';
       ElMessage.success('配置已保存');
     }
     testState.value = 'idle';
     FIELD_KEYS.forEach((k) => {
-      form[k] = r[k] !== undefined ? r[k] : form[k];
+      const d = FIELD_DEF[k];
+      form[k] = r[k] !== undefined ? toFormValue(d, r[k]) : form[k];
     });
   } catch (e) {
     ElMessage.error(e.message);
@@ -207,7 +258,7 @@ async function applyWorkspace() {
                 <input
                   v-else
                   :id="'pf-' + f.key"
-                  v-model="form[f.key]"
+                  v-model.number="form[f.key]"
                   type="number"
                   class="mono sd-field__i"
                   :min="f.min"
@@ -215,7 +266,7 @@ async function applyWorkspace() {
                   :step="1"
                 />
                 <div class="sd-field__meta">
-                  <span>当前 {{ store.config[f.key] ?? '—' }} · 默认 {{ f.def }}</span>
+                  <span>当前 {{ fieldCurrentText(f) }} · 默认 {{ fieldDefaultText(f) }}</span>
                   <span v-if="isDirty(f.key)" class="sd-dirty">已修改</span>
                 </div>
                 <div v-if="f.hint" class="sd-field__hint">{{ f.hint }}</div>
@@ -231,20 +282,53 @@ async function applyWorkspace() {
         <!-- Skills -->
         <template v-else-if="tab === 'skills'">
           <div class="sd-skills__hint">
-            Skills 来自工作区/个人目录的 .pulse7/skills/&lt;目录&gt;/SKILL.md；安装到目录后<b>新开会话</b>生效。没有内置技能商店或下载器，对话中的“安装”不等于必然成功。skill_loaded
-            表示本轮实际读取了全文，目录里可见不等于已加载。
+            Skills 只来自工作区与当前运行用户的 .pulse7/skills/&lt;目录&gt;/SKILL.md。外部安装、更新或删除会在<b>下一次任务开始</b>时重新扫描，无需新建会话；当前没有 watcher 或实时刷新通知。目录可见不等于正文已进入上下文。
+          </div>
+          <div class="sd-catalog" :class="store.skillCatalog ? `sd-catalog--${store.skillCatalog.mode}` : ''">
+            <template v-if="store.skillCatalogPending">
+              <div class="sd-catalog__title">正在构建本次任务的技能目录…</div>
+              <div class="sd-catalog__note">扫描发生在任务边界，不会在任务内的多轮工具循环中重复执行。</div>
+            </template>
+            <template v-else-if="store.skillCatalog">
+              <div class="sd-catalog__head">
+                <div>
+                  <div class="sd-catalog__title">本次任务发现 {{ store.skillCatalog.count }} 个技能</div>
+                  <div class="sd-catalog__usage">目录占用 <span class="mono">{{ catalogUsageText }}</span></div>
+                </div>
+                <span class="sd-catalog__mode">{{ catalogModeText }}</span>
+              </div>
+              <div class="sd-catalog__note">
+                统计为目录 system 消息 JSON 序列化后的 UTF-8 字节，不是实际 token；预算占用既有 max_ctx，不会扩大总上下文窗口。
+              </div>
+              <div v-if="store.skillCatalog.indexPath" class="sd-catalog__index">
+                完整元数据索引：<span class="mono">{{ store.skillCatalog.indexPath }}</span>
+              </div>
+              <div v-for="warning in store.skillCatalog.warnings" :key="warning" class="sd-catalog__warning">⚠ {{ warning }}</div>
+            </template>
+            <template v-else>
+              <div class="sd-catalog__title">尚无本次任务的技能目录事件</div>
+              <div class="sd-catalog__note">发送下一条用户任务后会重新扫描并显示目录模式；这里不声称已实时检测外部文件变化。</div>
+            </template>
+          </div>
+          <div class="sd-skills__legend">
+            <span><b>目录状态</b>表示模型本次可发现的元数据投影</span>
+            <span><b>本轮已读取正文</b>只来自 skill_loaded 事件</span>
           </div>
           <div v-for="s in skills" :key="s.name" class="sd-skill">
             <div class="sd-skill__l">
               <span class="sd-skill__dot" :class="{ 'sd-skill__dot--on': usedSkills.includes(s.name) }" />
-              <span class="mono sd-skill__name">{{ s.name }}</span>
+              <div class="sd-skill__main">
+                <span class="mono sd-skill__name">{{ s.name }}</span>
+                <span v-if="s.description" class="sd-skill__desc">{{ s.description }}</span>
+                <span v-if="s.path" class="mono sd-skill__path">{{ s.path }}</span>
+              </div>
             </div>
             <div class="sd-skill__r">
-              <span v-if="usedSkills.includes(s.name)" class="sd-skill__used">本轮已加载</span>
-              <span v-if="s.source" class="sd-skill__src">{{ s.source }}</span>
+              <span v-if="usedSkills.includes(s.name)" class="sd-skill__used">本轮已读取正文</span>
+              <span v-if="s.scope || s.source" class="sd-skill__src">{{ s.scope || s.source }}</span>
             </div>
           </div>
-          <div v-if="!skills.length" class="sd-skills__hint">当前工作区尚未发现可用 skill；新建会话后此处会列出目录内的技能。</div>
+          <div v-if="!skills.length" class="sd-skills__hint">尚未收到 session_init.skills 发现元数据；下一次任务开始时会重新扫描。</div>
         </template>
 
         <!-- 工作区 -->
@@ -485,6 +569,69 @@ async function applyWorkspace() {
   margin-bottom: 14px;
   line-height: 1.7;
 }
+.sd-catalog {
+  border: 1px solid var(--g200);
+  background: var(--g50);
+  border-radius: var(--radius-lg);
+  padding: 14px 16px;
+  margin-bottom: 12px;
+}
+.sd-catalog--shortened,
+.sd-catalog--names,
+.sd-catalog--index {
+  border-color: var(--amber200);
+  background: var(--amber50);
+}
+.sd-catalog__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.sd-catalog__title {
+  color: var(--g800);
+  font-size: 13px;
+  font-weight: 600;
+}
+.sd-catalog__usage,
+.sd-catalog__note,
+.sd-catalog__index,
+.sd-catalog__warning {
+  margin-top: 5px;
+  color: var(--g500);
+  font-size: 11px;
+  line-height: 1.55;
+}
+.sd-catalog__mode {
+  flex-shrink: 0;
+  color: var(--blue700);
+  background: var(--blue50);
+  border: 1px solid var(--blue100);
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 11px;
+}
+.sd-catalog--shortened .sd-catalog__mode,
+.sd-catalog--names .sd-catalog__mode,
+.sd-catalog--index .sd-catalog__mode {
+  color: var(--amber700);
+  background: #fff;
+  border-color: var(--amber200);
+}
+.sd-catalog__index {
+  word-break: break-all;
+}
+.sd-catalog__warning {
+  color: var(--amber700);
+}
+.sd-skills__legend {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  color: var(--g400);
+  font-size: 11px;
+  padding: 0 2px 8px;
+}
 .sd-skill {
   display: flex;
   align-items: center;
@@ -494,14 +641,17 @@ async function applyWorkspace() {
 }
 .sd-skill__l {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 10px;
+  min-width: 0;
 }
 .sd-skill__dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
   background: var(--g200);
+  margin-top: 6px;
+  flex-shrink: 0;
 }
 .sd-skill__dot--on {
   background: var(--green400);
@@ -510,10 +660,27 @@ async function applyWorkspace() {
   font-size: 14px;
   color: var(--g800);
 }
+.sd-skill__main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.sd-skill__desc {
+  color: var(--g500);
+  font-size: 11px;
+  margin-top: 2px;
+}
+.sd-skill__path {
+  color: var(--g300);
+  font-size: 10px;
+  margin-top: 2px;
+  word-break: break-all;
+}
 .sd-skill__r {
   display: flex;
   align-items: center;
   gap: 12px;
+  flex-shrink: 0;
 }
 .sd-skill__used {
   font-size: 11px;

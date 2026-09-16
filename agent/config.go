@@ -27,6 +27,7 @@ type agentConfig struct {
 	MemoryLimitMB             int    `json:"memory_limit_mb"`
 	MaxCtx                    int    `json:"max_ctx"`
 	MaxRounds                 int    `json:"max_rounds"`
+	SkillCatalogBudgetBytes   int    `json:"skill_catalog_budget_bytes"`
 	MicroKeepRecent           int    `json:"micro_keep_recent"`
 	ProcessWarnThreshold      int    `json:"process_warn_threshold"`
 	BackgroundTaskMaxOutputMB int    `json:"background_task_max_output_mb"`
@@ -66,6 +67,7 @@ func defaultAgentConfig() agentConfig {
 		MaxCtx:                    defaultMaxContextBytes,
 		MaxRounds:                 100,
 		MicroKeepRecent:           defaultMicroKeepRecent,
+		SkillCatalogBudgetBytes:   defaultSkillCatalogBudgetBytes,
 		ProcessWarnThreshold:      defaultProcessWarnThreshold,
 		BackgroundTaskMaxOutputMB: defaultBackgroundTaskMaxOutputMB,
 		BackgroundTaskWarnCount:   defaultBackgroundTaskWarnCount,
@@ -230,6 +232,7 @@ func writeAgentConfigTemplate(path string) error {
 		"_doc_llm_compress_timeout_sec":      "上下文压缩调用的独立超时(秒)，不影响主对话",
 		"_doc_read_only":                     "只读模式：代码层拒绝 shell、write、edit、rollback；不依赖模型提示词",
 		"_doc_max_rounds":                    "单次任务的工具调用轮次上限，默认 100；触顶表示未得到最终答复，不会宣称任务完成",
+		"_doc_skill_catalog_budget_bytes":    "技能目录预算：默认 8192 序列化 UTF-8 字节，范围 1024–1048576；正文按需读取，下个任务生效",
 		"_doc_micro_keep_recent":             "本地微压缩保留最近工具结果数，默认 8，范围 1–1000；最新完整工具组始终保留",
 		"_doc_process_warn_threshold":        "会话 Job 内进程数告警阈值，默认 50；只告警，不阻止进程",
 		"_doc_background_task_max_output_mb": "单个后台任务输出硬上限，默认 50MB；超限截断并标注",
@@ -289,6 +292,7 @@ func applyConfigToFlags(cfg *config, ac agentConfig, fs *flag.FlagSet) {
 			cfg.maxRounds = ac.MaxRounds
 		}
 	})
+	use("skill-catalog-budget-bytes", func() { cfg.skillCatalogBudgetBytes = ac.SkillCatalogBudgetBytes })
 	use("micro-keep-recent", func() {
 		cfg.microKeepRecent = ac.MicroKeepRecent
 	})

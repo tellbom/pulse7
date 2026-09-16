@@ -243,6 +243,7 @@ type apiConfigUpdate struct {
 
 	MaxCtx                  *int    `json:"max_ctx"`
 	MaxRounds               *int    `json:"max_rounds"`
+	SkillCatalogBudgetBytes *int    `json:"skill_catalog_budget_bytes"`
 	MicroKeepRecent         *int    `json:"micro_keep_recent"`
 	ShellTimeoutSec         *int    `json:"shell_timeout_sec"`
 	MemoryLimitMB           *int    `json:"memory_limit_mb"`
@@ -275,6 +276,7 @@ func (u apiConfigUpdate) provided() map[string]interface{} {
 		"max_ctx":                       u.MaxCtx,
 		"max_rounds":                    u.MaxRounds,
 		"micro_keep_recent":             u.MicroKeepRecent,
+		"skill_catalog_budget_bytes":    u.SkillCatalogBudgetBytes,
 		"shell_timeout_sec":             u.ShellTimeoutSec,
 		"memory_limit_mb":               u.MemoryLimitMB,
 		"process_warn_threshold":        u.ProcessWarnThreshold,

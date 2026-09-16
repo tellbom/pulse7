@@ -44,6 +44,7 @@ const S_ = {
     configSource: '用户全局配置（%USERPROFILE%\\.pulse7\\config.json）',
     workspace: 'E:\\projects\\auth-service',
     max_ctx: 256000,
+    skill_catalog_budget_bytes: 8192,
     read_only: false,
     max_rounds: 100,
     shell_timeout_sec: 120,
@@ -110,9 +111,9 @@ const S_ = {
   skillsUsed: ['git-ops'],
   toolsCount: 18,
   skillsAvailable: [
-    { name: 'git-ops', source: '项目级', active: true },
-    { name: 'code-search', source: '个人级', active: true },
-    { name: 'file-diff', source: '项目级', active: false }
+    { name: 'git-ops', description: '执行安全的 Git 检查点、差异与恢复操作。', path: 'E:\\projects\\auth-service\\.pulse7\\skills\\git-ops\\SKILL.md', scope: 'workspace' },
+    { name: 'code-search', description: '使用项目索引与文本检索定位代码。', path: 'C:\\Users\\demo\\.pulse7\\skills\\code-search\\SKILL.md', scope: 'global' },
+    { name: 'file-diff', description: '分析文件差异并给出窄范围修改建议。', path: 'E:\\projects\\auth-service\\.pulse7\\skills\\file-diff\\SKILL.md', scope: 'workspace' }
   ]
 };
 
@@ -248,9 +249,30 @@ export function createMockBackend() {
     }
   }
 
+  function skillCatalogSnapshot() {
+    const budgetBytes = Number(S_.config.skill_catalog_budget_bytes) || 8192;
+    const count = S_.skillsAvailable.length;
+    const version = '6f4b0d24e50c718be27e6ed60b3aab75151bf5cc14b614e767e731e9bbdc6428';
+    if (!count) return { version, mode: 'empty', count: 0, budgetBytes, listingBytes: 0, warnings: null };
+    if (budgetBytes >= 8192) return { version, mode: 'full', count, budgetBytes, listingBytes: 2468, warnings: null };
+    if (budgetBytes >= 4096) return { version, mode: 'shortened', count, budgetBytes, listingBytes: Math.min(3900, budgetBytes), warnings: [] };
+    if (budgetBytes >= 2048) return { version, mode: 'names', count, budgetBytes, listingBytes: Math.min(1800, budgetBytes), warnings: [] };
+    return {
+      version,
+      mode: 'index',
+      count,
+      budgetBytes,
+      listingBytes: Math.min(780, budgetBytes),
+      indexPath: `C:\\pulse7\\data\\skill-catalogs\\${version}.jsonl`,
+      warnings: null
+    };
+  }
+
   // 主演示脚本：完整复现定稿原型中的对话流。
   async function runShowcase(s, sessionId) {
     emit('context_state', { usedTokens: 21000, budget: 64000, percentLeft: 67.2, warningLevel: 'normal' });
+    // 与 skill_catalog 分开：目录可发现后，模型实际 read 了某个 SKILL.md 才发 skill_loaded。
+    emit('skill_loaded', { name: 'git-ops', path: 'E:\\projects\\auth-service\\.pulse7\\skills\\git-ops\\SKILL.md' });
     await s.wait(300);
 
     emit('assistant_attempt', { attempt: 1, status: 'start' });
@@ -264,8 +286,6 @@ export function createMockBackend() {
     return;
     emit('assistant_attempt', { attempt: 1, status: 'complete' });
     await s.wait(220);
-
-    emit('skill_loaded', { name: 'git-ops', path: 'E:\\projects\\auth-service\\.pulse7\\skills\\git-ops' });
 
     emit('tool_call', { id: 'tc-001', name: 'read_file', args: { path: 'E:\\projects\\auth-service\\src\\handler.go' } });
     await s.wait(420);
@@ -369,7 +389,7 @@ export function createMockBackend() {
       workspace: S_.config.workspace,
       model: S_.config.model,
       tools: S_.toolsCount,
-      skills: S_.skillsAvailable.map((x) => ({ name: x.name, source: x.source })),
+      skills: S_.skillsAvailable.map((x) => ({ name: x.name, description: x.description, path: x.path, scope: x.scope })),
       contextBudget: 64000
     });
     if (sessionId === 's-001') {
@@ -390,6 +410,7 @@ export function createMockBackend() {
     S_.turnHistoryCount = sessionId === 's-001' ? HISTORY_S001.length : 1;
     S_.turnStartCursor = S_.eventSeq;
     emit('turn_started', { sessionId, historyCount: S_.turnHistoryCount });
+    emit('skill_catalog', skillCatalogSnapshot());
     const finish = () => {
       script = null;
     };
@@ -473,7 +494,14 @@ export function createMockBackend() {
     if (method === 'GET' && rest[0] === 'config') return { ...S_.config };
     if (method === 'PUT' && rest[0] === 'config') {
       if (busy()) return err(409, 'busy', '当前有任务执行中，配置暂不可修改');
-      const RUNTIME_KEYS = ['max_ctx', 'max_rounds', 'shell_timeout_sec', 'memory_limit_mb', 'process_warn_threshold', 'background_task_max_output_mb', 'background_task_warn_count', 'background_task_warn_sec', 'cleanup_on_exit', 'read_only', 'llm_first_chunk_timeout_sec', 'llm_idle_timeout_sec', 'llm_max_retries', 'llm_compress_timeout_sec', 'sandbox_preference'];
+      if (
+        body &&
+        body.skill_catalog_budget_bytes !== undefined &&
+        (!Number.isInteger(body.skill_catalog_budget_bytes) || body.skill_catalog_budget_bytes < 1024 || body.skill_catalog_budget_bytes > 1048576)
+      ) {
+        return err(400, 'invalid', 'skill_catalog_budget_bytes 必须是 1024–1048576 之间的整数');
+      }
+      const RUNTIME_KEYS = ['max_ctx', 'max_rounds', 'skill_catalog_budget_bytes', 'shell_timeout_sec', 'memory_limit_mb', 'process_warn_threshold', 'background_task_max_output_mb', 'background_task_warn_count', 'background_task_warn_sec', 'cleanup_on_exit', 'read_only', 'llm_first_chunk_timeout_sec', 'llm_idle_timeout_sec', 'llm_max_retries', 'llm_compress_timeout_sec', 'sandbox_preference'];
       const RESTART_KEYS = ['shell_timeout_sec', 'memory_limit_mb', 'process_warn_threshold', 'background_task_max_output_mb', 'background_task_warn_count', 'background_task_warn_sec', 'read_only', 'cleanup_on_exit', 'sandbox_preference'];
       const saved = {};
       ['base_url', 'model', ...RUNTIME_KEYS].forEach((k) => {

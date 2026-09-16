@@ -67,3 +67,8 @@ saved 是本次提交并保存的字段（不含 api_key）；restartRequiredFie
 ## 验证
 
 会话修复 Win7 amd64 全量166项通过、0跳过、exit0。配置扩展后 Win7 amd64 全量170项通过、0跳过、exit0（约72.5秒），包含两项会话隔离/写读边界用例与四项配置更新用例；amd64/386 go vet 与386构建通过。日志：phase3-evidence/session-isolation-win7.txt、config-controls-win7.txt；二进制及上传一致性见 build-hashes.json。本轮构建包含执行期间出现的配置草稿、原有未提交 GUI 资源及未接入路由的 fsDirs 草稿，不声称干净提交构建或目录浏览验收。没有读取 GLM 原始大文件内容，没有真实模型、Sandboxie或386运行验收。
+
+
+## 2026-09-16 新增技能目录预算
+
+GET/PUT /api/config 新增 skill_catalog_budget_bytes，默认 8192 字节，API 范围 1024–1048576，任务间生效、无需重启、忙时 409。仅控制模型技能元数据目录，不改变整体窗口，不注入技能正文。前端字段、降级模式及 skill_catalog 事件详见 [skill-catalog-frontend-handoff.md](skill-catalog-frontend-handoff.md)。只支持全局与工作区作用域，不做会话级技能。

@@ -1,0 +1,133 @@
+{
+  "node": {
+    "version": "18.20.2",
+    "source": "https://github.com/Alex313031/node18-win7/releases/tag/v18.20.2",
+    "kind": "unofficial Windows 7 backport, portable; not official Node Windows 7 support",
+    "archive_sha256": "fb3bbf30ce6c8e779c567588bc469a3e5548bdf47de90c93b7b670214c934830"
+  },
+  "cli": "@astron-team/skillhub@0.1.12 (latest at execution)",
+  "skill": {
+    "schemaVersion": 1,
+    "registry": "http://192.168.124.2:18081",
+    "namespace": "win7",
+    "slug": "code-review",
+    "version": "20260827.145540",
+    "versionId": 340,
+    "fingerprint": "sha256:93c04d3e64cfff0970d727f3be90c7507acb3417c8ae29064da74ac0592bb391",
+    "files": {
+      "SKILL.md": "3abbdfe52540f9242e16589fae2cc423b3d98994c37683944462b29bab89495c",
+      "agents/openai.yaml": "3f72329747a916ac8ab2b4004490c79e1be6774a8a83e5b258d6ddc7e866abfe"
+    },
+    "source": "skillhub",
+    "agent": "custom",
+    "installedAt": "2026-09-15T13:04:03.255Z"
+  },
+  "product_sha256": "a0aed5a0bf1805c3ac4fe43e94f65b4cae7c51a18687d815eb0471d460a99a40",
+  "files": [
+    {
+      "path": "node-version.json",
+      "sha256": "f26d649039eca61b7442bc0e1c31836a244ab7b235f62cd99e6e2cd28fbc2483",
+      "bytes": 149
+    },
+    {
+      "path": "original-install.json",
+      "sha256": "22986158da0c31070f10144c37a57a25a72312b61fe21e0d4885b0c80cd509f3",
+      "bytes": 710
+    },
+    {
+      "path": "pulse7-install.json",
+      "sha256": "739bae1d77e30f728c3a07b2960b34694d876d66296e49bb8925c5b04b5b7a40",
+      "bytes": 623
+    },
+    {
+      "path": "review-task.txt",
+      "sha256": "84a3fe70701b9a0d25577ed16ebff35acf07a75a9a46adcd85a1114aecf56d44",
+      "bytes": 164
+    },
+    {
+      "path": "explicit-task.txt",
+      "sha256": "e2d505d7a6525d3e54560da031ecf3de683128cc859fc854d5f7dd28de472a18",
+      "bytes": 219
+    },
+    {
+      "path": "model-summary.json",
+      "sha256": "2d2639b7be3380cdd2dc7c94e0fece05fd8ea735bbd9491d4917b281f6c97846",
+      "bytes": 59013
+    },
+    {
+      "path": "explicit-summary.json",
+      "sha256": "c2b8b718c00f9f24d69b12d03c00e1cc9d69e654f5392e13d33890825a3738ba",
+      "bytes": 150083
+    },
+    {
+      "path": "model-events.jsonl",
+      "sha256": "4cbdfdca78d19d52f608abaf1f3edefb9bbc8259f804f51bf596c0f96010983c",
+      "bytes": 37262
+    },
+    {
+      "path": "explicit-events.jsonl",
+      "sha256": "e993d849e4da3bc745e22a92da83bf1d612fa7575746318416ac45a322931834",
+      "bytes": 91918
+    },
+    {
+      "path": "model-stderr.log",
+      "sha256": "a02686e075124518b573946e380905248fbc5ee3291e78cb92df47f51b2ad98e",
+      "bytes": 7130
+    },
+    {
+      "path": "explicit-stderr.log",
+      "sha256": "6a3a1157aef8fc691a597895b72d99b57f1f59cbfd59a3fc327239c0ea5d0647",
+      "bytes": 17190
+    },
+    {
+      "path": "install-code-review.cmd",
+      "sha256": "3a4e919317da82f6afc06f0aa0c2ee4faa9d04f6a2ca846014261e919530a201",
+      "bytes": 236
+    },
+    {
+      "path": "start-pulse7.cmd",
+      "sha256": "adf383d6efe0da40f2d581fb8f4841a3535803542da996c5ccc212c34cce7796",
+      "bytes": 156
+    },
+    {
+      "path": "sessions/audit.jsonl",
+      "sha256": "8f0d29d856cfe8f2b04d467d9ae8531c8bbb1798dbb8ec23d955a25bbffa4b02",
+      "bytes": 10724
+    },
+    {
+      "path": "sessions/index-t0915-210608-249-1.tmp",
+      "sha256": "56d481ddbed5fdd3dca234adf4d4aa57620aa206293531cb74892d9c0e7e826b",
+      "bytes": 477
+    },
+    {
+      "path": "sessions/index-t0915-210807-838-1.tmp",
+      "sha256": "56d481ddbed5fdd3dca234adf4d4aa57620aa206293531cb74892d9c0e7e826b",
+      "bytes": 477
+    },
+    {
+      "path": "sessions/sess-t0915-210608-249.jsonl",
+      "sha256": "986b9625f2821c0158938d0e39db56d014dbbbf5143396a995ec63f0abe64b12",
+      "bytes": 19660
+    },
+    {
+      "path": "sessions/sess-t0915-210807-838.jsonl",
+      "sha256": "bd739c0674e47fefdbe59eff615419aee84db1e03b4fc81da08e55b503b5e32a",
+      "bytes": 34614
+    },
+    {
+      "path": "installed-skill/.skillhub/metadata.json",
+      "sha256": "9caaf0db4fff6ba40224b78526e3e1ea2f479b8e79cea6684ecc400b76edc875",
+      "bytes": 545
+    },
+    {
+      "path": "installed-skill/agents/openai.yaml",
+      "sha256": "3f72329747a916ac8ab2b4004490c79e1be6774a8a83e5b258d6ddc7e866abfe",
+      "bytes": 103
+    },
+    {
+      "path": "installed-skill/SKILL.md",
+      "sha256": "3abbdfe52540f9242e16589fae2cc423b3d98994c37683944462b29bab89495c",
+      "bytes": 6676
+    }
+  ]
+}

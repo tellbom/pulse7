@@ -1,6 +1,6 @@
 <script setup>
 // 任务流中的轻量系统记录 — 每个契约事件在界面上有归宿（设计任务书第 5 节）。
-// waiting / skill / outside_write / compaction / process_warning / process / permission
+// waiting / skill_catalog / skill / outside_write / compaction / process_warning / process / permission
 import { ref, computed } from 'vue';
 import { store, actions } from '../store/store.js';
 import { formatBytes } from '../lib/format.js';
@@ -29,6 +29,22 @@ const procAct = computed(() => {
   const map = { created: '创建', ended: '结束', terminated: '被终止' };
   return map[it.action] || it.action;
 });
+
+const formatCatalogKiB = (bytes) => {
+  const value = Math.max(0, Number(bytes) || 0) / 1024;
+  return `${Number.isInteger(value) ? value : value.toFixed(1)} KiB`;
+};
+
+const catalogModeText = computed(() => {
+  const map = {
+    full: '完整元数据',
+    shortened: '描述已缩短',
+    names: '描述已省略',
+    index: '改为索引按需查阅',
+    empty: '未发现技能'
+  };
+  return map[it.mode] || it.mode || '未知模式';
+});
 </script>
 
 <template>
@@ -39,9 +55,21 @@ const procAct = computed(() => {
     <span class="ir-wait__hint">内网端点慢是常态；这是心跳提示，不代表卡死</span>
   </div>
 
+  <!-- skill_catalog：本次任务可发现的目录投影，不代表任何技能正文已读取 -->
+  <div v-else-if="it.type === 'skill_catalog'" class="ir-catalog" :class="`ir-catalog--${it.mode}`">
+    <div class="ir-catalog__row">
+      <span class="ir-catalog__title">技能目录已构建</span>
+      <span>{{ it.count }} 个技能</span>
+      <span class="mono">{{ formatCatalogKiB(it.listingBytes) }} / {{ formatCatalogKiB(it.budgetBytes) }}</span>
+      <span class="ir-catalog__mode">{{ catalogModeText }}</span>
+    </div>
+    <div v-if="it.indexPath" class="mono ir-catalog__index">完整元数据索引：{{ it.indexPath }}</div>
+    <div v-for="warning in it.warnings" :key="warning" class="ir-catalog__warning">⚠ {{ warning }}</div>
+  </div>
+
   <!-- skill_loaded -->
   <div v-else-if="it.type === 'skill'" class="ir-skill">
-    skill 已加载 <span class="mono ir-skill__name">{{ it.name }}</span>
+    skill 正文已读取 <span class="mono ir-skill__name">{{ it.name }}</span>
   </div>
 
   <!-- outside_workspace_write -->
@@ -129,7 +157,46 @@ const procAct = computed(() => {
   color: var(--g300);
 }
 
-/* skill */
+/* skill catalog / skill_loaded */
+.ir-catalog {
+  margin: 4px 12px;
+  padding: 7px 10px;
+  border: 1px solid var(--blue100);
+  background: var(--blue50);
+  border-radius: var(--radius-lg);
+  color: var(--g500);
+  font-size: 11px;
+}
+.ir-catalog--shortened,
+.ir-catalog--names,
+.ir-catalog--index {
+  border-color: var(--amber200);
+  background: var(--amber50);
+}
+.ir-catalog__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.ir-catalog__title {
+  color: var(--g700);
+  font-weight: 600;
+}
+.ir-catalog__mode {
+  color: var(--blue700);
+}
+.ir-catalog--shortened .ir-catalog__mode,
+.ir-catalog--names .ir-catalog__mode,
+.ir-catalog--index .ir-catalog__mode,
+.ir-catalog__warning {
+  color: var(--amber700);
+}
+.ir-catalog__index,
+.ir-catalog__warning {
+  margin-top: 4px;
+  word-break: break-all;
+}
 .ir-skill {
   padding: 6px 20px;
   font-size: 12px;

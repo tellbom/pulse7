@@ -50,7 +50,7 @@ async function loadEarlier() {
         <div v-else-if="item.type === 'tool'" class="ct__toolwrap">
           <ToolRecord :item="item" />
         </div>
-        <InlineRecord v-else-if="['waiting', 'skill', 'outside_write', 'compaction', 'process_warning', 'process', 'permission'].includes(item.type)" :item="item" />
+        <InlineRecord v-else-if="['waiting', 'skill_catalog', 'skill', 'outside_write', 'compaction', 'process_warning', 'process', 'permission'].includes(item.type)" :item="item" />
         <TurnResultBlock v-else-if="item.type === 'turn_result'" :item="item" />
       </template>
       <div class="ct__pad" />

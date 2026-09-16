@@ -1,12 +1,12 @@
 package main
 
 import (
+	openai "github.com/sashabaranov/go-openai"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
-	"unicode/utf8"
 )
 
 func writeSkillFixture(t *testing.T, root, dir, name, description, body string) string {
@@ -48,9 +48,13 @@ func TestSkillsMetadataIsInjectedWithoutBody(t *testing.T) {
 			t.Fatalf("skills block leaked body %q: %s", body, block)
 		}
 	}
-	system := systemMessage(&config{workspace: workspace}).Content
-	if !strings.Contains(system, block) || strings.Contains(system, "PROJECT_BODY_SECRET") || strings.Contains(system, "PERSONAL_BODY_SECRET") {
-		t.Fatalf("system skill injection is not metadata-only: %s", system)
+	cfg := &config{workspace: workspace, exeDir: root}
+	msgs := []openai.ChatCompletionMessage{systemMessage(cfg)}
+	if err := refreshSkillCatalog(cfg, &msgs); err != nil {
+		t.Fatal(err)
+	}
+	if len(msgs) != 2 || !strings.Contains(msgs[1].Content, "发布流程") || strings.Contains(msgs[1].Content, "PROJECT_BODY_SECRET") || strings.Contains(msgs[1].Content, "PERSONAL_BODY_SECRET") {
+		t.Fatalf("metadata-only projection failed: %#v", msgs)
 	}
 	if filepath.IsAbs(catalog.Skills[0].Path) || catalog.Skills[0].Path == projectPath {
 		t.Fatalf("project skill path should be workspace-relative: %q", catalog.Skills[0].Path)
@@ -80,27 +84,19 @@ func TestMalformedSkillsAreSkippedWithWarnings(t *testing.T) {
 	}
 }
 
-func TestSkillLimitsWarnAndPreserveRuneBoundaries(t *testing.T) {
-	workspace := t.TempDir()
-	home := t.TempDir()
-	longDescription := strings.Repeat("界", maxSkillDescription+5)
-	for i := 0; i < maxSkills+1; i++ {
-		writeSkillFixture(t, workspace, "skill-"+strconv.Itoa(i), "技能"+strconv.Itoa(i), longDescription, "body")
+func TestSkillsKeepCompleteMetadataBeyondTwenty(t *testing.T) {
+	workspace, home := t.TempDir(), t.TempDir()
+	description := strings.Repeat("界", 421)
+	for i := 0; i < 25; i++ {
+		writeSkillFixture(t, workspace, "skill-"+strconv.Itoa(i), "技能"+strconv.Itoa(i), description, "BODY_NOT_IN_CATALOG")
 	}
-
 	catalog := scanSkills(workspace, home)
-	if len(catalog.Skills) != maxSkills {
-		t.Fatalf("skill count = %d, want %d", len(catalog.Skills), maxSkills)
+	if len(catalog.Skills) != 25 || len(catalog.Warnings) != 0 {
+		t.Fatalf("catalog: %#v", catalog)
 	}
 	for _, skill := range catalog.Skills {
-		if utf8.RuneCountInString(skill.Description) != maxSkillDescription || !utf8.ValidString(skill.Description) {
-			t.Fatalf("description truncation = %d runes, valid=%v", utf8.RuneCountInString(skill.Description), utf8.ValidString(skill.Description))
-		}
-	}
-	warnings := strings.Join(catalog.Warnings, "\n")
-	for _, want := range []string{"超过 20 个", "description 超过 200 字符", "清单超过 2KB"} {
-		if !strings.Contains(warnings, want) {
-			t.Fatalf("warnings missing %q: %s", want, warnings)
+		if skill.Description != description || skill.Scope != "workspace" {
+			t.Fatalf("metadata lost: %#v", skill)
 		}
 	}
 }

@@ -54,6 +54,8 @@ export const store = reactive({
   historyToolResults: {},
   skillsAvailable: [],
   skillsUsed: [],
+  skillCatalog: null, // skill_catalog：本次任务的目录投影，不等同于 session_init.skills 或 skill_loaded
+  skillCatalogPending: false,
 
   // 任务流
   timeline: [], // 见 consumeEvent 内各工厂
@@ -168,6 +170,8 @@ function resetSessionState() {
   store.context = { usedTokens: 0, budget: 0, percentLeft: 100, warningLevel: 'normal' };
   store.skillsAvailable = [];
   store.skillsUsed = [];
+  store.skillCatalog = null;
+  store.skillCatalogPending = false;
   store.checkpoints = [];
   store.taskOutputs = {};
   store.planState = null;
@@ -960,6 +964,22 @@ function eventSessionId(evt) {
   return (evt && evt.sessionId) || d.sessionId || store.activeSessionId || null;
 }
 
+function applySkillCatalog(data) {
+  const d = data || {};
+  const catalog = {
+    version: typeof d.version === 'string' ? d.version : '',
+    mode: typeof d.mode === 'string' ? d.mode : 'empty',
+    count: Math.max(0, Number(d.count) || 0),
+    budgetBytes: Math.max(0, Number(d.budgetBytes) || 0),
+    listingBytes: Math.max(0, Number(d.listingBytes) || 0),
+    indexPath: typeof d.indexPath === 'string' ? d.indexPath : '',
+    warnings: Array.isArray(d.warnings) ? d.warnings.filter(Boolean).map(String) : []
+  };
+  store.skillCatalog = catalog;
+  store.skillCatalogPending = false;
+  return catalog;
+}
+
 // 浏览历史期间仍维护活动执行状态，但绝不把它的事件追加到历史预览时间线。
 function consumeStateOnly(evt) {
   const d = evt.data || {};
@@ -968,6 +988,12 @@ function consumeStateOnly(evt) {
       store.runtime = { ...store.runtime, state: 'running', busy: true, turnActive: true, turnHistoryCount: Number(d.historyCount) || 0 };
       store.phase = 'waiting_first';
       store.turnStartedAt = Date.now();
+      store.skillsUsed = [];
+      store.skillCatalog = null;
+      store.skillCatalogPending = true;
+      break;
+    case 'skill_catalog':
+      applySkillCatalog(d);
       break;
     case 'assistant_delta':
     case 'assistant_reasoning_delta':
@@ -1021,6 +1047,7 @@ function consumeStateOnly(evt) {
     case 'turn_result':
       store.phase = d.status === 'need_answer' ? 'need_answer' : 'idle';
       store.runtime = { ...store.runtime, state: d.status === 'need_answer' ? 'need_answer' : 'idle', busy: false, turnActive: false };
+      store.skillCatalogPending = false;
       store.pendingPermission = null;
       actions.refreshTasks();
       actions.refreshSessions();
@@ -1062,12 +1089,21 @@ function consumeEvent(evt) {
       store.runtime = { ...store.runtime, state: 'running', busy: true, turnActive: true, turnHistoryCount: Number(d.historyCount) || 0 };
       store.phase = 'waiting_first';
       store.turnStartedAt = Date.now();
+      store.skillsUsed = [];
+      store.skillCatalog = null;
+      store.skillCatalogPending = true;
       store.turnCommands = [];
       store.turnOutsideWrites = [];
       store.turnBgProcesses = [];
       store.waitedSeconds = 0;
       actions.pushWaiting('waiting_first');
       break;
+
+    case 'skill_catalog': {
+      const catalog = applySkillCatalog(d);
+      push({ type: 'skill_catalog', id: nid('sc'), ...catalog });
+      break;
+    }
 
     case 'assistant_attempt': {
       const a = store.attempts[d.attempt] || (store.attempts[d.attempt] = { text: '', reasoning: '', status: 'start' });
@@ -1295,6 +1331,7 @@ function consumeEvent(evt) {
       });
       store.phase = d.status === 'need_answer' ? 'need_answer' : 'idle';
       store.runtime = { ...store.runtime, state: d.status === 'need_answer' ? 'need_answer' : 'idle', busy: false, turnActive: false };
+      store.skillCatalogPending = false;
       store.pendingPermission = null;
       store.waitedSeconds = 0;
       actions.refreshTasks();

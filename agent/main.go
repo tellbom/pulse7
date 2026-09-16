@@ -31,6 +31,7 @@ type config struct {
 	maxCtx                            int
 	maxRounds                         int
 	microKeepRecent                   int
+	skillCatalogBudgetBytes           int
 	processWarnThreshold              int
 	backgroundTaskMaxOutputMB         int
 	backgroundTaskWarnCount           int
@@ -242,6 +243,7 @@ func main() {
 	flag.DurationVar(&cfg.shellTimeout, "shell-timeout", 120*time.Second, "shell tool timeout")
 	flag.IntVar(&cfg.maxCtx, "max-ctx", defaultMaxContextBytes, "context budget in serialized UTF-8 bytes (messages + tools)")
 	flag.IntVar(&cfg.maxRounds, "max-rounds", 100, "maximum tool-call rounds before stopping without a final answer")
+	flag.IntVar(&cfg.skillCatalogBudgetBytes, "skill-catalog-budget-bytes", defaultSkillCatalogBudgetBytes, "skill metadata listing budget in serialized UTF-8 bytes")
 	flag.IntVar(&cfg.microKeepRecent, "micro-keep-recent", defaultMicroKeepRecent, "recent tool results retained by local micro compaction")
 	flag.IntVar(&cfg.processWarnThreshold, "process-warn-threshold", defaultProcessWarnThreshold, "warn above this session process count")
 	flag.IntVar(&cfg.backgroundTaskMaxOutputMB, "background-task-max-output-mb", defaultBackgroundTaskMaxOutputMB, "hard output cap per background task")
@@ -408,6 +410,12 @@ func newClient(cfg *config) *openai.Client {
 }
 
 func setupEnv(cfg *config, taskID string) (*Registry, error) {
+	if cfg.skillCatalogBudgetBytes == 0 {
+		cfg.skillCatalogBudgetBytes = defaultSkillCatalogBudgetBytes
+	}
+	if cfg.skillCatalogBudgetBytes < 1024 || cfg.skillCatalogBudgetBytes > 1048576 {
+		return nil, errors.New("skill_catalog_budget_bytes must be between 1024 and 1048576")
+	}
 	if cfg.microKeepRecent < 0 || cfg.microKeepRecent > 1000 {
 		return nil, errors.New("micro_keep_recent must be between 1 and 1000")
 	}
@@ -657,12 +665,6 @@ func systemMessage(cfg *config) openai.ChatCompletionMessage {
 	if project := loadAgentMd(cfg.workspace); project != "" {
 		system += "\n\n" + project
 		out("[AGENT.md] 已注入项目约定（%d 字节）\n", len(project))
-	}
-	catalog := discoverSkills(cfg.workspace)
-	printSkillWarnings(catalog)
-	if skills := skillsSystemBlock(catalog.Skills); skills != "" {
-		system += "\n\n" + skills
-		out("[skills] 已注入 %d 条技能元数据\n", len(catalog.Skills))
 	}
 	return openai.ChatCompletionMessage{Role: openai.ChatMessageRoleSystem, Content: system}
 }
@@ -977,6 +979,9 @@ type turnStats struct {
 }
 
 func streamTurn(client *openai.Client, reg *Registry, cfg *config, msgs *[]openai.ChatCompletionMessage, stats *turnStats) (string, error) {
+	if err := refreshSkillCatalog(cfg, msgs); err != nil {
+		return "", err
+	}
 	if j, ok := reg.runner.(*jobObjectRunner); ok {
 		j.emitMode("state")
 		if j.processes != nil {

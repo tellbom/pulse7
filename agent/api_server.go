@@ -331,7 +331,7 @@ func (a *apiServer) events(w http.ResponseWriter, r *http.Request) {
 func (a *apiServer) configView() map[string]interface{} {
 	// Build from the effective runtime values, never from a key-bearing map.
 	c := a.cfg
-	return map[string]interface{}{"base_url": c.baseURL, "model": c.model, "workspace": c.workspace, "apiKeyConfigured": c.apiKey != "", "read_only": c.readOnly, "max_ctx": c.maxCtx, "max_rounds": c.maxRounds, "micro_keep_recent": c.microKeepRecent, "sandbox_preference": c.sandboxPreference, "shell_timeout_sec": int(c.shellTimeout / time.Second), "memory_limit_mb": c.memLimitMB, "process_warn_threshold": c.processWarnThreshold, "background_task_max_output_mb": c.backgroundTaskMaxOutputMB, "background_task_warn_count": c.backgroundTaskWarnCount, "background_task_warn_sec": c.backgroundTaskWarnSec, "cleanup_on_exit": c.cleanupOnExit, "box": c.box, "start_exe": c.startExe, "sandbox_root": c.sandboxRoot, "yolo": c.yolo, "llm_first_chunk_timeout_sec": int(c.llmFirstChunkTimeout / time.Second), "llm_idle_timeout_sec": int(c.llmIdleTimeout / time.Second), "llm_max_retries": c.llmMaxRetries, "llm_compress_timeout_sec": int(c.llmCompressTimeout / time.Second)}
+	return map[string]interface{}{"base_url": c.baseURL, "model": c.model, "workspace": c.workspace, "apiKeyConfigured": c.apiKey != "", "read_only": c.readOnly, "max_ctx": c.maxCtx, "max_rounds": c.maxRounds, "micro_keep_recent": c.microKeepRecent, "skill_catalog_budget_bytes": effectiveSkillBudget(c), "sandbox_preference": c.sandboxPreference, "shell_timeout_sec": int(c.shellTimeout / time.Second), "memory_limit_mb": c.memLimitMB, "process_warn_threshold": c.processWarnThreshold, "background_task_max_output_mb": c.backgroundTaskMaxOutputMB, "background_task_warn_count": c.backgroundTaskWarnCount, "background_task_warn_sec": c.backgroundTaskWarnSec, "cleanup_on_exit": c.cleanupOnExit, "box": c.box, "start_exe": c.startExe, "sandbox_root": c.sandboxRoot, "yolo": c.yolo, "llm_first_chunk_timeout_sec": int(c.llmFirstChunkTimeout / time.Second), "llm_idle_timeout_sec": int(c.llmIdleTimeout / time.Second), "llm_max_retries": c.llmMaxRetries, "llm_compress_timeout_sec": int(c.llmCompressTimeout / time.Second)}
 }
 func (a *apiServer) idle(w http.ResponseWriter) bool {
 	if a.busy {
@@ -400,6 +400,9 @@ func applyRuntimeParams(cfg *config, u *apiConfigUpdate) {
 	if u.MaxRounds != nil {
 		cfg.maxRounds = *u.MaxRounds
 	}
+	if u.SkillCatalogBudgetBytes != nil {
+		cfg.skillCatalogBudgetBytes = *u.SkillCatalogBudgetBytes
+	}
 	if u.MicroKeepRecent != nil {
 		cfg.microKeepRecent = *u.MicroKeepRecent
 	}
@@ -428,6 +431,7 @@ func validateRuntimeParams(u *apiConfigUpdate) error {
 		{u.MaxCtx, "max_ctx", 16000, 32000000},
 		{u.MaxRounds, "max_rounds", 1, 10000},
 		{u.MicroKeepRecent, "micro_keep_recent", 1, 1000},
+		{u.SkillCatalogBudgetBytes, "skill_catalog_budget_bytes", 1024, 1048576},
 		{u.ShellTimeoutSec, "shell_timeout_sec", 5, 86400},
 		{u.MemoryLimitMB, "memory_limit_mb", 64, 4095},
 		{u.ProcessWarnThreshold, "process_warn_threshold", 0, 100000},

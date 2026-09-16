@@ -9,16 +9,15 @@ import (
 )
 
 const (
-	maxSkills             = 20
-	maxSkillDescription   = 200
-	maxSkillCatalogBytes  = 2 << 10
-	skillMarkdownFileName = "SKILL.md"
+	defaultSkillCatalogBudgetBytes = 8 << 10
+	skillMarkdownFileName          = "SKILL.md"
 )
 
 type skillInfo struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	Path        string `json:"path"`
+	Scope       string `json:"scope"`
 }
 
 type skillCatalog struct {
@@ -43,7 +42,7 @@ func scanSkills(workspace, home string) skillCatalog {
 		{root: filepath.Join(workspace, ".pulse7", "skills"), project: true},
 		{root: filepath.Join(home, ".pulse7", "skills")},
 	}
-	limitWarned := false
+	seen := map[string]bool{}
 	for _, source := range dirs {
 		entries, err := os.ReadDir(source.root)
 		if os.IsNotExist(err) {
@@ -71,17 +70,14 @@ func scanSkills(workspace, home string) skillCatalog {
 				catalog.Warnings = append(catalog.Warnings, fmt.Sprintf("跳过 frontmatter 缺失或格式错误的 skill：%s", path))
 				continue
 			}
-			if len(catalog.Skills) >= maxSkills {
-				if !limitWarned {
-					catalog.Warnings = append(catalog.Warnings, fmt.Sprintf("skills 超过 %d 个，仅加载前 %d 个", maxSkills, maxSkills))
-					limitWarned = true
-				}
+			if seen[name] {
+				catalog.Warnings = append(catalog.Warnings, fmt.Sprintf("skill %s 被更高优先级或先发现的同名技能覆盖：%s", name, path))
 				continue
 			}
-			runes := []rune(description)
-			if len(runes) > maxSkillDescription {
-				description = string(runes[:maxSkillDescription])
-				catalog.Warnings = append(catalog.Warnings, fmt.Sprintf("skill %s 的 description 超过 %d 字符，已截断", name, maxSkillDescription))
+			seen[name] = true
+			scope := "global"
+			if source.project {
+				scope = "workspace"
 			}
 			displayPath := path
 			if source.project {
@@ -91,11 +87,8 @@ func scanSkills(workspace, home string) skillCatalog {
 					continue
 				}
 			}
-			catalog.Skills = append(catalog.Skills, skillInfo{Name: name, Description: description, Path: displayPath})
+			catalog.Skills = append(catalog.Skills, skillInfo{Name: name, Description: description, Path: displayPath, Scope: scope})
 		}
-	}
-	if len(skillsSystemBlock(catalog.Skills)) > maxSkillCatalogBytes {
-		catalog.Warnings = append(catalog.Warnings, "skills 清单超过 2KB，请精简 name 与 description")
 	}
 	return catalog
 }
