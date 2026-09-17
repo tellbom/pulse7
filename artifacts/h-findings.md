@@ -64,3 +64,14 @@ H-F02 原生终止错误与进程查询错误已在 H2/H6 增加可见性；Sand
 ## H-F06：新模型来源与剩余验证
 
 用户已切换到 DeepSeek 官方端点；当前仅 /models HTTP 200。deepseek-flash 的真实任务回归尚未运行，旧 aigc789 证据不能冒充新端点实测，也不是内网速度证据。#16 干净提交双架构全量尚未运行，当前定向测试二进制含未提交 h13 测试，不隐藏源码状态。
+
+## 技能解析器与 A 类问题修复（2026-09-17）：未纳入本轮的项与新发现
+
+范围来源：`artifacts/skill-parser-and-a-class-issue-markers.md`。本轮只改主线；测试夹具、前端按用户裁决不动。提交：`626af5d`（①②③）、`9aa384c`（A1）、`4671708`（A2）、`2bcdf7a`（A3）、`bc88522`（A4）。
+
+- **标记 ⑤ / ⑰（前端）**：`web/src/lib/md.js` 无表格规则、`InlineRecord.vue` 与 `SettingsDialog.vue` 两处渲染同一份 warnings，均未改。后端每轮 `skill_catalog` 事件仍携带完整 warnings（前端按轮清空后需要完整集合），去重只做在终端渲染侧。
+- **标记 ⑫（session_init 与 skill_catalog 的时间点不一致）**：本轮把「每次 read 再扫一遍」（⑭）去掉，回合内只剩任务边界一次扫描；`emitSessionInit` 仍在会话初始化时单独扫描。界面技能列表来自 `session_init.skills`，`skill_catalog` 事件不带技能列表，因此「技能列表」与「本次任务发现 N 个技能」仍是两个时刻的快照。闭合需要事件契约变更（`skill_catalog` 携带 skills 或前端改用它），属于前端范围，未做。
+- **标记 ④（不合规但存在）**：没有新增目录状态。被跳过的包现在有两种留痕：扫描 warning 带具体原因（缺 `---`、未闭合、YAML 报错、name/description 为空），以及模型 read 其 `SKILL.md` 时按根目录判定发出 `skill_loaded`（名字取发布方目录名）。它仍不在 `session_init.skills` 中。
+- **vendor 内手工补丁会被 `go mod vendor` 覆盖**：`agent/vendor/github.com/sashabaranov/go-openai/chat.go` 含本地补丁（提交 `8be7874`，tool 消息空 content 保留）。本轮引入 `gopkg.in/yaml.v3` 时运行 `go mod vendor` 把该补丁静默还原，已手工恢复并核对 `git diff --stat -- vendor/github.com` 为空后再提交。后续任何 `go mod vendor` / `go mod tidy` 都会再次丢掉补丁；需要把这条写进构建纪律或改为 replace 到本地 fork。
+- **全量回归**：`go test -mod=vendor ./...` 仍是与标记文档附录相同的 8 项失败（`f1_remediation_test.go:51`、`fileenc_test.go:69` ×4、`h13_cycles_test.go:14`、`h5_exit_test.go:105`、`h2_termination_test.go:55`），无新增失败，本轮未改这些测试。本次 H2 的报错为 `root=0 targets=map[0:true 4:true ...]`：根 PID 解析成 0，快照匹配到的是系统进程（PID 0/4），与文档附录记录的 `root=6588` 形态不同，说明该测试在本机至少有两种失败形态；未定位。
+- **Win7 实测**：本轮只在本机（Windows 11，Go 1.20 windows/386）完成 386/amd64 构建、vet 与技能相关测试；`yaml.v3` 为纯 Go、无系统调用，Win7 运行未实测。
