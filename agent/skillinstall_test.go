@@ -38,6 +38,37 @@ func TestSkillInstallationRootsPresentWhenEmptyAndRefreshOnResume(t *testing.T) 
 	}
 }
 
+func TestSkillDiscoveryContinuesWithoutHomeDirectory(t *testing.T) {
+	workspace := t.TempDir()
+	t.Setenv("USERPROFILE", "")
+	if _, err := os.UserHomeDir(); err == nil {
+		t.Skip("home directory still resolvable on this platform")
+	}
+	writeSkillFixture(t, workspace, "release", "发布流程", "发布时使用", "BODY")
+	catalog := discoverSkills(workspace)
+	if len(catalog.Skills) != 1 || catalog.Skills[0].Scope != "workspace" {
+		t.Fatalf("workspace skills lost: %#v", catalog)
+	}
+	if len(catalog.Roots) != 1 || catalog.Roots[0].Scope != "workspace" {
+		t.Fatalf("roots: %#v", catalog.Roots)
+	}
+	if len(catalog.Warnings) != 1 || !strings.Contains(catalog.Warnings[0], "个人目录") {
+		t.Fatalf("warnings: %#v", catalog.Warnings)
+	}
+	cfg := &config{workspace: workspace, exeDir: t.TempDir()}
+	msgs := []openai.ChatCompletionMessage{{Role: "system", Content: "base"}, {Role: "user", Content: "task"}}
+	if err := refreshSkillCatalog(cfg, &msgs); err != nil {
+		t.Fatalf("turn failed on home directory: %v", err)
+	}
+	var roots []skillRoot
+	if err := json.Unmarshal([]byte(strings.Split(strings.TrimPrefix(msgs[2].Content, skillInstallMarker), "\n")[0]), &roots); err != nil {
+		t.Fatal(err)
+	}
+	if len(roots) != 1 || roots[0] != catalog.Roots[0] || !strings.Contains(msgs[1].Content, "发布流程") {
+		t.Fatalf("messages: %#v", msgs)
+	}
+}
+
 func TestSkillDownloadsOutsideRootsAreNotInstalled(t *testing.T) {
 	workspace, home := t.TempDir(), t.TempDir()
 	download := filepath.Join(workspace, "skills", "community--review")

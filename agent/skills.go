@@ -26,6 +26,9 @@ type skillInfo struct {
 type skillCatalog struct {
 	Skills   []skillInfo
 	Warnings []string
+	// Roots actually scanned; the install instructions are generated from the
+	// same list so discovery and guidance never disagree.
+	Roots []skillRoot
 }
 
 type skillRoot struct {
@@ -43,17 +46,24 @@ func skillRoots(workspace, home string) []skillRoot {
 	}
 }
 
+// An unresolvable home directory only drops the global root: workspace skills
+// are still discovered and the turn continues, with the loss recorded.
 func discoverSkills(workspace string) skillCatalog {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return skillCatalog{Warnings: []string{fmt.Sprintf("无法确定个人目录，跳过个人 skills：%v", err)}}
+		catalog := scanSkillRoots(workspace, skillRoots(workspace, home)[:1])
+		catalog.Warnings = append([]string{fmt.Sprintf("无法确定个人目录，本轮跳过全局 skills 根目录：%v", err)}, catalog.Warnings...)
+		return catalog
 	}
 	return scanSkills(workspace, home)
 }
 
 func scanSkills(workspace, home string) skillCatalog {
-	var catalog skillCatalog
-	dirs := skillRoots(workspace, home)
+	return scanSkillRoots(workspace, skillRoots(workspace, home))
+}
+
+func scanSkillRoots(workspace string, dirs []skillRoot) skillCatalog {
+	catalog := skillCatalog{Roots: dirs}
 	seen := map[string]bool{}
 	for _, source := range dirs {
 		entries, err := os.ReadDir(source.Path)
