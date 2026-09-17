@@ -109,6 +109,56 @@ func TestSkillFrontmatterIsYAML(t *testing.T) {
 	}
 }
 
+func TestSkillLoadedJudgmentUsesRootsNotDiscovery(t *testing.T) {
+	root := t.TempDir()
+	workspace := filepath.Join(root, "workspace")
+	home := filepath.Join(root, "home")
+	good := writeSkillFixture(t, workspace, "community--release", "发布流程", "发布时使用", "BODY")
+	globalGood := writeSkillFixture(t, home, "db", "数据库", "迁移时使用", "BODY")
+	badDir := filepath.Join(workspace, ".pulse7", "skills", "broken")
+	if err := os.MkdirAll(badDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	bad := filepath.Join(badDir, skillMarkdownFileName)
+	if err := os.WriteFile(bad, []byte("no frontmatter"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	catalog := scanSkills(workspace, home)
+	if len(catalog.Skills) != 2 || len(catalog.Warnings) != 1 {
+		t.Fatalf("catalog = %#v", catalog)
+	}
+	read := func(path string) (skillInfo, bool) {
+		return loadedSkillForRead(catalog, workspace, "read", mustJSON(t, map[string]string{"path": path}))
+	}
+	if skill, ok := read(good); !ok || skill.Name != "发布流程" || skill.Path != filepath.Join(".pulse7", "skills", "community--release", "SKILL.md") {
+		t.Fatalf("discovered workspace skill: %#v %v", skill, ok)
+	}
+	if skill, ok := read(filepath.Join(".pulse7", "skills", "community--release", "skill.md")); !ok || skill.Name != "发布流程" {
+		t.Fatalf("relative, case-insensitive read: %#v %v", skill, ok)
+	}
+	if skill, ok := read(globalGood); !ok || skill.Name != "数据库" || skill.Scope != "global" || skill.Path != globalGood {
+		t.Fatalf("discovered global skill: %#v %v", skill, ok)
+	}
+	// Skipped by discovery, still a package read under the workspace root.
+	if skill, ok := read(bad); !ok || skill.Name != "broken" || skill.Scope != "workspace" || skill.Path != filepath.Join(".pulse7", "skills", "broken", "SKILL.md") {
+		t.Fatalf("skipped package read: %#v %v", skill, ok)
+	}
+	for _, path := range []string{
+		filepath.Join(workspace, "skills", "community--release", "SKILL.md"),
+		filepath.Join(workspace, ".pulse7", "skills", "SKILL.md"),
+		filepath.Join(workspace, ".pulse7", "skills", "community--release", "references", "SKILL.md"),
+		filepath.Join(workspace, ".pulse7", "skills", "community--release", "README.md"),
+		filepath.Join(root, ".pulse7", "skills", "x", "SKILL.md"),
+	} {
+		if skill, ok := read(path); ok {
+			t.Fatalf("%s registered as %#v", path, skill)
+		}
+	}
+	if _, ok := loadedSkillForRead(catalog, workspace, "grep", mustJSON(t, map[string]string{"path": good})); ok {
+		t.Fatal("non-read tool registered a skill")
+	}
+}
+
 func TestSkillsKeepCompleteMetadataBeyondTwenty(t *testing.T) {
 	workspace, home := t.TempDir(), t.TempDir()
 	description := strings.Repeat("界", 421)

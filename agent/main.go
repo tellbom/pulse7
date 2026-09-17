@@ -1101,7 +1101,7 @@ func streamTurn(client *openai.Client, reg *Registry, cfg *config, msgs *[]opena
 			res := reg.Execute(c.Function.Name, c.Function.Arguments)
 			emitToolResult(c, res)
 			if !strings.HasPrefix(res, "error:") {
-				if skill, ok := loadedSkillForRead(cfg.workspace, c.Function.Name, c.Function.Arguments); ok {
+				if skill, ok := loadedSkillForRead(discoverSkills(cfg.workspace), cfg.workspace, c.Function.Name, c.Function.Arguments); ok {
 					emitRuntimeEvent("skill_loaded", skillLoadedEvent{Name: skill.Name, Path: skill.Path})
 				}
 			}

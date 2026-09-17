@@ -168,7 +168,11 @@ func skillsList(catalog skillCatalog) string {
 	return skillsSystemBlock(catalog.Skills)
 }
 
-func loadedSkillForRead(workspace, tool, argsJSON string) (skillInfo, bool) {
+// A read counts as loading a skill when the file is <root>/<package>/SKILL.md
+// under one of the scanned roots, whether or not discovery accepted the
+// package. The catalog only supplies the parsed name when it has one;
+// otherwise the publisher's directory name identifies the package.
+func loadedSkillForRead(catalog skillCatalog, workspace, tool, argsJSON string) (skillInfo, bool) {
 	if tool != "read" {
 		return skillInfo{}, false
 	}
@@ -186,15 +190,30 @@ func loadedSkillForRead(workspace, tool, argsJSON string) (skillInfo, bool) {
 	if err != nil {
 		return skillInfo{}, false
 	}
-	for _, skill := range discoverSkills(workspace).Skills {
-		path := skill.Path
-		if !filepath.IsAbs(path) {
-			path = filepath.Join(workspace, path)
+	for _, root := range catalog.Roots {
+		rel, err := filepath.Rel(root.Path, requested)
+		if err != nil {
+			continue
 		}
-		path, err = filepath.Abs(path)
-		if err == nil && strings.EqualFold(filepath.Clean(requested), filepath.Clean(path)) {
-			return skill, true
+		parts := strings.Split(rel, string(filepath.Separator))
+		if len(parts) != 2 || parts[0] == ".." || !strings.EqualFold(parts[1], skillMarkdownFileName) {
+			continue
 		}
+		for _, skill := range catalog.Skills {
+			path := skill.Path
+			if !filepath.IsAbs(path) {
+				path = filepath.Join(workspace, path)
+			}
+			if strings.EqualFold(filepath.Clean(requested), filepath.Clean(path)) {
+				return skill, true
+			}
+		}
+		displayPath := requested
+		if root.Scope == "workspace" {
+			// The workspace root lives under the workspace, so Rel cannot fail here.
+			displayPath, _ = filepath.Rel(workspace, requested)
+		}
+		return skillInfo{Name: parts[0], Path: displayPath, Scope: root.Scope}, true
 	}
 	return skillInfo{}, false
 }
