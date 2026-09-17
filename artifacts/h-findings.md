@@ -89,3 +89,13 @@ H-F02 原生终止错误与进程查询错误已在 H2/H6 增加可见性；Sand
 而且降级不只是慢，语义不同：`grepGo` 没有 GBK 重试（`grep.go:57` 的 T1.1 只在 rg 路径上）、glob 用 `filepath.Match(glob, filepath.Base(p))` 只匹配文件名（`**/*.go` 恒不匹配）、恒区分大小写（rg 用 `--smart-case`）、不跳过二进制文件与 `.gitignore`、200 行是全局上限而非每文件上限。同一个 `grep` 调用在有无 rg 两种部署下会给出不同结果。
 
 2026-09-17 发现 `dist/runtime/` 只有 git、没有 rg（rc-0.7 才有），已从 `dist/rc-0.7/pulse7/runtime/rg` 拷回（ripgrep 13.0.0，sha256 `ab5595a4…`，**仅 x86_64**）。32 位包没有可用的 rg，`pulse7-1baed0a-386.exe` 在真机上必然走 Go 回退。修复方向（未做）：`doctor` 报告 rg 存在与版本，缺失时降级留一条事件；或把 rg 缺失视为打包错误。
+
+## v1.0 打包时发现的旧包缺陷（2026-09-17）
+
+组装 `dist/pulse7-v1.0/` 时核对 `dist/rc-0.7/pulse7/`，旧包有三处会直接误导生产用户，新包已不沿用：
+
+- `install.cmd` / `uninstall.cmd` 仍以 `win7-agent.exe` 为目标：`[1]` 步找不到该文件会立即 FATAL 退出，整个安装流程在 pulse7 包上不可用。新包按 pulse7 重写，并把 `runtime\git`、`runtime\rg` 缺失都列为 FATAL、增加产品目录可写性探测。
+- `config/agent.json` 是**死文件**：产品读 `%USERPROFILE%\.pulse7\config.json`（`config.go:86`）与 `<workspace>\.pulse7\config.json`（`config.go:90`），没有任何代码读安装目录下的 `agent.json`。旧包文档让用户把内网端点和 api_key 填进这个文件，填了不生效。安装目录的 `config\` 只有 `permissions.json`（`permissions.go:35`）。新包不带该文件。
+- `快速上手.md` 描述的是 CLI-first 形态（`pulse7.exe` 即交互模式），而当前产品默认 Web（终端需 `--cli`）。新包重写。
+
+另：`init` 写出的 `config\permissions.json` 默认 `"profile": "open"`（全部放行）。生产灰度若需要逐次确认，须显式改成 `standard` / `strict`；本轮未改产品默认值，只在包内文档写明。
