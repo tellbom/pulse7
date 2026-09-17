@@ -207,7 +207,11 @@ function copyAll() {
 .am__cursor {
   color: var(--blue400);
 }
-/* Markdown 渲染排版 */
+/* Markdown 渲染排版（markdown-it 产物；块级标签之间的换行不再受 pre-wrap 影响） */
+.am__md {
+  white-space: normal;
+}
+.am__md :deep(h1),
 .am__md :deep(h2),
 .am__md :deep(h3),
 .am__md :deep(h4),
@@ -215,6 +219,9 @@ function copyAll() {
   margin: 14px 0 6px;
   line-height: 1.4;
   color: var(--g900);
+}
+.am__md :deep(h1) {
+  font-size: 18px;
 }
 .am__md :deep(h2) {
   font-size: 17px;
@@ -255,6 +262,37 @@ function copyAll() {
   border: none;
   border-top: 1px solid var(--g200);
   margin: 12px 0;
+}
+.am__md :deep(table) {
+  border-collapse: collapse;
+  margin: 8px 0;
+  font-size: 14px;
+  max-width: 100%;
+  display: block;
+  overflow-x: auto;
+}
+.am__md :deep(th),
+.am__md :deep(td) {
+  border: 1px solid var(--g200);
+  padding: 4px 10px;
+  text-align: left;
+  vertical-align: top;
+}
+.am__md :deep(th) {
+  background: var(--g50);
+  font-weight: 600;
+}
+.am__md :deep(pre) {
+  margin: 6px 0;
+  padding: 8px 12px;
+  background: var(--g100);
+  border-radius: var(--radius-xs);
+  overflow-x: auto;
+  white-space: pre;
+}
+.am__md :deep(pre code) {
+  padding: 0;
+  background: none;
 }
 .am__md :deep(a) {
   color: var(--blue600);
