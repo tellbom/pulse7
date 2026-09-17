@@ -69,14 +69,14 @@ func TestSkillCatalogRefreshReplacesAndRemovesWithoutTouchingHistory(t *testing.
 	cfg := &config{workspace: workspace, exeDir: root}
 	base := "base instructions"
 	msgs := []openai.ChatCompletionMessage{{Role: "system", Content: base + "\n\n" + legacySkillHeading + "- legacy (old): old"}, {Role: "user", Content: "task"}, {Role: "tool", Content: "historical evidence"}}
-	if err := refreshSkillCatalog(cfg, &msgs); err != nil {
+	if _, err := refreshSkillCatalog(cfg, &msgs); err != nil {
 		t.Fatal(err)
 	}
 	writeSkillFixture(t, workspace, "review", "review", "new purpose", "NEW_PRIVATE_BODY")
 	if !strings.Contains(msgs[1].Content, "old purpose") {
 		t.Fatal("active snapshot changed without a refresh")
 	}
-	if err := refreshSkillCatalog(cfg, &msgs); err != nil {
+	if _, err := refreshSkillCatalog(cfg, &msgs); err != nil {
 		t.Fatal(err)
 	}
 	if len(msgs) != 5 || msgs[0].Content != base || !strings.Contains(msgs[1].Content, "new purpose") || strings.Contains(msgs[1].Content, "PRIVATE_BODY") || msgs[4].Content != "historical evidence" || !strings.HasPrefix(msgs[2].Content, skillInstallMarker) {
@@ -85,7 +85,7 @@ func TestSkillCatalogRefreshReplacesAndRemovesWithoutTouchingHistory(t *testing.
 	if err := os.Remove(path); err != nil {
 		t.Fatal(err)
 	}
-	if err := refreshSkillCatalog(cfg, &msgs); err != nil {
+	if _, err := refreshSkillCatalog(cfg, &msgs); err != nil {
 		t.Fatal(err)
 	}
 	if len(msgs) != 4 || msgs[0].Content != base || msgs[3].Content != "historical evidence" || !strings.HasPrefix(msgs[1].Content, skillInstallMarker) {
@@ -94,11 +94,41 @@ func TestSkillCatalogRefreshReplacesAndRemovesWithoutTouchingHistory(t *testing.
 	// Another workspace must not inherit the previous workspace's catalog.
 	writeSkillFixture(t, home, "global", "global", "global purpose", "BODY")
 	cfg.workspace = filepath.Join(root, "other")
-	if err := refreshSkillCatalog(cfg, &msgs); err != nil {
+	if _, err := refreshSkillCatalog(cfg, &msgs); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(msgs[1].Content, "global purpose") || strings.Contains(msgs[1].Content, "new purpose") {
 		t.Fatal("workspace isolation")
+	}
+}
+
+// The turn's read judgment reuses the boundary scan: a package installed
+// mid-turn is still registered by root, but its parsed name only appears
+// after the next refresh.
+func TestSkillReadJudgmentReusesTurnScan(t *testing.T) {
+	root := t.TempDir()
+	home, workspace := filepath.Join(root, "home"), filepath.Join(root, "workspace")
+	t.Setenv("USERPROFILE", home)
+	writeSkillFixture(t, workspace, "release", "发布流程", "发布时使用", "BODY")
+	cfg := &config{workspace: workspace, exeDir: root}
+	msgs := []openai.ChatCompletionMessage{{Role: "system", Content: "base"}, {Role: "user", Content: "task"}}
+	turn, err := refreshSkillCatalog(cfg, &msgs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(turn.Skills) != 1 || len(turn.Roots) != 2 {
+		t.Fatalf("turn catalog: %#v", turn)
+	}
+	late := writeSkillFixture(t, home, "community--db", "数据库", "迁移时使用", "BODY")
+	skill, ok := loadedSkillForRead(turn, workspace, "read", mustJSON(t, map[string]string{"path": late}))
+	if !ok || skill.Name != "community--db" || skill.Scope != "global" {
+		t.Fatalf("mid-turn install read: %#v %v", skill, ok)
+	}
+	if turn, err = refreshSkillCatalog(cfg, &msgs); err != nil {
+		t.Fatal(err)
+	}
+	if skill, ok = loadedSkillForRead(turn, workspace, "read", mustJSON(t, map[string]string{"path": late})); !ok || skill.Name != "数据库" {
+		t.Fatalf("next-turn read: %#v %v", skill, ok)
 	}
 }
 

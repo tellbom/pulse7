@@ -50,7 +50,7 @@ func TestSkillsMetadataIsInjectedWithoutBody(t *testing.T) {
 	}
 	cfg := &config{workspace: workspace, exeDir: root}
 	msgs := []openai.ChatCompletionMessage{systemMessage(cfg)}
-	if err := refreshSkillCatalog(cfg, &msgs); err != nil {
+	if _, err := refreshSkillCatalog(cfg, &msgs); err != nil {
 		t.Fatal(err)
 	}
 	if len(msgs) != 3 || !strings.Contains(msgs[1].Content, "发布流程") || strings.Contains(msgs[1].Content, "PROJECT_BODY_SECRET") || strings.Contains(msgs[1].Content, "PERSONAL_BODY_SECRET") || !strings.HasPrefix(msgs[2].Content, skillInstallMarker) {

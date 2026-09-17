@@ -16,7 +16,7 @@ func TestSkillInstallationRootsPresentWhenEmptyAndRefreshOnResume(t *testing.T) 
 	cfg := &config{workspace: workspace}
 	msgs := []openai.ChatCompletionMessage{{Role: "system", Content: "base"}, {Role: "system", Content: skillInstallMarker + "stale roots"}, {Role: "user", Content: "install a skill"}}
 	for i := 0; i < 2; i++ {
-		if err := refreshSkillCatalog(cfg, &msgs); err != nil {
+		if _, err := refreshSkillCatalog(cfg, &msgs); err != nil {
 			t.Fatal(err)
 		}
 		if len(msgs) != 3 || msgs[0].Content != "base" || msgs[2].Content != "install a skill" {
@@ -57,7 +57,7 @@ func TestSkillDiscoveryContinuesWithoutHomeDirectory(t *testing.T) {
 	}
 	cfg := &config{workspace: workspace, exeDir: t.TempDir()}
 	msgs := []openai.ChatCompletionMessage{{Role: "system", Content: "base"}, {Role: "user", Content: "task"}}
-	if err := refreshSkillCatalog(cfg, &msgs); err != nil {
+	if _, err := refreshSkillCatalog(cfg, &msgs); err != nil {
 		t.Fatalf("turn failed on home directory: %v", err)
 	}
 	var roots []skillRoot

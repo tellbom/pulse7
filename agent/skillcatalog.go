@@ -178,12 +178,14 @@ func writeSkillIndex(path, content string) error {
 // Refresh once per user turn, shared by CLI and HTTP. This is a request
 // projection: persisted historical messages/tool results are not rewritten.
 // Resume reconstructs the current directory again at this same boundary.
-func refreshSkillCatalog(cfg *config, msgs *[]openai.ChatCompletionMessage) error {
+// The returned catalog is the turn's single scan; later read judgments reuse
+// it instead of scanning the roots again.
+func refreshSkillCatalog(cfg *config, msgs *[]openai.ChatCompletionMessage) (skillCatalog, error) {
 	catalog := discoverSkills(cfg.workspace)
 	installation := skillInstallationInstructions(catalog.Roots)
 	listing, state, err := buildSkillListing(cfg, catalog)
 	if err != nil {
-		return err
+		return skillCatalog{}, err
 	}
 	updated := make([]openai.ChatCompletionMessage, 0, len(*msgs)+1)
 	for _, m := range *msgs {
@@ -231,5 +233,5 @@ func refreshSkillCatalog(cfg *config, msgs *[]openai.ChatCompletionMessage) erro
 	*msgs = updated
 	printSkillWarnings(catalog)
 	emitRuntimeEvent("skill_catalog", state)
-	return nil
+	return catalog, nil
 }
