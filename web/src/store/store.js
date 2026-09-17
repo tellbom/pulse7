@@ -55,6 +55,7 @@ export const store = reactive({
   skillsAvailable: [],
   skillsUsed: [],
   skillCatalog: null, // skill_catalog：本次任务的目录投影，不等同于 session_init.skills 或 skill_loaded
+  skillCatalogWarningsSeen: [], // 上一次 skill_catalog 的 warnings，跨轮保留，用于时间线只展开变化
   skillCatalogPending: false,
 
   // 任务流
@@ -171,6 +172,7 @@ function resetSessionState() {
   store.skillsAvailable = [];
   store.skillsUsed = [];
   store.skillCatalog = null;
+  store.skillCatalogWarningsSeen = [];
   store.skillCatalogPending = false;
   store.checkpoints = [];
   store.taskOutputs = {};
@@ -975,6 +977,10 @@ function applySkillCatalog(data) {
     indexPath: typeof d.indexPath === 'string' ? d.indexPath : '',
     warnings: Array.isArray(d.warnings) ? d.warnings.filter(Boolean).map(String) : []
   };
+  // 每轮事件都带完整 warnings；设置面板显示当前集合，时间线只在集合变化时逐条展开。
+  const previous = store.skillCatalogWarningsSeen;
+  catalog.warningsChanged = previous.length !== catalog.warnings.length || previous.some((w, i) => w !== catalog.warnings[i]);
+  store.skillCatalogWarningsSeen = catalog.warnings.slice();
   store.skillCatalog = catalog;
   store.skillCatalogPending = false;
   return catalog;

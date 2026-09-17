@@ -64,7 +64,11 @@ const catalogModeText = computed(() => {
       <span class="ir-catalog__mode">{{ catalogModeText }}</span>
     </div>
     <div v-if="it.indexPath" class="mono ir-catalog__index">完整元数据索引：{{ it.indexPath }}</div>
-    <div v-for="warning in it.warnings" :key="warning" class="ir-catalog__warning">⚠ {{ warning }}</div>
+    <!-- warnings 每轮全量随事件到达；时间线只在集合变化时逐条展开，当前集合始终在设置 › Skills -->
+    <template v-if="it.warningsChanged">
+      <div v-for="warning in it.warnings" :key="warning" class="ir-catalog__warning">⚠ {{ warning }}</div>
+    </template>
+    <div v-else-if="it.warnings && it.warnings.length" class="ir-catalog__warning">⚠ {{ it.warnings.length }} 条告警与上一轮相同，详见设置 › Skills</div>
   </div>
 
   <!-- skill_loaded -->
