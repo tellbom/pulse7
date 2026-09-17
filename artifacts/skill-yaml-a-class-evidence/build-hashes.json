@@ -1,0 +1,20 @@
+{
+  "tree": "E:/codex-worktrees/win7-agent/pre-phase3",
+  "head": "1baed0a",
+  "source_state": "clean except untracked artifacts/skill-parser-and-a-class-issue-markers.md and this evidence directory",
+  "toolchain": "E:/win7-agent/tools/go/bin/go.exe, go1.20.14",
+  "environment": {"GOOS": "windows", "CGO_ENABLED": "0"},
+  "cwd": "E:/codex-worktrees/win7-agent/pre-phase3/agent",
+  "commands": [
+    {"GOARCH": "amd64", "command": "go build -mod=vendor -o ../dist/pulse7-1baed0a-amd64.exe .", "exit": 0},
+    {"GOARCH": "386", "command": "go build -mod=vendor -o ../dist/pulse7-1baed0a-386.exe .", "exit": 0},
+    {"GOARCH": "amd64", "command": "go test -mod=vendor -c -o ../artifacts/skill-yaml-a-class-evidence/skill-yaml-amd64.test.exe", "exit": 0}
+  ],
+  "sha256": {
+    "pulse7-amd64.exe": "d309294d651b3e71d3f7b7a8f0a1e1f3747fa9f4efc100d2d63e7622ea9e7b63",
+    "pulse7-386.exe": "5891f6b0041cae6fc1060961c820226ebf9d42898a480bea804c7819a2df5479",
+    "skill-yaml-amd64.test.exe": "7a67e36e62ee9b29b14cf51c8fed445e90ca6f25e25df9b3ca27cb47f6c8bc69"
+  },
+  "note": "pulse7-amd64.exe in this directory is a byte-identical copy of dist/pulse7.exe; only amd64 was run on the VM.",
+  "win7_evidence": ["run-20260917-100133.json (fixture defect, PRODUCT_PASS false)", "run-20260917-101329.json (PRODUCT_PASS true)"]
+}

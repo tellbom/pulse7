@@ -67,11 +67,17 @@ H-F02 原生终止错误与进程查询错误已在 H2/H6 增加可见性；Sand
 
 ## 技能解析器与 A 类问题修复（2026-09-17）：未纳入本轮的项与新发现
 
-范围来源：`artifacts/skill-parser-and-a-class-issue-markers.md`。本轮只改主线；测试夹具、前端按用户裁决不动。提交：`626af5d`（①②③）、`9aa384c`（A1）、`4671708`（A2）、`2bcdf7a`（A3）、`bc88522`（A4）。
+范围来源：`artifacts/skill-parser-and-a-class-issue-markers.md`。本轮只改主线，测试夹具按用户裁决不动；前端在用户追加要求后一并修复。提交：`626af5d`（①②③）、`9aa384c`（A1）、`4671708`（A2）、`2bcdf7a`（A3）、`bc88522`（A4）、`7b05790`（⑤）、`81eff42`（⑰）、`1baed0a`（重建并嵌入 Web 包）。
 
-- **标记 ⑤ / ⑰（前端）**：`web/src/lib/md.js` 无表格规则、`InlineRecord.vue` 与 `SettingsDialog.vue` 两处渲染同一份 warnings，均未改。后端每轮 `skill_catalog` 事件仍携带完整 warnings（前端按轮清空后需要完整集合），去重只做在终端渲染侧。
+- **标记 ⑤ / ⑰（前端）**：已改。`web/src/lib/md.js` 换成 markdown-it（`html:false`、`breaks:true`，链接加 `target=_blank rel=noopener`），`InlineRecord.vue` 只在 warnings 集合变化时逐条展开、否则显示「N 条告警与上一轮相同，详见设置 › Skills」，当前全量集合仍在 `SettingsDialog.vue`。后端每轮 `skill_catalog` 事件继续携带完整 warnings（前端按轮清空后需要完整集合），去重在渲染侧。
 - **标记 ⑫（session_init 与 skill_catalog 的时间点不一致）**：本轮把「每次 read 再扫一遍」（⑭）去掉，回合内只剩任务边界一次扫描；`emitSessionInit` 仍在会话初始化时单独扫描。界面技能列表来自 `session_init.skills`，`skill_catalog` 事件不带技能列表，因此「技能列表」与「本次任务发现 N 个技能」仍是两个时刻的快照。闭合需要事件契约变更（`skill_catalog` 携带 skills 或前端改用它），属于前端范围，未做。
 - **标记 ④（不合规但存在）**：没有新增目录状态。被跳过的包现在有两种留痕：扫描 warning 带具体原因（缺 `---`、未闭合、YAML 报错、name/description 为空），以及模型 read 其 `SKILL.md` 时按根目录判定发出 `skill_loaded`（名字取发布方目录名）。它仍不在 `session_init.skills` 中。
 - **vendor 内手工补丁会被 `go mod vendor` 覆盖**：`agent/vendor/github.com/sashabaranov/go-openai/chat.go` 含本地补丁（提交 `8be7874`，tool 消息空 content 保留）。本轮引入 `gopkg.in/yaml.v3` 时运行 `go mod vendor` 把该补丁静默还原，已手工恢复并核对 `git diff --stat -- vendor/github.com` 为空后再提交。后续任何 `go mod vendor` / `go mod tidy` 都会再次丢掉补丁；需要把这条写进构建纪律或改为 replace 到本地 fork。
 - **全量回归**：`go test -mod=vendor ./...` 仍是与标记文档附录相同的 8 项失败（`f1_remediation_test.go:51`、`fileenc_test.go:69` ×4、`h13_cycles_test.go:14`、`h5_exit_test.go:105`、`h2_termination_test.go:55`），无新增失败，本轮未改这些测试。本次 H2 的报错为 `root=0 targets=map[0:true 4:true ...]`：根 PID 解析成 0，快照匹配到的是系统进程（PID 0/4），与文档附录记录的 `root=6588` 形态不同，说明该测试在本机至少有两种失败形态；未定位。
-- **Win7 实测**：本轮只在本机（Windows 11，Go 1.20 windows/386）完成 386/amd64 构建、vet 与技能相关测试；`yaml.v3` 为纯 Go、无系统调用，Win7 运行未实测。
+- **Win7 实测**：2026-09-17 已在 `WIN-65VKOKP8G13`（6.1.7601）用 `dist/pulse7.exe`（amd64，sha256 `d309294d…`）跑通，证据见 `artifacts/skill-yaml-a-class-evidence/`。YAML 解析、A2 的 `skill_loaded`、A3 的单次扫描、A4 的单一告警通道、重建后的 Web 嵌入包均为真机确认；模型是本地 SSE 夹具而非真实 LLM，386 二进制与 Web 页面交互仍未实测。
+
+## 技能真机验证新发现（2026-09-17）
+
+- **`TestSessionInitUsesEmptySkillsArray` 依赖运行机器的个人目录**：`agent/events_test.go:129` 用 `t.TempDir()` 隔离了工作区，却没有隔离 `USERPROFILE`。本机 Win11 的 `~/.pulse7/skills` 为空所以通过；Win7 真机存在 `C:\Users\user\.pulse7\skills\code-review\SKILL.md`，`session_init.skills` 因此非空，断言 `"skills":[]` 失败。是测试隔离缺陷，不是产品行为变化（该用例本轮未改）。按裁决不动测试夹具，未修。
+- **A1 结案**：用户 2026-09-17 裁决「此框架必须有用户目录存在」，不再调整。产品侧 `agent/config.go:142` 启动阶段即要求 `os.UserHomeDir()` 成功，`9aa384c` 加的跳过分支在产品路径上不可达，只有单元测试覆盖。该提交保留未回滚；若要求源码不留不可达分支，需要另开一次回滚提交。
+- **真机夹具陷阱**：SSE 夹具发出工具调用块后若以 `finish_reason=stop` 收尾，产品按 `agent/netresilience.go:117` 判为未完成的工具调用并中止回合（`run-20260917-100133.json`），工具不会执行、`skill_loaded` 也不会发出。这是夹具缺陷不是产品缺陷；后续任何带工具调用的夹具必须发 `finish_reason=tool_calls`。
