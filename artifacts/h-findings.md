@@ -81,3 +81,11 @@ H-F02 原生终止错误与进程查询错误已在 H2/H6 增加可见性；Sand
 - **`TestSessionInitUsesEmptySkillsArray` 依赖运行机器的个人目录**：`agent/events_test.go:129` 用 `t.TempDir()` 隔离了工作区，却没有隔离 `USERPROFILE`。本机 Win11 的 `~/.pulse7/skills` 为空所以通过；Win7 真机存在 `C:\Users\user\.pulse7\skills\code-review\SKILL.md`，`session_init.skills` 因此非空，断言 `"skills":[]` 失败。是测试隔离缺陷，不是产品行为变化（该用例本轮未改）。按裁决不动测试夹具，未修。
 - **A1 结案**：用户 2026-09-17 裁决「此框架必须有用户目录存在」，不再调整。产品侧 `agent/config.go:142` 启动阶段即要求 `os.UserHomeDir()` 成功，`9aa384c` 加的跳过分支在产品路径上不可达，只有单元测试覆盖。该提交保留未回滚；若要求源码不留不可达分支，需要另开一次回滚提交。
 - **真机夹具陷阱**：SSE 夹具发出工具调用块后若以 `finish_reason=stop` 收尾，产品按 `agent/netresilience.go:117` 判为未完成的工具调用并中止回合（`run-20260917-100133.json`），工具不会执行、`skill_loaded` 也不会发出。这是夹具缺陷不是产品缺陷；后续任何带工具调用的夹具必须发 `finish_reason=tool_calls`。
+
+## grep 降级不可见（2026-09-17，未修）
+
+`agent/grep.go:53` 只用 `os.Stat(runtime\rg\rg.exe)` 判断有无 ripgrep，缺失就走 `grepGo`。降级的唯一痕迹是工具结果末尾的 `[go-fallback]` / `[ripgrep]` 标记——只有模型看得到，`doctor` 不检查 rg（`envdetect.go:47` 只查 git），事件流里也没有任何记录。部署时漏拷 `runtime\rg\` 不会有任何用户可见信号。
+
+而且降级不只是慢，语义不同：`grepGo` 没有 GBK 重试（`grep.go:57` 的 T1.1 只在 rg 路径上）、glob 用 `filepath.Match(glob, filepath.Base(p))` 只匹配文件名（`**/*.go` 恒不匹配）、恒区分大小写（rg 用 `--smart-case`）、不跳过二进制文件与 `.gitignore`、200 行是全局上限而非每文件上限。同一个 `grep` 调用在有无 rg 两种部署下会给出不同结果。
+
+2026-09-17 发现 `dist/runtime/` 只有 git、没有 rg（rc-0.7 才有），已从 `dist/rc-0.7/pulse7/runtime/rg` 拷回（ripgrep 13.0.0，sha256 `ab5595a4…`，**仅 x86_64**）。32 位包没有可用的 rg，`pulse7-1baed0a-386.exe` 在真机上必然走 Go 回退。修复方向（未做）：`doctor` 报告 rg 存在与版本，缺失时降级留一条事件；或把 rg 缺失视为打包错误。
