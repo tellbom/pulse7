@@ -231,7 +231,7 @@ func refreshSkillCatalog(cfg *config, msgs *[]openai.ChatCompletionMessage) (ski
 	copy(updated[at+1:], updated[at:])
 	updated[at] = openai.ChatCompletionMessage{Role: "system", Content: installation}
 	*msgs = updated
-	printSkillWarnings(catalog)
+	// The event is the only warning channel; each consumer renders it once.
 	emitRuntimeEvent("skill_catalog", state)
 	return catalog, nil
 }

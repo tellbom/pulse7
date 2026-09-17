@@ -132,6 +132,65 @@ func TestSkillReadJudgmentReusesTurnScan(t *testing.T) {
 	}
 }
 
+// Warnings travel only in the skill_catalog event; the terminal renders the
+// set once and again only when it changes, while every turn's event still
+// carries the full set.
+func TestSkillWarningsSingleChannelAndTerminalDedupe(t *testing.T) {
+	protocol, human := captureEvents(t)
+	root := t.TempDir()
+	home, workspace := filepath.Join(root, "home"), filepath.Join(root, "workspace")
+	t.Setenv("USERPROFILE", home)
+	broken := filepath.Join(workspace, ".pulse7", "skills", "broken")
+	if err := os.MkdirAll(broken, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(broken, skillMarkdownFileName), []byte("no frontmatter"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg := &config{workspace: workspace, exeDir: root}
+	msgs := []openai.ChatCompletionMessage{{Role: "system", Content: "base"}, {Role: "user", Content: "task"}}
+	for i := 0; i < 2; i++ {
+		if _, err := refreshSkillCatalog(cfg, &msgs); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if n := strings.Count(human.String(), "[警告] 跳过 skill"); n != 1 {
+		t.Fatalf("terminal printed the unchanged warning %d times:\n%s", n, human.String())
+	}
+	events := parseEventLines(t, protocol.String())
+	catalogs := 0
+	for _, event := range events {
+		if event.Type != "skill_catalog" {
+			continue
+		}
+		catalogs++
+		raw, _ := json.Marshal(event.Data)
+		var state skillCatalogState
+		if err := json.Unmarshal(raw, &state); err != nil {
+			t.Fatal(err)
+		}
+		if len(state.Warnings) != 1 || !strings.Contains(state.Warnings[0], "broken") {
+			t.Fatalf("event %d warnings: %#v", catalogs, state.Warnings)
+		}
+	}
+	if catalogs != 2 {
+		t.Fatalf("skill_catalog events = %d", catalogs)
+	}
+	if err := os.WriteFile(filepath.Join(broken, skillMarkdownFileName), []byte("---\nname: broken\ndescription: fixed\n---\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := refreshSkillCatalog(cfg, &msgs); err != nil {
+		t.Fatal(err)
+	}
+	writeSkillFixture(t, workspace, "dup", "broken", "same name", "body")
+	if _, err := refreshSkillCatalog(cfg, &msgs); err != nil {
+		t.Fatal(err)
+	}
+	if out := human.String(); strings.Count(out, "[警告]") != 2 || !strings.Contains(out, "同名") {
+		t.Fatalf("changed warning set not re-rendered:\n%s", out)
+	}
+}
+
 func TestSkillWorkspaceOverridesGlobalByName(t *testing.T) {
 	workspace, home := t.TempDir(), t.TempDir()
 	writeSkillFixture(t, workspace, "local", "review", "workspace version", "body")

@@ -8,6 +8,9 @@ import (
 
 type cliEventRenderer struct {
 	narr linePrefixer
+	// Skill warnings already shown; the per-turn skill_catalog event repeats
+	// the full set, the terminal only needs to see it when it changes.
+	skillWarnings []string
 }
 
 func newCLIEventRenderer() *cliEventRenderer {
@@ -16,6 +19,12 @@ func newCLIEventRenderer() *cliEventRenderer {
 
 func (r *cliEventRenderer) render(event runtimeEvent) {
 	switch data := event.Data.(type) {
+	case skillCatalogState:
+		if sameStrings(data.Warnings, r.skillWarnings) {
+			return
+		}
+		r.skillWarnings = append([]string(nil), data.Warnings...)
+		printSkillWarnings(skillCatalog{Warnings: data.Warnings})
 	case processEvent:
 		p := data.Process
 		out("[process] %s pid=%d creation_time=%s image_path=%q source=%s task_id=%s status=%s command=%s\n", data.Action, p.PID, p.CreationTime, p.ImagePath, p.Source, p.TaskID, p.Status, p.Command)
@@ -61,6 +70,18 @@ func (r *cliEventRenderer) render(event runtimeEvent) {
 	case heartbeatEvent:
 		out("[等待模型响应... %ds]\n", data.WaitedSeconds)
 	}
+}
+
+func sameStrings(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func (r *cliEventRenderer) flushAssistant() {
