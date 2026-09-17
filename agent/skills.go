@@ -2,10 +2,13 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"gopkg.in/yaml.v3"
 )
 
 const (
@@ -74,9 +77,9 @@ func scanSkills(workspace, home string) skillCatalog {
 				catalog.Warnings = append(catalog.Warnings, fmt.Sprintf("无法读取 skill %s：%v", path, err))
 				continue
 			}
-			name, description, ok := parseSkillFrontmatter(string(b))
-			if !ok {
-				catalog.Warnings = append(catalog.Warnings, fmt.Sprintf("跳过 frontmatter 缺失或格式错误的 skill：%s", path))
+			name, description, err := parseSkillFrontmatter(string(b))
+			if err != nil {
+				catalog.Warnings = append(catalog.Warnings, fmt.Sprintf("跳过 skill %s：%v", path, err))
 				continue
 			}
 			if seen[name] {
@@ -98,31 +101,36 @@ func scanSkills(workspace, home string) skillCatalog {
 	return catalog
 }
 
-func parseSkillFrontmatter(content string) (string, string, bool) {
+// The frontmatter block between the leading and closing "---" lines is YAML;
+// only name and description are pulse7's contract, other keys belong to the
+// publisher and are ignored.
+func parseSkillFrontmatter(content string) (string, string, error) {
 	lines := strings.Split(strings.ReplaceAll(content, "\r\n", "\n"), "\n")
-	if len(lines) < 4 || strings.TrimSpace(lines[0]) != "---" {
-		return "", "", false
+	if len(lines) == 0 || strings.TrimSpace(lines[0]) != "---" {
+		return "", "", errors.New("frontmatter 缺失：首行必须是 ---")
 	}
-	name, description := "", ""
-	closed := false
-	for _, line := range lines[1:] {
-		line = strings.TrimSpace(line)
-		if line == "---" {
-			closed = true
+	end := -1
+	for i, line := range lines[1:] {
+		if strings.TrimSpace(line) == "---" {
+			end = i + 1
 			break
 		}
-		key, value, ok := strings.Cut(line, ":")
-		if !ok {
-			return "", "", false
-		}
-		switch strings.TrimSpace(key) {
-		case "name":
-			name = strings.TrimSpace(value)
-		case "description":
-			description = strings.TrimSpace(value)
-		}
 	}
-	return name, description, closed && name != "" && description != ""
+	if end < 0 {
+		return "", "", errors.New("frontmatter 未闭合：缺少结束的 ---")
+	}
+	var meta struct {
+		Name        string `yaml:"name"`
+		Description string `yaml:"description"`
+	}
+	if err := yaml.Unmarshal([]byte(strings.Join(lines[1:end], "\n")), &meta); err != nil {
+		return "", "", fmt.Errorf("frontmatter YAML 无法解析：%v", err)
+	}
+	name, description := strings.TrimSpace(meta.Name), strings.TrimSpace(meta.Description)
+	if name == "" || description == "" {
+		return "", "", errors.New("frontmatter 缺少非空的 name 或 description")
+	}
+	return name, description, nil
 }
 
 func skillsSystemBlock(skills []skillInfo) string {

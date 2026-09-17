@@ -84,6 +84,31 @@ func TestMalformedSkillsAreSkippedWithWarnings(t *testing.T) {
 	}
 }
 
+func TestSkillFrontmatterIsYAML(t *testing.T) {
+	for _, tc := range []struct {
+		label, content, name, description string
+	}{
+		{"comments, blank lines, quotes and extra keys", "---\r\n# publisher comment\r\n\r\nname: \"review\"\r\ndescription: 'Review code, then report.'\r\nversion: 1\r\ntags:\r\n  - go\r\n  - windows\r\n---\r\nBODY", "review", "Review code, then report."},
+		{"multi-line folded description", "---\nname: release\ndescription: >\n  Use when publishing\n  a new build.\n---\n", "release", "Use when publishing a new build."},
+		{"nested keys are ignored", "---\nname: db\nmetadata:\n  author: someone\ndescription: migrate\n---\n", "db", "migrate"},
+	} {
+		name, description, err := parseSkillFrontmatter(tc.content)
+		if err != nil || name != tc.name || description != tc.description {
+			t.Fatalf("%s: name=%q description=%q err=%v", tc.label, name, description, err)
+		}
+	}
+	for _, tc := range []struct{ label, content, reason string }{
+		{"no leading marker", "name: x\ndescription: y\n", "缺失"},
+		{"unclosed", "---\nname: x\ndescription: y\n", "未闭合"},
+		{"invalid yaml", "---\nname: [\ndescription: y\n---\n", "无法解析"},
+		{"empty description", "---\nname: x\ndescription: \"\"\n---\n", "非空"},
+	} {
+		if _, _, err := parseSkillFrontmatter(tc.content); err == nil || !strings.Contains(err.Error(), tc.reason) {
+			t.Fatalf("%s: err=%v", tc.label, err)
+		}
+	}
+}
+
 func TestSkillsKeepCompleteMetadataBeyondTwenty(t *testing.T) {
 	workspace, home := t.TempDir(), t.TempDir()
 	description := strings.Repeat("界", 421)
